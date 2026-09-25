@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "forest_demo",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "name": "Forest Demo" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 15.013159730896273, 40.80553454347524 ], [ 15.013161510765528, 40.814543080086949 ], [ 15.001304293875867, 40.814543823387389 ], [ 15.001304117492419, 40.805535286541009 ], [ 15.013159730896273, 40.80553454347524 ] ] ] } }
+]
+}
