@@ -1,0 +1,126 @@
+{
+  "place_id": "forest_demo",
+  "indicator": "NDVI",
+  "period": "2025-06-01/2025-08-31",
+  "observations": [
+    {
+      "date": "2025-06-05",
+      "ndvi": 0.9000828266143799,
+      "baseline_ndvi": 0.9057386517524719,
+      "anomaly_percent": -0.624443389618942,
+      "historical_observations": 1
+    },
+    {
+      "date": "2025-06-07",
+      "ndvi": 0.8954966068267822,
+      "baseline_ndvi": 0.9010731279850006,
+      "anomaly_percent": -0.618875536848904,
+      "historical_observations": 2
+    },
+    {
+      "date": "2025-06-10",
+      "ndvi": 0.8819718956947327,
+      "baseline_ndvi": 0.9010731279850006,
+      "anomaly_percent": -2.11983153165188,
+      "historical_observations": 2
+    },
+    {
+      "date": "2025-06-15",
+      "ndvi": 0.8928144574165344,
+      "baseline_ndvi": 0.8684982359409332,
+      "anomaly_percent": 2.799800905669882,
+      "historical_observations": 4
+    },
+    {
+      "date": "2025-06-20",
+      "ndvi": 0.8749232292175293,
+      "baseline_ndvi": 0.844707578420639,
+      "anomaly_percent": 3.577054541571044,
+      "historical_observations": 4
+    },
+    {
+      "date": "2025-06-25",
+      "ndvi": 0.8826826214790344,
+      "baseline_ndvi": 0.8405888676643372,
+      "anomaly_percent": 5.007650640396785,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-06-27",
+      "ndvi": 0.8776190280914307,
+      "baseline_ndvi": 0.8405888676643372,
+      "anomaly_percent": 4.405264196513288,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-06-30",
+      "ndvi": 0.8922633528709412,
+      "baseline_ndvi": 0.8405888676643372,
+      "anomaly_percent": 6.1474148890630556,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-07-05",
+      "ndvi": 0.8739499449729919,
+      "baseline_ndvi": 0.8659472465515137,
+      "anomaly_percent": 0.924155420939052,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-07-15",
+      "ndvi": 0.895007848739624,
+      "baseline_ndvi": 0.8740037083625793,
+      "anomaly_percent": 2.403209526009372,
+      "historical_observations": 7
+    },
+    {
+      "date": "2025-07-17",
+      "ndvi": 0.7990335822105408,
+      "baseline_ndvi": 0.873282253742218,
+      "anomaly_percent": -8.502253562751834,
+      "historical_observations": 7
+    },
+    {
+      "date": "2025-07-20",
+      "ndvi": 0.863889753818512,
+      "baseline_ndvi": 0.873282253742218,
+      "anomaly_percent": -1.0755399967716053,
+      "historical_observations": 7
+    },
+    {
+      "date": "2025-07-25",
+      "ndvi": 0.8351384997367859,
+      "baseline_ndvi": 0.8736429810523987,
+      "anomaly_percent": -4.407347412009186,
+      "historical_observations": 6
+    },
+    {
+      "date": "2025-07-27",
+      "ndvi": 0.8733432292938232,
+      "baseline_ndvi": 0.8627232313156128,
+      "anomaly_percent": 1.2309855110793118,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-08-06",
+      "ndvi": 0.8873082995414734,
+      "baseline_ndvi": 0.8661636710166931,
+      "anomaly_percent": 2.4411816417976695,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-08-09",
+      "ndvi": 0.8786200881004333,
+      "baseline_ndvi": 0.8661636710166931,
+      "anomaly_percent": 1.4381135460367476,
+      "historical_observations": 5
+    },
+    {
+      "date": "2025-08-26",
+      "ndvi": 0.8311907052993774,
+      "baseline_ndvi": 0.861809492111206,
+      "anomaly_percent": -3.5528486390676273,
+      "historical_observations": 3
+    }
+  ]
+}
