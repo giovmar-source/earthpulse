@@ -85,3 +85,27 @@ must be considered when interpreting changes.
 - Kotlin and Jetpack Compose
 - Git and GitHub
 
+
+## Validation and tests
+
+The project includes automated tests for the exported Forest Demo
+data and the consistency of the Android assets.
+
+Run the tests from the repository root:
+
+```bash
+conda activate earthpulse
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+The tests check:
+
+- Required fields in the Forest Demo summary
+- Valid NDVI ranges
+- Chronological ordering of time-series observations
+- Presence of the target date in the time series
+- Consistency between Python JSON outputs and Android assets
+
+These checks validate data structure and consistency.
+They do not independently establish the scientific validity
+of every satellite observation or change-detection result.
