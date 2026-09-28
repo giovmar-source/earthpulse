@@ -7,7 +7,7 @@ import json
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pystac_client import Client
-
+from src.ndvi import calculate_ndvi_for_item
 
 # --------------------------------------------------
 # CONFIGURAZIONE
@@ -239,5 +239,122 @@ def search_sentinel_observations(
             "Questi sono metadati delle osservazioni trovate. "
             "La presenza di un item non garantisce che ogni pixel "
             "dell'area sia valido o privo di nuvole."
+        ),
+    }
+
+
+@app.get("/api/v1/ndvi/latest")
+def latest_ndvi(
+    lat: float = Query(..., ge=-85, le=85),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(1.0, gt=0, le=20),
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    max_cloud: float = Query(30.0, ge=0, le=100),
+    limit: int = Query(50, ge=1, le=100),
+):
+    """Calcola l'NDVI dell'osservazione idonea più recente."""
+
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date deve precedere end_date.",
+        )
+
+    bbox = make_bbox(lat, lon, side_km)
+
+    try:
+        catalog = Client.open(STAC_URL)
+
+        search = catalog.search(
+            collections=[SENTINEL_COLLECTION],
+            bbox=bbox,
+            datetime=(
+                f"{start_date.isoformat()}/"
+                f"{end_date.isoformat()}"
+            ),
+            query={
+                "eo:cloud_cover": {"lte": max_cloud}
+            },
+            max_items=limit,
+        )
+
+        items = list(search.items())
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Errore durante la ricerca STAC: {exc}",
+        ) from exc
+
+    # Consideriamo soltanto gli item che contengono
+    # tutte le bande necessarie al calcolo.
+    candidates = [
+        item for item in items
+        if all(
+            asset in item.assets
+            for asset in ["red", "nir", "scl"]
+        )
+    ]
+
+    # Dal più recente al meno recente
+    candidates.sort(
+        key=lambda item: (
+            item.properties.get("datetime") or ""
+        ),
+        reverse=True,
+    )
+
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Nessuna osservazione con le bande necessarie "
+                "trovata per i parametri selezionati."
+            ),
+        )
+
+    selected_item = candidates[0]
+
+    try:
+        result = calculate_ndvi_for_item(
+            selected_item,
+            bbox,
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "L'osservazione è stata trovata, ma "
+                f"l'elaborazione NDVI non è riuscita: {exc}"
+            ),
+        ) from exc
+
+    return {
+        "status": "ok",
+        "source": STAC_URL,
+        "collection": SENTINEL_COLLECTION,
+        "search": {
+            "latitude": lat,
+            "longitude": lon,
+            "side_km": side_km,
+            "bbox_wgs84": bbox,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "max_cloud_cover_percent": max_cloud,
+        },
+        "result": result,
+        "methodology": {
+            "indicator": "NDVI",
+            "red_band": "B04",
+            "nir_band": "B08",
+            "cloud_mask": "SCL",
+            "spatial_resolution_m": 10,
+        },
+        "note": (
+            "Il risultato descrive l'osservazione selezionata. "
+            "La copertura nuvolosa dell'intero item non "
+            "garantisce che l'area sia priva di nuvole."
         ),
     }
