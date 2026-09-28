@@ -358,3 +358,158 @@ def latest_ndvi(
             "garantisce che l'area sia priva di nuvole."
         ),
     }
+
+
+@app.get("/api/v1/ndvi/timeseries")
+def get_ndvi_timeseries(
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(1.0, gt=0, le=20),
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    max_cloud: float = Query(80.0, ge=0, le=100),
+    max_scenes: int = Query(30, ge=1, le=60),
+    min_valid_percentage: float = Query(70.0, ge=0, le=100),
+):
+    """
+    Calcola una serie temporale NDVI da immagini Sentinel-2 L2A.
+
+    Per ogni giorno seleziona una sola scena: quella con la
+    percentuale di nuvole più bassa tra quelle disponibili.
+    """
+
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date deve essere precedente o uguale a end_date."
+        )
+
+    bbox = make_bbox(lat, lon, side_km)
+
+    try:
+        catalog = Client.open(STAC_URL)
+
+        search = catalog.search(
+            collections=[SENTINEL_COLLECTION],
+            bbox=bbox,
+            datetime=f"{start_date.isoformat()}/{end_date.isoformat()}",
+            query={"eo:cloud_cover": {"lte": max_cloud}},
+            max_items=300,
+        )
+
+        items = list(search.items())
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Errore durante la ricerca STAC: {str(exc)}",
+        ) from exc
+
+    # Conserva solo le scene che possiedono tutte le bande necessarie.
+    candidates = [
+        item for item in items
+        if all(
+            band in item.assets
+            for band in ("red", "nir", "scl")
+        )
+    ]
+
+    # Raggruppa le scene per giorno.
+    # Se ci sono più scene nello stesso giorno, conserva quella
+    # con meno nuvole dichiarate a livello di scena.
+    best_item_by_date = {}
+
+    for item in candidates:
+        item_date = item.datetime.date().isoformat()
+        cloud_cover = item.properties.get("eo:cloud_cover")
+
+        if cloud_cover is None:
+            cloud_cover = 100.0
+
+        current = best_item_by_date.get(item_date)
+
+        if (
+            current is None
+            or cloud_cover
+            < current.properties.get("eo:cloud_cover", 100.0)
+        ):
+            best_item_by_date[item_date] = item
+
+    # Limita il numero di immagini da elaborare per contenere i tempi
+    # di risposta e il consumo di risorse.
+    selected_dates = sorted(
+        best_item_by_date.keys(),
+        reverse=True,
+    )[:max_scenes]
+
+    observations = []
+    failed_dates = []
+    rejected_quality = 0
+
+    for item_date in selected_dates:
+        item = best_item_by_date[item_date]
+
+        try:
+            result = calculate_ndvi_for_item(item, bbox)
+
+            # Esclude osservazioni con troppi pixel non validi,
+            # ad esempio a causa di nuvole, ombre o bordi della scena.
+            if result["valid_percentage"] < min_valid_percentage:
+                rejected_quality += 1
+                continue
+
+            observations.append(result)
+
+        except Exception as exc:
+            failed_dates.append({
+                "date": item_date,
+                "reason": str(exc),
+            })
+
+    # Ordine cronologico dal passato al presente.
+    observations.sort(key=lambda obs: obs["date"])
+
+    return {
+        "place": {
+            "latitude": lat,
+            "longitude": lon,
+            "side_km": side_km,
+            "bbox": bbox,
+        },
+        "period": {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+        },
+        "parameters": {
+            "max_cloud_percent": max_cloud,
+            "min_valid_percentage": min_valid_percentage,
+            "max_scenes": max_scenes,
+        },
+        "summary": {
+            "stac_items_found": len(items),
+            "items_with_required_bands": len(candidates),
+            "distinct_dates_available": len(best_item_by_date),
+            "scenes_selected_for_processing": len(selected_dates),
+            "observations_returned": len(observations),
+            "observations_rejected_quality": rejected_quality,
+            "observations_failed": len(failed_dates),
+        },
+        "observations": observations,
+        "errors": failed_dates,
+        "methodology": {
+            "indicator": "NDVI",
+            "formula": "(B08 - B04) / (B08 + B04)",
+            "red_band": "B04",
+            "nir_band": "B08",
+            "cloud_mask": "Sentinel-2 Scene Classification Layer (SCL)",
+            "aggregation": "Media NDVI dei pixel validi nell'area",
+            "daily_selection": "Scena con minore copertura nuvolosa dichiarata",
+            "quality_filter": (
+                "valid_percentage >= min_valid_percentage"
+            ),
+        },
+        "warning": (
+            "Una variazione dell'NDVI non dimostra da sola la causa "
+            "del cambiamento osservato."
+        ),
+    }
