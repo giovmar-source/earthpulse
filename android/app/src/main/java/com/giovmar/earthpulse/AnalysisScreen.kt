@@ -185,7 +185,8 @@ private fun LoadingContent() {
             Text(
                 "Cerchiamo l'osservazione Sentinel-2 valida più recente e le " +
                         "osservazioni dello stesso periodo negli anni precedenti. " +
-                        "Di solito servono 20–40 secondi.",
+                        "Di solito servono 20–40 secondi; se il server era " +
+                        "inattivo, la prima analisi può richiedere 1–2 minuti.",
                 fontSize = 13.sp, lineHeight = 19.sp, color = Muted
             )
         }

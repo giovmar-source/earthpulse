@@ -15,20 +15,28 @@ import java.util.Locale
 // CONFIGURAZIONE DEL BACKEND
 // ------------------------------------------------------------------
 //
-// Sviluppo con emulatore: si usa un tunnel adb, da riattivare
-// ogni volta che si avvia l'emulatore:
-//
-//     adb reverse tcp:8000 tcp:8000
-//
-// Il tunnel fa corrispondere la porta 8000 dell'emulatore alla porta
-// 8000 del PC, dove gira uvicorn. Funziona anche con un telefono reale
-// collegato via USB con il debug USB attivo.
-const val BACKEND_BASE_URL = "http://127.0.0.1:8000"
+// Backend pubblicato su Render (HTTPS): funziona ovunque, senza PC acceso.
+// Piano gratuito: dopo 15 minuti di inattività il server si addormenta
+// e la prima richiesta attende circa un minuto in più.
+private const val REMOTE_BACKEND_URL = "https://earthpulse-api-tk6r.onrender.com"
 
-// L'analisi legge immagini satellitari remote: può richiedere 20–60 s.
-private const val CONNECT_TIMEOUT_MS = 10_000
-private const val ANALYSIS_READ_TIMEOUT_MS = 120_000
-private const val SEARCH_READ_TIMEOUT_MS = 20_000
+// Backend sul PC, per sviluppare e provare modifiche al codice Python.
+// Richiede uvicorn avviato e il tunnel adb:
+//     adb reverse tcp:8000 tcp:8000
+private const val LOCAL_BACKEND_URL = "http://127.0.0.1:8000"
+
+// false = Render (uso normale); true = backend sul PC (sviluppo).
+const val USE_LOCAL_BACKEND = false
+
+val BACKEND_BASE_URL: String =
+    if (USE_LOCAL_BACKEND) LOCAL_BACKEND_URL else REMOTE_BACKEND_URL
+
+// L'analisi richiede ~20 s, ma il risveglio del server gratuito
+// aggiunge circa un minuto: lasciamo un margine ampio.
+private const val CONNECT_TIMEOUT_MS = 15_000
+private const val ANALYSIS_READ_TIMEOUT_MS = 180_000
+private const val SEARCH_READ_TIMEOUT_MS = 90_000
+private const val WAKE_UP_READ_TIMEOUT_MS = 90_000
 
 
 // ------------------------------------------------------------------
@@ -114,6 +122,14 @@ class ApiException(message: String) : Exception(message)
 
 object EarthPulseApi {
 
+    /**
+     * "Sveglia" il server all'apertura dell'app, così il risveglio
+     * avviene mentre l'utente sceglie il luogo. Gli errori sono ignorati.
+     */
+    suspend fun wakeUp() {
+        runCatching { getJson("$BACKEND_BASE_URL/health", WAKE_UP_READ_TIMEOUT_MS) }
+    }
+
     suspend fun analyzePlace(
         latitude: Double,
         longitude: Double,
@@ -160,9 +176,13 @@ object EarthPulseApi {
                     connection.connect()
                 } catch (e: IOException) {
                     throw ApiException(
-                        "Impossibile contattare il backend ($BACKEND_BASE_URL). " +
-                                "Controlla che uvicorn sia avviato sul PC e che il " +
-                                "tunnel sia attivo (adb reverse tcp:8000 tcp:8000)."
+                        if (USE_LOCAL_BACKEND)
+                            "Impossibile contattare il backend ($BACKEND_BASE_URL). " +
+                                    "Controlla che uvicorn sia avviato sul PC e che il " +
+                                    "tunnel sia attivo (adb reverse tcp:8000 tcp:8000)."
+                        else
+                            "Impossibile contattare il server EarthPulse. " +
+                                    "Controlla la connessione a internet e riprova."
                     )
                 }
 

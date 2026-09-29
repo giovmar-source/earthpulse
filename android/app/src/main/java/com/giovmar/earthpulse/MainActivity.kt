@@ -147,6 +147,11 @@ fun EarthPulseApp() {
         screen = Screen.METHODOLOGY
     }
 
+    // Risveglia il server Render in background all'apertura dell'app.
+    LaunchedEffect(Unit) {
+        EarthPulseApi.wakeUp()
+    }
+
     LaunchedEffect(Unit) {
         try {
             data = loadForestData(context)
