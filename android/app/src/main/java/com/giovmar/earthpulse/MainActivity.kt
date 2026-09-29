@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
 import org.osmdroid.config.Configuration
@@ -126,7 +125,7 @@ private fun JSONObject.optNullableDouble(key: String): Double? {
     return optDouble(key).takeIf { it.isFinite() }
 }
 
-enum class Screen { MAP, EXAMPLES, FOREST_DEMO }
+enum class Screen { MAP, ANALYSIS, EXAMPLES, FOREST_DEMO }
 
 @Composable
 fun EarthPulseApp() {
@@ -169,15 +168,13 @@ fun EarthPulseApp() {
                     selectedLat = place.latitude
                     selectedLon = place.longitude
                 },
-                onAnalyzeClick = {
-                    // Collegamento al backend: passo successivo.
-                    Toast.makeText(
-                        context,
-                        "Analisi NDVI: collegamento al backend nel prossimo passo.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
+                onAnalyzeClick = { screen = Screen.ANALYSIS },
                 onExamplesClick = { screen = Screen.EXAMPLES }
+            )
+        } else if (screen == Screen.ANALYSIS && selectedPlace != null) {
+            AnalysisScreen(
+                place = selectedPlace,
+                onBack = { screen = Screen.MAP }
             )
         } else {
             val currentData = data

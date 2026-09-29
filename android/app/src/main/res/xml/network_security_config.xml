@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android blocca per default le connessioni HTTP non cifrate.
+    Le consentiamo SOLO verso il backend di sviluppo:
+    - 127.0.0.1 / localhost = il PC, tramite "adb reverse tcp:8000 tcp:8000";
+    - 10.0.2.2 = il PC visto dall'emulatore (alternativa senza tunnel).
+    Tutto il resto (tile OpenStreetMap inclusi) resta solo HTTPS.
+    In produzione il backend dovrà essere raggiungibile via HTTPS.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
