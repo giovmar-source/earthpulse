@@ -1,0 +1,10 @@
+# Dipendenze del backend EarthPulse (API FastAPI).
+# Usate da Render per il deploy; installabili anche in locale con
+#   pip install -r requirements.txt
+fastapi==0.141.1
+uvicorn==0.54.0
+pystac-client==0.9.0
+rasterio==1.4.4
+shapely==2.1.2
+numpy==2.4.6
+requests==2.34.2
