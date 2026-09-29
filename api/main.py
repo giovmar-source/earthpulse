@@ -2,14 +2,16 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import json
 import time
+from urllib.parse import urlencode
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pystac_client import Client
 
 from src.ndvi import calculate_ndvi_for_item
 from src.baseline import add_seasonal_baseline
 from src.analysis import (
+    best_item_per_day,
     build_analysis,
     compute_many,
     pick_baseline_candidates,
@@ -17,6 +19,12 @@ from src.analysis import (
     seasonal_windows,
 )
 from src.geocoding import search_places
+from src.imagery import (
+    choose_clear_scene,
+    color_stops_hex,
+    render_png,
+    scl_valid_percentage,
+)
 
 import requests
 
@@ -42,7 +50,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.4.0",
+    version="0.5.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -725,3 +733,239 @@ def geocode(
         "results": results,
         "attribution": "Dati © OpenStreetMap contributors (ODbL) · Ricerca: Nominatim",
     }
+
+
+# ============================================================
+# ENDPOINT 9-10: IMMAGINI "DALL'ALTO" (colori reali e NDVI)
+# ============================================================
+
+IMAGERY_ASSETS = ("visual", "red", "nir", "scl")
+
+# Cache in memoria: evita di rileggere il catalogo e di ricalcolare
+# le stesse immagini. Si svuota quando il server si riavvia.
+_ITEM_CACHE: dict = {}
+_PNG_CACHE: dict = {}
+MAX_ITEM_CACHE = 200
+MAX_PNG_CACHE = 64
+
+
+def remember_item(item) -> None:
+    if len(_ITEM_CACHE) >= MAX_ITEM_CACHE:
+        _ITEM_CACHE.clear()
+    _ITEM_CACHE[item.id] = item
+
+
+def get_item_by_id(item_id: str):
+    """Recupera un item Sentinel-2 dalla cache o dal catalogo STAC."""
+    if item_id in _ITEM_CACHE:
+        return _ITEM_CACHE[item_id]
+
+    catalog = Client.open(STAC_URL)
+    items = list(
+        catalog.search(
+            collections=[SENTINEL_COLLECTION],
+            ids=[item_id],
+            max_items=1,
+        ).items()
+    )
+    if not items:
+        return None
+    remember_item(items[0])
+    return items[0]
+
+
+def find_clear_scene(bbox, start_date, end_date, target_date,
+                     max_candidates: int = 6, min_valid: float = 95.0):
+    """
+    Cerca una scena quasi senza nuvole sull'area, preferendo le date più
+    vicine a target_date. Restituisce (scelta, scene_trovate, valutate).
+    """
+    items = search_sentinel_items(
+        bbox=bbox,
+        start_date=start_date,
+        end_date=end_date,
+        max_cloud=40.0,
+        max_items=80,
+    )
+    items = [
+        i for i in items
+        if i.datetime and all(a in i.assets for a in IMAGERY_ASSETS)
+    ]
+
+    best = best_item_per_day(items)
+    days = sorted(
+        best.keys(),
+        key=lambda d: (abs((d - target_date).days), -d.toordinal()),
+    )[:max_candidates]
+    candidates = [best[d] for d in days]
+
+    rows = compute_many(
+        candidates, lambda item: scl_valid_percentage(item, bbox)
+    )
+    return choose_clear_scene(rows, min_valid=min_valid), len(items), len(candidates)
+
+
+@app.get("/api/v1/imagery/scenes")
+def get_imagery_scenes(
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(3.0, gt=0, le=10),
+    reference_date: date | None = Query(None),
+    years_back: int = Query(1, ge=1, le=5),
+    recent_days: int = Query(60, ge=10, le=365),
+    window_days: int = Query(30, ge=5, le=90),
+):
+    """
+    Sceglie due scene nitide dell'area per il confronto prima/dopo:
+    - "after": la più vicina alla data di riferimento (default oggi);
+    - "before": la più vicina alla stessa data, years_back anni prima.
+    Restituisce gli indirizzi delle immagini PNG (colori reali e NDVI).
+    """
+    started = time.monotonic()
+    today = datetime.now(timezone.utc).date()
+    reference = reference_date or today
+    if reference > today:
+        raise HTTPException(
+            status_code=400,
+            detail="reference_date non può essere nel futuro.",
+        )
+
+    bbox = make_bbox(lat, lon, side_km)
+    _year, before_start, before_end = seasonal_windows(
+        reference, years_back, window_days
+    )[-1]
+    before_target = before_start + timedelta(days=window_days)
+
+    try:
+        after, after_found, after_checked = find_clear_scene(
+            bbox, reference - timedelta(days=recent_days), reference, reference
+        )
+        before, before_found, before_checked = find_clear_scene(
+            bbox, before_start, before_end, before_target
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Errore durante la ricerca delle immagini: {str(exc)}",
+        ) from exc
+
+    def describe(chosen):
+        if chosen is None:
+            return None
+        item, valid_percentage = chosen
+        remember_item(item)
+        params = urlencode({
+            "item_id": item.id,
+            "lat": lat,
+            "lon": lon,
+            "side_km": side_km,
+        })
+        return {
+            "item_id": item.id,
+            "date": item.datetime.date().isoformat(),
+            "valid_percentage": round(valid_percentage, 1),
+            "cloud_cover_percent": item.properties.get("eo:cloud_cover"),
+            "images": {
+                "rgb": f"/api/v1/imagery/image?{params}&kind=rgb",
+                "ndvi": f"/api/v1/imagery/image?{params}&kind=ndvi",
+            },
+        }
+
+    after_info = describe(after)
+    before_info = describe(before)
+
+    messages = []
+    if after_info is None:
+        messages.append(
+            "Nessuna immagine abbastanza nitida (nuvole) negli ultimi "
+            f"{recent_days} giorni."
+        )
+    if before_info is None:
+        messages.append(
+            f"Nessuna immagine abbastanza nitida {years_back} "
+            f"{'anno' if years_back == 1 else 'anni'} prima."
+        )
+
+    years = sorted({
+        info["date"][:4] for info in (after_info, before_info) if info
+    })
+
+    return {
+        "place": {
+            "latitude": lat,
+            "longitude": lon,
+            "side_km": side_km,
+            "bbox": bbox,
+        },
+        "reference_date": reference.isoformat(),
+        "years_back": years_back,
+        "after": after_info,
+        "before": before_info,
+        "messages": messages,
+        "search": {
+            "after_scenes_found": after_found,
+            "after_scenes_checked": after_checked,
+            "before_scenes_found": before_found,
+            "before_scenes_checked": before_checked,
+            "min_valid_percentage": 95.0,
+        },
+        "legend": {
+            "ndvi_color_stops": color_stops_hex(),
+            "invalid_color": "#b4b4b4",
+            "invalid_meaning": "Nuvole, ombre, neve o dati mancanti (SCL)",
+        },
+        "attribution": (
+            "Contiene dati Copernicus Sentinel modificati"
+            + (f" ({', '.join(years)})" if years else "")
+        ),
+        "processing_seconds": round(time.monotonic() - started, 1),
+    }
+
+
+@app.get("/api/v1/imagery/image")
+def get_imagery_image(
+    item_id: str = Query(..., min_length=5, max_length=100,
+                         pattern=r"^[A-Za-z0-9_\-]+$"),
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(3.0, gt=0, le=10),
+    kind: str = Query("rgb", pattern=r"^(rgb|ndvi)$"),
+):
+    """Immagine PNG dell'area: colori reali ("rgb") o NDVI ("ndvi")."""
+    key = (item_id, round(lat, 5), round(lon, 5), round(side_km, 3), kind)
+    png = _PNG_CACHE.get(key)
+
+    if png is None:
+        try:
+            item = get_item_by_id(item_id)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Errore durante la ricerca STAC: {str(exc)}",
+            ) from exc
+
+        if item is None:
+            raise HTTPException(status_code=404, detail="Scena non trovata.")
+        if not all(a in item.assets for a in IMAGERY_ASSETS):
+            raise HTTPException(
+                status_code=404,
+                detail="La scena non contiene le bande necessarie.",
+            )
+
+        try:
+            png = render_png(item, make_bbox(lat, lon, side_km), kind)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Impossibile generare l'immagine: {str(exc)}",
+            ) from exc
+
+        if len(_PNG_CACHE) >= MAX_PNG_CACHE:
+            _PNG_CACHE.clear()
+        _PNG_CACHE[key] = png
+
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
