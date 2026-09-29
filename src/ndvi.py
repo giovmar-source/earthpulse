@@ -1,4 +1,14 @@
 
+import os
+
+# Ottimizzazioni GDAL per leggere i file COG remoti di Sentinel-2:
+# evita di elencare le cartelle remote e unisce le richieste HTTP vicine.
+# setdefault: non sovrascrive eventuali impostazioni dell'utente.
+os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
+os.environ.setdefault("GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "YES")
+os.environ.setdefault("GDAL_HTTP_MULTIPLEX", "YES")
+os.environ.setdefault("VSI_CACHE", "TRUE")
+
 import numpy as np
 import rasterio
 

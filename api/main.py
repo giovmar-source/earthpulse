@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import json
+import time
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +9,16 @@ from pystac_client import Client
 
 from src.ndvi import calculate_ndvi_for_item
 from src.baseline import add_seasonal_baseline
+from src.analysis import (
+    build_analysis,
+    compute_many,
+    pick_baseline_candidates,
+    pick_recent_candidates,
+    seasonal_windows,
+)
+from src.geocoding import search_places
+
+import requests
 
 
 # ============================================================
@@ -31,7 +42,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.3.1",
+    version="0.4.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -509,4 +520,208 @@ def get_ndvi_timeseries(
             "Una variazione dell'NDVI non dimostra da sola "
             "la causa del cambiamento osservato."
         ),
+    }
+
+
+# ============================================================
+# ENDPOINT 7: ANALISI NDVI DI UN LUOGO (usato dall'app)
+# ============================================================
+
+@app.get("/api/v1/ndvi/analysis")
+def get_ndvi_analysis(
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(1.0, gt=0, le=5),
+    reference_date: date | None = Query(
+        None,
+        description="Data di riferimento (default: oggi, UTC).",
+    ),
+    recent_days: int = Query(45, ge=5, le=180),
+    recent_candidates: int = Query(4, ge=1, le=10),
+    baseline_years: int = Query(3, ge=1, le=6),
+    baseline_window_days: int = Query(15, ge=5, le=45),
+    baseline_per_year: int = Query(3, ge=1, le=6),
+    min_baseline_samples: int = Query(3, ge=1, le=20),
+    max_cloud: float = Query(60.0, ge=0, le=100),
+    min_valid_percentage: float = Query(70.0, ge=0, le=100),
+):
+    """
+    Osservazione NDVI valida più recente + baseline stagionale
+    (stessa finestra dell'anno negli anni precedenti, mediana).
+    """
+    started = time.monotonic()
+    today = datetime.now(timezone.utc).date()
+    reference = reference_date or today
+
+    if reference > today:
+        raise HTTPException(
+            status_code=400,
+            detail="reference_date non può essere nel futuro.",
+        )
+
+    bbox = make_bbox(lat, lon, side_km)
+
+    # ---------- 1. ricerca delle scene (catalogo STAC) ----------
+    try:
+        recent_items = search_sentinel_items(
+            bbox=bbox,
+            start_date=reference - timedelta(days=recent_days),
+            end_date=reference,
+            max_cloud=max_cloud,
+            max_items=60,
+        )
+
+        baseline_items = []
+        for _year, start, end in seasonal_windows(
+            reference, baseline_years, baseline_window_days
+        ):
+            baseline_items.extend(
+                search_sentinel_items(
+                    bbox=bbox,
+                    start_date=start,
+                    end_date=end,
+                    max_cloud=max_cloud,
+                    max_items=60,
+                )
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Errore durante la ricerca STAC: {str(exc)}",
+        ) from exc
+
+    recent_items = [
+        i for i in recent_items if i.datetime and item_has_required_bands(i)
+    ]
+    baseline_items = [
+        i for i in baseline_items if i.datetime and item_has_required_bands(i)
+    ]
+
+    recent_selected = pick_recent_candidates(recent_items, recent_candidates)
+    baseline_selected = pick_baseline_candidates(
+        baseline_items, baseline_per_year
+    )
+
+    # ---------- 2. calcolo NDVI in parallelo ----------
+    computed = compute_many(
+        recent_selected + baseline_selected,
+        lambda item: calculate_ndvi_for_item(item, bbox),
+    )
+    n_recent = len(recent_selected)
+    recent_computed = computed[:n_recent]
+    baseline_computed = computed[n_recent:]
+
+    errors = []
+    rejected = {"recent": 0, "baseline": 0}
+
+    def accepted(rows, role):
+        good = []
+        for item, result, error in rows:
+            if result is None:
+                # "Nessun pixel valido" = area coperta: è un problema
+                # di qualità, non un errore tecnico.
+                if error and "Nessun pixel valido" in error:
+                    rejected[role] += 1
+                else:
+                    errors.append({
+                        "item_id": item.id,
+                        "date": item.datetime.date().isoformat(),
+                        "role": role,
+                        "reason": error,
+                    })
+            elif result["valid_percentage"] < min_valid_percentage:
+                rejected[role] += 1
+            else:
+                good.append(result)
+        return good
+
+    recent_ok = accepted(recent_computed, "recent")
+    baseline_ok = accepted(baseline_computed, "baseline")
+
+    # recent_selected è ordinato dal più recente: il primo valido vince.
+    recent_result = recent_ok[0] if recent_ok else None
+
+    analysis = build_analysis(
+        recent_result=recent_result,
+        baseline_results=baseline_ok,
+        reference_date=reference,
+        window_days=baseline_window_days,
+        min_baseline_samples=min_baseline_samples,
+    )
+
+    return {
+        **analysis,
+        "place": {
+            "latitude": lat,
+            "longitude": lon,
+            "side_km": side_km,
+            "bbox": bbox,
+        },
+        "quality": {
+            "min_valid_percentage": min_valid_percentage,
+            "max_cloud_percent": max_cloud,
+            "recent_period": {
+                "start_date": (reference - timedelta(days=recent_days)).isoformat(),
+                "end_date": reference.isoformat(),
+            },
+            "recent_scenes_found": len(recent_items),
+            "recent_scenes_evaluated": len(recent_selected),
+            "recent_scenes_rejected_quality": rejected["recent"],
+            "baseline_scenes_found": len(baseline_items),
+            "baseline_scenes_evaluated": len(baseline_selected),
+            "baseline_scenes_rejected_quality": rejected["baseline"],
+            "errors": errors,
+        },
+        "methodology": {
+            "indicator": "NDVI",
+            "formula": "(B08 - B04) / (B08 + B04)",
+            "source": "Sentinel-2 L2A (Element84 Earth Search, STAC)",
+            "spatial_resolution_m": 10,
+            "cloud_mask": "Sentinel-2 Scene Classification Layer (SCL)",
+            "aggregation": "Media NDVI dei pixel validi nell'area",
+            "latest_selection": (
+                "Scena più recente con pixel validi >= min_valid_percentage"
+            ),
+            "baseline": (
+                f"Mediana NDVI di osservazioni valide dei {baseline_years} "
+                f"anni precedenti, entro ±{baseline_window_days} giorni "
+                f"dalla stessa data"
+            ),
+            "anomaly": "(NDVI osservato - baseline) / |baseline| * 100",
+        },
+        "processing_seconds": round(time.monotonic() - started, 1),
+        "warning": (
+            "L'NDVI è un indicatore della risposta spettrale della "
+            "vegetazione, non una misura diretta della sua salute. "
+            "Una variazione non dimostra da sola la causa del cambiamento."
+        ),
+    }
+
+
+# ============================================================
+# ENDPOINT 8: RICERCA LOCALITÀ (Nominatim / OpenStreetMap)
+# ============================================================
+
+@app.get("/api/v1/geocode")
+def geocode(
+    q: str = Query(..., min_length=2, max_length=200),
+    limit: int = Query(5, ge=1, le=10),
+    language: str = Query("it", max_length=10),
+):
+    """Cerca una località per nome. Una richiesta per ricerca confermata."""
+    try:
+        results = search_places(q, limit=limit, language=language)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Servizio di ricerca non disponibile: {exc}",
+        ) from exc
+
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results,
+        "attribution": "Dati © OpenStreetMap contributors (ODbL) · Ricerca: Nominatim",
     }
