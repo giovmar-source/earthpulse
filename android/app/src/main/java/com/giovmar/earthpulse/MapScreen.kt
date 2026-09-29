@@ -1,6 +1,9 @@
 package com.giovmar.earthpulse
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,20 +22,34 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -75,6 +92,56 @@ fun MapScreen(
 ) {
     val currentOnPlaceSelected by rememberUpdatedState(onPlaceSelected)
     val holder = remember { MapHolder() }
+
+    // ---- stato della ricerca ----
+    // Nessun autocompletamento: si cerca solo quando l'utente conferma
+    // (policy d'uso di Nominatim).
+    var query by rememberSaveable { mutableStateOf("") }
+    var searching by remember { mutableStateOf(false) }
+    var results by remember { mutableStateOf<List<PlaceSearchResult>>(emptyList()) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+
+    fun runSearch() {
+        val text = query.trim()
+        if (text.length < 2 || searching) return
+        focusManager.clearFocus()
+        searching = true
+        searchError = null
+        results = emptyList()
+
+        scope.launch {
+            try {
+                val found = EarthPulseApi.searchPlaces(text)
+                results = found
+                if (found.isEmpty()) {
+                    searchError = "Nessun luogo trovato per \"$text\"."
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                searchError = e.message
+            } catch (e: Exception) {
+                searchError = "Risposta della ricerca non leggibile."
+            } finally {
+                searching = false
+            }
+        }
+    }
+
+    fun selectResult(result: PlaceSearchResult) {
+        val place = SelectedPlace(result.latitude, result.longitude)
+        currentOnPlaceSelected(place)
+        query = result.name
+        results = emptyList()
+        searchError = null
+        holder.map?.controller?.animateTo(
+            GeoPoint(place.latitude, place.longitude),
+            SELECTION_ZOOM,
+            900L
+        )
+    }
 
     // Libera le risorse della mappa quando la schermata viene chiusa.
     DisposableEffect(Unit) {
@@ -151,15 +218,15 @@ fun MapScreen(
             }
         )
 
-        // ---------------- BARRA SUPERIORE ----------------
-        Row(
+        // ---------------- BARRA SUPERIORE + RICERCA ----------------
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = Color.White,
@@ -204,18 +271,112 @@ fun MapScreen(
             }
         }
 
-        // ---------------- ATTRIBUZIONE OSM (obbligatoria) ----------------
-        Text(
-            "© OpenStreetMap contributors",
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 78.dp, end = 16.dp)
-                .background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            fontSize = 10.sp,
-            color = Muted
-        )
+        Spacer(Modifier.height(10.dp))
+
+        // Campo di ricerca
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            shadowElevation = 4.dp
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Cerca un luogo (es. Salerno)", color = Muted) },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { runSearch() }),
+                trailingIcon = {
+                    if (searching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Green,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(
+                            onClick = { runSearch() },
+                            enabled = query.trim().length >= 2
+                        ) {
+                            Text("Cerca", color = Green, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Green,
+                    unfocusedBorderColor = Color.Transparent,
+                    cursorColor = Green
+                )
+            )
+        }
+
+        // Risultati o messaggio di errore
+        if (results.isNotEmpty() || searchError != null) {
+            Spacer(Modifier.height(8.dp))
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    searchError?.let { message ->
+                        Text(
+                            message,
+                            modifier = Modifier.padding(16.dp),
+                            fontSize = 13.sp,
+                            color = Orange
+                        )
+                    }
+                    results.forEachIndexed { index, result ->
+                        if (index > 0) HorizontalDivider(color = Background)
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { selectResult(result) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                result.name,
+                                fontWeight = FontWeight.SemiBold,
+                                color = DarkGreen,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                result.displayName,
+                                fontSize = 12.sp,
+                                color = Muted,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Ricerca: Nominatim · © OpenStreetMap",
+                            fontSize = 10.sp,
+                            color = Muted,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = {
+                            results = emptyList()
+                            searchError = null
+                        }) {
+                            Text("Chiudi", color = Green, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+        }
 
         // ---------------- PANNELLO INFERIORE ----------------
         Card(
@@ -268,6 +429,11 @@ fun MapScreen(
                         fontSize = 12.sp,
                         color = Muted
                     )
+                    Text(
+                        "Tocca la mappa per spostare il punto.",
+                        fontSize = 12.sp,
+                        color = Muted
+                    )
 
                     if (!supported) {
                         Text(
@@ -293,6 +459,14 @@ fun MapScreen(
                         )
                     }
                 }
+
+                // Attribuzione obbligatoria dei dati OpenStreetMap
+                Text(
+                    "Mappa © OpenStreetMap contributors",
+                    fontSize = 10.sp,
+                    color = Muted,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }
