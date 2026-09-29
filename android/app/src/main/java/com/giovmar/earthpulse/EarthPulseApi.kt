@@ -1,5 +1,9 @@
 package com.giovmar.earthpulse
 
+import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -37,6 +41,10 @@ private const val CONNECT_TIMEOUT_MS = 15_000
 private const val ANALYSIS_READ_TIMEOUT_MS = 180_000
 private const val SEARCH_READ_TIMEOUT_MS = 90_000
 private const val WAKE_UP_READ_TIMEOUT_MS = 90_000
+private const val IMAGERY_READ_TIMEOUT_MS = 120_000
+
+// Lato dell'area mostrata nelle immagini "dall'alto" (km).
+const val IMAGERY_SIDE_KM = 3.0
 
 
 // ------------------------------------------------------------------
@@ -112,6 +120,29 @@ data class PlaceSearchResult(
     val longitude: Double
 )
 
+// Immagini "dall'alto" (/api/v1/imagery/scenes)
+
+data class SceneImages(
+    val itemId: String,
+    val date: String,
+    val validPercentage: Double?,
+    val rgbUrl: String,
+    val ndviUrl: String,
+    val diffUrl: String?
+)
+
+data class ColorStop(val value: Float, val color: Color)
+
+data class ImageryScenes(
+    val sideKm: Double,
+    val after: SceneImages?,
+    val before: SceneImages?,
+    val messages: List<String>,
+    val attribution: String,
+    val ndviStops: List<ColorStop>,
+    val diffStops: List<ColorStop>
+)
+
 /** Errore con un messaggio già comprensibile per l'utente. */
 class ApiException(message: String) : Exception(message)
 
@@ -160,14 +191,35 @@ object EarthPulseApi {
         }
     }
 
-    /** GET su un thread di rete; traduce i problemi in ApiException. */
+    suspend fun fetchImageryScenes(latitude: Double, longitude: Double): ImageryScenes {
+        val url = String.format(
+            Locale.US,
+            "%s/api/v1/imagery/scenes?lat=%.6f&lon=%.6f&side_km=%.1f",
+            BACKEND_BASE_URL, latitude, longitude, IMAGERY_SIDE_KM
+        )
+        return parseImageryScenes(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
+    }
+
+    /** Scarica un'immagine PNG del backend (url relativo, es. "/api/v1/imagery/image?..."). */
+    suspend fun fetchImage(relativeUrl: String): ImageBitmap {
+        val bytes = getBytes(BACKEND_BASE_URL + relativeUrl, IMAGERY_READ_TIMEOUT_MS, "image/png")
+        return withContext(Dispatchers.Default) {
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                ?: throw ApiException("Immagine non leggibile.")
+        }
+    }
+
     private suspend fun getJson(url: String, readTimeoutMs: Int): String =
+        String(getBytes(url, readTimeoutMs, "application/json"), Charsets.UTF_8)
+
+    /** GET su un thread di rete; traduce i problemi in ApiException. */
+    private suspend fun getBytes(url: String, readTimeoutMs: Int, accept: String): ByteArray =
         withContext(Dispatchers.IO) {
             val connection = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = CONNECT_TIMEOUT_MS
                 readTimeout = readTimeoutMs
-                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Accept", accept)
             }
             try {
                 // Fase 1: connessione. Se fallisce, il backend non è
@@ -189,7 +241,7 @@ object EarthPulseApi {
                 // Fase 2: attesa della risposta (calcolo sul server).
                 val code = connection.responseCode
                 if (code in 200..299) {
-                    connection.inputStream.bufferedReader().use { it.readText() }
+                    connection.inputStream.use { it.readBytes() }
                 } else {
                     val body = connection.errorStream
                         ?.bufferedReader()?.use { it.readText() }
@@ -314,5 +366,46 @@ private fun parseAnalysis(root: JSONObject): PlaceAnalysis {
             .associateWith { methodologyJson.optString(it) },
         warning = root.optString("warning"),
         processingSeconds = root.optDoubleOrNull("processing_seconds")
+    )
+}
+
+private fun parseColorStops(array: JSONArray?): List<ColorStop> {
+    if (array == null) return emptyList()
+    return (0 until array.length()).mapNotNull { i ->
+        val pair = array.optJSONArray(i) ?: return@mapNotNull null
+        runCatching {
+            ColorStop(
+                value = pair.getDouble(0).toFloat(),
+                color = Color(android.graphics.Color.parseColor(pair.getString(1)))
+            )
+        }.getOrNull()
+    }
+}
+
+private fun parseScene(o: JSONObject?): SceneImages? {
+    if (o == null) return null
+    val images = o.optJSONObject("images") ?: return null
+    return SceneImages(
+        itemId = o.optString("item_id"),
+        date = o.optString("date"),
+        validPercentage = o.optDoubleOrNull("valid_percentage"),
+        rgbUrl = images.getString("rgb"),
+        ndviUrl = images.getString("ndvi"),
+        diffUrl = images.optString("diff").takeIf { it.isNotBlank() }
+    )
+}
+
+private fun parseImageryScenes(root: JSONObject): ImageryScenes {
+    val place = root.optJSONObject("place") ?: JSONObject()
+    val legend = root.optJSONObject("legend") ?: JSONObject()
+    val messages = root.optJSONArray("messages") ?: JSONArray()
+    return ImageryScenes(
+        sideKm = place.optDouble("side_km", IMAGERY_SIDE_KM),
+        after = parseScene(root.optJSONObject("after")),
+        before = parseScene(root.optJSONObject("before")),
+        messages = (0 until messages.length()).map { messages.getString(it) },
+        attribution = root.optString("attribution"),
+        ndviStops = parseColorStops(legend.optJSONArray("ndvi_color_stops")),
+        diffStops = parseColorStops(legend.optJSONArray("diff_color_stops"))
     )
 }

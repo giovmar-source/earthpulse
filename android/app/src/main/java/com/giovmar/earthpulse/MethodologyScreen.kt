@@ -142,6 +142,18 @@ fun MethodologyScreen(onBack: () -> Unit) {
             )
         }
 
+        MethodSection("Immagini dall'alto") {
+            Paragraph(
+                "Per ogni luogo mostriamo un'area di 3 × 3 km da due scene quasi " +
+                        "senza nuvole (almeno 95% di pixel validi): la più recente e " +
+                        "quella più vicina alla stessa data di un anno prima."
+            )
+            Bullet("Colori reali: immagine True Color di Sentinel-2 (B04, B03, B02), con lo stesso contrasto per tutte le date.")
+            Bullet("NDVI: scala di colori fissa, quindi due date sono confrontabili a colpo d'occhio.")
+            Bullet("Variazione: NDVI dopo meno NDVI prima, solo dove entrambe le immagini sono valide.")
+            Bullet("Le due date sono ricampionate sulla stessa griglia di 10 m, così coincidono pixel per pixel.")
+        }
+
         MethodSection("7 · Limiti") {
             Bullet("L'NDVI non misura direttamente la salute della vegetazione: è legato alla sua risposta spettrale.")
             Bullet("Un'anomalia non dimostra da sola la causa: siccità, tagli, incendi, raccolti, ma anche differenze di osservazione possono produrla.")
@@ -149,6 +161,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
             Bullet("Un singolo valore anomalo va confermato da osservazioni successive: un calo isolato può dipendere da foschia, geometria di ripresa o tile diversa.")
             Bullet("L'area è un quadrato approssimato e può includere superfici diverse (strade, edifici, acqua).")
             Bullet("I pixel di 10 m mescolano elementi diversi: piccoli cambiamenti possono non essere visibili.")
+            Bullet("Nelle mappe di variazione, lungo strade e fiumi possono comparire sottili bordi rossi e verdi: sono dovuti al piccolo disallineamento tra due acquisizioni, non a cambiamenti reali.")
         }
 
         MethodSection("Fonti e attribuzioni") {

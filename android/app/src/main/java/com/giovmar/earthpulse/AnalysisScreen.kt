@@ -74,6 +74,9 @@ fun AnalysisScreen(
         mutableStateOf<AnalysisUiState>(AnalysisUiState.Loading)
     }
 
+    // Le immagini "dall'alto" si caricano in parallelo all'analisi.
+    val imagery = rememberImageryState(place)
+
     // Parte all'apertura e a ogni "Riprova".
     LaunchedEffect(place, attempt) {
         state = AnalysisUiState.Loading
@@ -136,7 +139,7 @@ fun AnalysisScreen(
                 onBack = onBack
             )
             is AnalysisUiState.Success -> {
-                ResultContent(s.analysis)
+                ResultContent(s.analysis, imagery)
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = onMethodologyClick,
@@ -225,7 +228,7 @@ private fun ErrorContent(message: String, onRetry: () -> Unit, onBack: () -> Uni
 // ------------------------------------------------------------------
 
 @Composable
-private fun ResultContent(analysis: PlaceAnalysis) {
+private fun ResultContent(analysis: PlaceAnalysis, imagery: ImageryState) {
     HeroCard(analysis)
 
     if (analysis.messages.isNotEmpty()) {
@@ -248,6 +251,9 @@ private fun ResultContent(analysis: PlaceAnalysis) {
             }
         }
     }
+
+    // ---------- immagini satellitari ----------
+    ImagerySection(imagery)
 
     // ---------- confronto con gli anni precedenti ----------
     if (analysis.baseline.observations.isNotEmpty()) {
@@ -588,7 +594,7 @@ private fun daysAgo(days: Int): String = when (days) {
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ITALIAN)
 private val DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.ITALIAN)
 
-private fun formatDate(isoDate: String): String =
+internal fun formatDate(isoDate: String): String =
     runCatching { LocalDate.parse(isoDate.take(10)).format(DATE_FORMAT) }
         .getOrDefault(isoDate)
 
