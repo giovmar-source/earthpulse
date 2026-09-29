@@ -74,7 +74,9 @@ private const val SELECTION_ZOOM = 13.0
 
 data class SelectedPlace(
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    // Nome del luogo se scelto dalla ricerca; null se scelto toccando la mappa.
+    val label: String? = null
 )
 
 // Contenitore semplice per conservare il riferimento alla MapView
@@ -88,7 +90,8 @@ fun MapScreen(
     selectedPlace: SelectedPlace?,
     onPlaceSelected: (SelectedPlace) -> Unit,
     onAnalyzeClick: () -> Unit,
-    onExamplesClick: () -> Unit
+    onExamplesClick: () -> Unit,
+    onMethodologyClick: () -> Unit
 ) {
     val currentOnPlaceSelected by rememberUpdatedState(onPlaceSelected)
     val holder = remember { MapHolder() }
@@ -131,7 +134,7 @@ fun MapScreen(
     }
 
     fun selectResult(result: PlaceSearchResult) {
-        val place = SelectedPlace(result.latitude, result.longitude)
+        val place = SelectedPlace(result.latitude, result.longitude, result.name)
         currentOnPlaceSelected(place)
         query = result.name
         results = emptyList()
@@ -255,6 +258,22 @@ fun MapScreen(
             }
 
             Spacer(Modifier.weight(1f))
+
+            Surface(
+                onClick = onMethodologyClick,
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                shadowElevation = 4.dp
+            ) {
+                Text(
+                    "Metodo",
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    color = Green,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
 
             Surface(
                 onClick = onExamplesClick,
@@ -418,11 +437,21 @@ fun MapScreen(
                         letterSpacing = 1.4.sp,
                         fontWeight = FontWeight.Bold
                     )
+                    selectedPlace.label?.let { name ->
+                        Text(
+                            name,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = DarkGreen,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Text(
                         formatCoordinates(selectedPlace),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = DarkGreen
+                        fontSize = if (selectedPlace.label == null) 20.sp else 14.sp,
+                        fontWeight = if (selectedPlace.label == null) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selectedPlace.label == null) DarkGreen else Muted
                     )
                     Text(
                         "Area di analisi ≈ 1 × 1 km · Sentinel-2 · 10 m",

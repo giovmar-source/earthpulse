@@ -66,7 +66,8 @@ sealed interface AnalysisUiState {
 @Composable
 fun AnalysisScreen(
     place: SelectedPlace,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onMethodologyClick: () -> Unit
 ) {
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember(place) {
@@ -115,9 +116,12 @@ fun AnalysisScreen(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            formatCoordinates(place),
+            place.label ?: formatCoordinates(place),
             fontSize = 24.sp, fontWeight = FontWeight.Bold, color = DarkGreen
         )
+        if (place.label != null) {
+            Text(formatCoordinates(place), fontSize = 13.sp, color = Muted)
+        }
         Text(
             "Area ≈ 1 × 1 km · Sentinel-2 L2A · 10 m",
             fontSize = 13.sp, color = Muted
@@ -131,7 +135,16 @@ fun AnalysisScreen(
                 onRetry = { attempt++ },
                 onBack = onBack
             )
-            is AnalysisUiState.Success -> ResultContent(s.analysis)
+            is AnalysisUiState.Success -> {
+                ResultContent(s.analysis)
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = onMethodologyClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Metodologia completa e limiti  →", color = Green)
+                }
+            }
         }
 
         Spacer(Modifier.height(30.dp))

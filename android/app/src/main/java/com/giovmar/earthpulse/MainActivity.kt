@@ -125,7 +125,7 @@ private fun JSONObject.optNullableDouble(key: String): Double? {
     return optDouble(key).takeIf { it.isFinite() }
 }
 
-enum class Screen { MAP, ANALYSIS, EXAMPLES, FOREST_DEMO }
+enum class Screen { MAP, ANALYSIS, EXAMPLES, FOREST_DEMO, METHODOLOGY }
 
 @Composable
 fun EarthPulseApp() {
@@ -138,6 +138,14 @@ fun EarthPulseApp() {
     var screen by rememberSaveable { mutableStateOf(Screen.MAP) }
     var selectedLat by rememberSaveable { mutableStateOf<Double?>(null) }
     var selectedLon by rememberSaveable { mutableStateOf<Double?>(null) }
+    var selectedLabel by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Schermata a cui tornare quando si chiude la Metodologia.
+    var methodologyFrom by rememberSaveable { mutableStateOf(Screen.MAP) }
+    fun openMethodology() {
+        methodologyFrom = screen
+        screen = Screen.METHODOLOGY
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -149,13 +157,17 @@ fun EarthPulseApp() {
 
     // Tasto/gesto "indietro" di Android.
     BackHandler(enabled = screen != Screen.MAP) {
-        screen = if (screen == Screen.FOREST_DEMO) Screen.EXAMPLES else Screen.MAP
+        screen = when (screen) {
+            Screen.FOREST_DEMO -> Screen.EXAMPLES
+            Screen.METHODOLOGY -> methodologyFrom
+            else -> Screen.MAP
+        }
     }
 
     val lat = selectedLat
     val lon = selectedLon
     val selectedPlace =
-        if (lat != null && lon != null) SelectedPlace(lat, lon) else null
+        if (lat != null && lon != null) SelectedPlace(lat, lon, selectedLabel) else null
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -167,15 +179,20 @@ fun EarthPulseApp() {
                 onPlaceSelected = { place ->
                     selectedLat = place.latitude
                     selectedLon = place.longitude
+                    selectedLabel = place.label
                 },
                 onAnalyzeClick = { screen = Screen.ANALYSIS },
-                onExamplesClick = { screen = Screen.EXAMPLES }
+                onExamplesClick = { screen = Screen.EXAMPLES },
+                onMethodologyClick = { openMethodology() }
             )
         } else if (screen == Screen.ANALYSIS && selectedPlace != null) {
             AnalysisScreen(
                 place = selectedPlace,
-                onBack = { screen = Screen.MAP }
+                onBack = { screen = Screen.MAP },
+                onMethodologyClick = { openMethodology() }
             )
+        } else if (screen == Screen.METHODOLOGY) {
+            MethodologyScreen(onBack = { screen = methodologyFrom })
         } else {
             val currentData = data
 
@@ -286,11 +303,12 @@ fun HomeScreen(
                     color = PaleGreen, fontSize = 13.sp)
 
                 Spacer(Modifier.height(22.dp))
-                Text("LATEST NDVI", color = PaleGreen, fontSize = 10.sp)
+                Text("HISTORICAL EXAMPLE · NDVI", color = PaleGreen, fontSize = 10.sp)
                 Text("%.3f".format(java.util.Locale.US, data.ndvi),
                     fontSize = 36.sp, fontWeight = FontWeight.Bold,
                     color = Color.White)
-                Text(data.targetDate, color = PaleGreen, fontSize = 12.sp)
+                Text("Observed on ${data.targetDate} · precomputed, not live data",
+                    color = PaleGreen, fontSize = 12.sp)
 
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider(color = Color(0xFF426256))
@@ -316,7 +334,7 @@ fun HomeScreen(
         Spacer(Modifier.height(15.dp))
 
         PlaceCard("🌲", "Forest Demo",
-            "Vegetation health · NDVI", "DATA AVAILABLE", true,
+            "Vegetation index · NDVI · 2023–2025", "HISTORICAL EXAMPLE", true,
             onForestClick)
 
         Spacer(Modifier.height(10.dp))
@@ -414,11 +432,12 @@ fun ForestDetailScreen(data: ForestData, onBack: () -> Unit) {
         Card(shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = DarkGreen)) {
             Column(Modifier.padding(22.dp)) {
-                Text("LATEST NDVI", color = PaleGreen, fontSize = 11.sp)
+                Text("OBSERVED NDVI · HISTORICAL EXAMPLE", color = PaleGreen, fontSize = 11.sp)
                 Text("%.3f".format(java.util.Locale.US, data.ndvi),
                     color = Color.White, fontSize = 43.sp,
                     fontWeight = FontWeight.Bold)
-                Text(data.targetDate, color = PaleGreen, fontSize = 13.sp)
+                Text("Observed on ${data.targetDate} · precomputed, not live data",
+                    color = PaleGreen, fontSize = 13.sp)
                 Spacer(Modifier.height(18.dp))
                 Text(
                     "%+.1f%% vs historical baseline".format(
