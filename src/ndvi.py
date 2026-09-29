@@ -28,6 +28,36 @@ from shapely.geometry import box, mapping
 # utilizzati nell'analisi Forest Demo.
 INVALID_SCL_CLASSES = [0, 1, 3, 7, 8, 9, 10, 11]
 
+# Dal 25 gennaio 2022 (processing baseline 04.00) i prodotti Sentinel-2 L2A
+# hanno uno scostamento radiometrico: riflettanza = (DN - 1000) / 10000.
+# Senza correzione, l'NDVI dopo quella data risulta più basso sulla
+# vegetazione e più alto sull'acqua, e i confronti con anni precedenti
+# sono falsati.
+BOA_ADD_OFFSET_DN = 1000.0
+
+
+def reflectance_offset(item) -> float:
+    """
+    Scostamento (in DN) da sottrarre alle bande di questo item.
+
+    - Se il catalogo dichiara di averlo già applicato
+      ("earthsearch:boa_offset_applied" = True): 0.
+    - Se la processing baseline è >= 04.00 e non risulta applicato: 1000.
+    - Altrimenti (dati precedenti al 2022 o informazione assente): 0.
+    """
+    properties = getattr(item, "properties", None) or {}
+
+    if properties.get("earthsearch:boa_offset_applied") is True:
+        return 0.0
+
+    baseline = properties.get("s2:processing_baseline")
+    try:
+        if baseline is not None and float(baseline) >= 4.0:
+            return BOA_ADD_OFFSET_DN
+    except (TypeError, ValueError):
+        pass
+    return 0.0
+
 
 def calculate_ndvi_for_item(item, bbox_wgs84):
     """
@@ -95,6 +125,12 @@ def calculate_ndvi_for_item(item, bbox_wgs84):
 
         red = red_band.filled(np.nan)
         nir = nir_band.filled(np.nan)
+
+        # Armonizzazione radiometrica (baseline >= 04.00, vedi sopra).
+        offset = reflectance_offset(item)
+        if offset:
+            red = np.clip(red - offset, 0, None)
+            nir = np.clip(nir - offset, 0, None)
 
         # Riproiettiamo la SCL a 20 m sulla griglia B04 a 10 m.
         # Il metodo nearest conserva le classi discrete.

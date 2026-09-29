@@ -41,7 +41,7 @@ from rasterio.vrt import WarpedVRT
 from rasterio.warp import transform, transform_bounds
 from rasterio.windows import Window
 
-from src.ndvi import INVALID_SCL_CLASSES
+from src.ndvi import INVALID_SCL_CLASSES, reflectance_offset
 
 
 # Scala dei colori NDVI: (valore, colore RGB). Tra due valori il colore
@@ -76,6 +76,10 @@ RGB_LOW, RGB_HIGH, RGB_GAMMA = 0.0, 145.0, 0.8
 
 TARGET_RESOLUTION_M = 10.0
 
+# Lato massimo delle immagini in pixel: per aree grandi (storie fino a
+# 12 km) la risoluzione si riduce (es. 15 m), per immagini più leggere.
+MAX_IMAGE_PIXELS = 800
+
 
 def color_stops_hex(stops=None) -> list:
     """Legenda per l'app: [[valore, "#rrggbb"], ...]."""
@@ -97,6 +101,7 @@ class Grid:
         self.crs = CRS.from_epsg(epsg)
 
         (x,), (y,) = transform("EPSG:4326", self.crs, [lon], [lat])
+        resolution = max(resolution, side_km * 1000 / MAX_IMAGE_PIXELS)
         size = max(1, int(round(side_km * 1000 / resolution)))
         half = size * resolution / 2
 
@@ -221,16 +226,20 @@ def colorize_diff(diff: np.ndarray, valid: np.ndarray) -> np.ndarray:
     return colorize(diff, valid, DIFF_COLOR_STOPS)
 
 
-def compute_ndvi_grid(red: np.ndarray, nir: np.ndarray, scl: np.ndarray):
-    """Restituisce (ndvi, valid) sulla griglia a 10 m."""
-    red = red.astype(np.float32)
-    nir = nir.astype(np.float32)
+def compute_ndvi_grid(red: np.ndarray, nir: np.ndarray, scl: np.ndarray,
+                      offset: float = 0.0):
+    """
+    Restituisce (ndvi, valid) sulla griglia.
+    offset: scostamento radiometrico da sottrarre (vedi src/ndvi.py).
+    """
+    has_data = (red > 0) & (nir > 0)       # 0 = nessun dato
+    red = np.clip(red.astype(np.float32) - offset, 0, None)
+    nir = np.clip(nir.astype(np.float32) - offset, 0, None)
     denominator = nir + red
 
     valid = (
         valid_mask_from_scl(scl)
-        & (red > 0)
-        & (nir > 0)
+        & has_data
         & (denominator != 0)
     )
     ndvi = np.full(red.shape, np.nan, dtype=np.float32)
@@ -287,7 +296,7 @@ def ndvi_on_grid(item, grid: Grid):
     red = read_on_grid(item.assets["red"].href, grid)
     nir = read_on_grid(item.assets["nir"].href, grid)
     scl = read_on_grid(item.assets["scl"].href, grid)
-    return compute_ndvi_grid(red, nir, scl)
+    return compute_ndvi_grid(red, nir, scl, offset=reflectance_offset(item))
 
 
 def render_rgb_png(item, grid: Grid) -> bytes:

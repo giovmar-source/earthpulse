@@ -53,7 +53,7 @@ class SyntheticScene:
     """
 
     def __init__(self, folder: Path, crs: str = "EPSG:32633",
-                 nir_value: int = 3000):
+                 nir_value: int = 3000, dn_offset: int = 0):
         (x,), (y,) = transform("EPSG:4326", crs, [LON], [LAT])
         half = 3000
         west, north = x - half, y + half
@@ -63,8 +63,8 @@ class SyntheticScene:
         t10 = from_origin(west, north, 10, 10)
         t20 = from_origin(west, north, 20, 20)
 
-        red = np.full((n10, n10), 500, dtype=np.uint16)
-        nir = np.full((n10, n10), nir_value, dtype=np.uint16)
+        red = np.full((n10, n10), 500 + dn_offset, dtype=np.uint16)
+        nir = np.full((n10, n10), nir_value + dn_offset, dtype=np.uint16)
         scl = np.full((n20, n20), 4, dtype=np.uint8)       # 4 = vegetazione
         # Nuvola: 400 × 400 m nell'angolo NO dell'area centrale di 3 km
         # (la zona centrale inizia a 1500 m dal bordo = pixel 75 a 20 m).
@@ -82,11 +82,11 @@ class SyntheticScene:
             write_raster(path, data, tr, crs=crs)
             self.hrefs[name] = str(path)
 
-    def item(self, item_id="S2_TEST_20250717", day="2025-07-17"):
+    def item(self, item_id="S2_TEST_20250717", day="2025-07-17", properties=None):
         return SimpleNamespace(
             id=item_id,
             datetime=datetime.fromisoformat(day).replace(hour=10, tzinfo=timezone.utc),
-            properties={"eo:cloud_cover": 3.0},
+            properties={"eo:cloud_cover": 3.0, **(properties or {})},
             assets={k: SimpleNamespace(href=v) for k, v in self.hrefs.items()},
         )
 
@@ -140,6 +140,21 @@ class TestRendering(unittest.TestCase):
         self.assertFalse(valid[10, 10])
         self.assertTrue(valid[150, 150])
 
+    def test_radiometric_offset_is_removed(self):
+        # Scena "baseline 04.00": stessi valori + 1000 DN, offset non applicato.
+        folder = self.tmp / "offset"
+        folder.mkdir(exist_ok=True)
+        shifted = SyntheticScene(folder, dn_offset=1000)
+        item = shifted.item(properties={"s2:processing_baseline": "05.10"})
+
+        from src.imagery import ndvi_on_grid
+        ndvi_ref, _ = ndvi_on_grid(self.scene.item(), self.grid)
+        ndvi_new, _ = ndvi_on_grid(item, self.grid)
+
+        # Dopo la correzione l'NDVI coincide con quello della scena originale.
+        self.assertAlmostEqual(float(np.nanmedian(ndvi_new)),
+                               float(np.nanmedian(ndvi_ref)), places=4)
+
     def test_scl_valid_percentage_sees_cloud(self):
         pct = scl_valid_percentage(self.scene.item(), self.bbox)
         # nuvola ≈ 400×400 m su 3×3 km ≈ 1.8% dell'area
@@ -148,6 +163,22 @@ class TestRendering(unittest.TestCase):
 
 
 class TestImageHelpers(unittest.TestCase):
+
+    def test_reflectance_offset_rules(self):
+        from src.ndvi import reflectance_offset
+        item = lambda props: SimpleNamespace(properties=props)
+        self.assertEqual(reflectance_offset(item({"s2:processing_baseline": "03.01"})), 0)
+        self.assertEqual(reflectance_offset(item({"s2:processing_baseline": "04.00"})), 1000)
+        self.assertEqual(reflectance_offset(item({
+            "s2:processing_baseline": "05.10",
+            "earthsearch:boa_offset_applied": True,
+        })), 0)
+        self.assertEqual(reflectance_offset(item({})), 0)
+
+    def test_large_area_grid_is_capped(self):
+        grid = Grid(LAT, LON, 12.0)
+        self.assertEqual((grid.width, grid.height), (800, 800))
+        self.assertEqual(Grid(LAT, LON, 3.0).width, 300)
 
     def test_colorize_known_values(self):
         ndvi = np.array([[0.85, np.nan]], dtype=np.float32)

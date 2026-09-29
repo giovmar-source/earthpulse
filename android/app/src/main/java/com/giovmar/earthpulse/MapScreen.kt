@@ -282,7 +282,7 @@ fun MapScreen(
                 shadowElevation = 4.dp
             ) {
                 Text(
-                    "Esempi",
+                    "Storie",
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     color = Green,
                     fontWeight = FontWeight.SemiBold

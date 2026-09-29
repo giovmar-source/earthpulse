@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "note": "Storie curate di EarthPulse. Scene verificate visivamente con scripts/preview_stories.py e fissate con before_item_id / after_item_id.",
+  "stories": [
+    {
+      "id": "montiferru-2021",
+      "category": "Incendio",
+      "title": "Il rogo del Montiferru",
+      "place": "Montiferru, Oristano",
+      "country": "Italia",
+      "latitude": 40.14,
+      "longitude": 8.62,
+      "side_km": 12,
+      "event_date": "2021-07-24",
+      "summary": "Il 24 luglio 2021 un incendio partito lungo la strada tra Bonarcado e Santu Lussurgiu, spinto dal vento, ha percorso circa 13.000 ettari del massiccio del Montiferru. È stato dichiarato spento il 14 agosto.",
+      "what_to_look": "Nella mappa della variazione la cicatrice dell'incendio appare come una vasta area rossa: boschi, macchia e pascoli hanno perso la loro risposta nell'infrarosso. Nei colori reali il verde lascia il posto al bruno scuro del bruciato.",
+      "caveat": "L'NDVI misura la perdita di vegetazione attiva, non la gravità dell'incendio: per quella si usano indici dedicati come il dNBR, che richiede la banda SWIR.",
+      "facts": [
+        "Inizio: 24 luglio 2021",
+        "Superficie percorsa: circa 13.000 ettari",
+        "Spento definitivamente: 14 agosto 2021"
+      ],
+      "sources": [
+        {
+          "title": "The 2021 Montiferru Wildfire, Sardinia (Italy) – Environmental Sciences Proceedings",
+          "url": "https://www.mdpi.com/2673-4931/17/1/108"
+        },
+        {
+          "title": "Copernicus – Burn scar of Sardinia wildfires",
+          "url": "https://www.copernicus.eu/en/media/image-day-gallery/burn-scar-sardinia-wildfires-italy"
+        }
+      ],
+      "before": {
+        "start": "2021-06-10",
+        "end": "2021-07-23",
+        "target": "2021-07-10"
+      },
+      "after": {
+        "start": "2021-08-15",
+        "end": "2021-09-30",
+        "target": "2021-08-25"
+      },
+      "min_valid_percentage": 95,
+      "before_item_id": "S2B_32TMK_20210710_1_L2A",
+      "after_item_id": "S2A_32TMK_20210821_1_L2A"
+    },
+    {
+      "id": "la-palma-2021",
+      "category": "Vulcano",
+      "title": "La lava di La Palma",
+      "place": "Cumbre Vieja, La Palma",
+      "country": "Spagna",
+      "latitude": 28.615,
+      "longitude": -17.895,
+      "side_km": 9,
+      "event_date": "2021-09-19",
+      "summary": "Dal 19 settembre al 13 dicembre 2021 l'eruzione della Cumbre Vieja, la più lunga mai registrata sull'isola, ha coperto oltre 1.000 ettari di lava e distrutto più di 3.000 edifici. Il paese di Todoque è stato completamente sepolto.",
+      "what_to_look": "Le colate scure attraversano campi e bananeti fino all'oceano, dove la lava ha creato nuova terra (le fajanas). Nella variazione le colate sono un nastro rosso continuo che scende dal cono verso la costa.",
+      "caveat": "La lava è scura sia nei colori reali sia nell'NDVI, come l'asfalto o la roccia: senza il confronto con la data precedente non si distinguerebbe da altre superfici prive di vegetazione.",
+      "facts": [
+        "Eruzione: 19 settembre – 13 dicembre 2021 (85 giorni)",
+        "Area coperta dalla lava: oltre 1.000 ettari",
+        "Edifici distrutti: oltre 3.000"
+      ],
+      "sources": [
+        {
+          "title": "Wikipedia – 2021 Cumbre Vieja volcanic eruption",
+          "url": "https://en.wikipedia.org/wiki/2021_Cumbre_Vieja_volcanic_eruption"
+        },
+        {
+          "title": "NASA Earth Observatory – A Changed Landscape on La Palma",
+          "url": "https://science.nasa.gov/earth/earth-observatory/a-changed-landscape-on-la-palma-149231/"
+        }
+      ],
+      "before": {
+        "start": "2020-12-01",
+        "end": "2021-03-15",
+        "target": "2021-01-20"
+      },
+      "after": {
+        "start": "2022-01-01",
+        "end": "2022-03-31",
+        "target": "2022-01-20"
+      },
+      "min_valid_percentage": 95,
+      "diff_note": "Il confronto usa due immagini di stagione simile (gennaio 2021 e febbraio 2022). Oltre alle colate, il calo diffuso può dipendere dalla cenere vulcanica depositata sulla vegetazione durante l'eruzione. Sul mare i colori non hanno significato: l'NDVI dell'acqua varia con onde e riflessi.",
+      "before_item_id": "S2B_28RBS_20210128_1_L2A",
+      "after_item_id": "S2A_27RYM_20220207_0_L2A"
+    },
+    {
+      "id": "melamchi-2021",
+      "category": "Alluvione",
+      "title": "La colata di Melamchi",
+      "place": "Melamchi, Sindhupalchok",
+      "country": "Nepal",
+      "latitude": 27.86,
+      "longitude": 85.57,
+      "side_km": 8,
+      "event_date": "2021-06-15",
+      "summary": "A giugno 2021, dopo lunghe piogge monsoniche, una frana ha sbarrato il fiume Melamchi; il cedimento dello sbarramento ha liberato una colata di acqua, fango, massi e tronchi. Sono morte 21 persone, circa 260 case sono state distrutte e l'opera di presa dell'acquedotto di Melamchi, costruito per portare acqua a Kathmandu, è stata sepolta.",
+      "what_to_look": "Il fondovalle, prima stretto e verde, diventa un ampio nastro grigio di sedimenti e detriti che attraversa l'abitato di Melamchi Bazaar. Nella variazione il corso del fiume è segnato in rosso per chilometri.",
+      "caveat": "Durante il monsone la valle è quasi sempre coperta da nuvole: il confronto usa immagini della stagione secca, alcuni mesi prima e dopo l'evento, quindi include anche altri cambiamenti avvenuti nel frattempo.",
+      "facts": [
+        "Evento principale: giugno 2021, seconda piena il 31 luglio",
+        "Vittime: 21 morti e 3 dispersi",
+        "Case distrutte: circa 260"
+      ],
+      "sources": [
+        {
+          "title": "ICIMOD – The Melamchi flood disaster",
+          "url": "https://www.icimod.org/article/the-melamchi-flood-disaster/"
+        },
+        {
+          "title": "Wikipedia – 2021 Melamchi flood",
+          "url": "https://en.wikipedia.org/wiki/2021_Melamchi_flood"
+        }
+      ],
+      "before": {
+        "start": "2020-10-15",
+        "end": "2021-02-28",
+        "target": "2020-11-20"
+      },
+      "after": {
+        "start": "2021-10-15",
+        "end": "2022-02-28",
+        "target": "2021-11-20"
+      },
+      "min_valid_percentage": 80,
+      "before_item_id": "S2A_45RUL_20201121_0_L2A",
+      "after_item_id": "S2B_45RUL_20211121_0_L2A"
+    },
+    {
+      "id": "pergusa-2024",
+      "category": "Siccità",
+      "title": "Il lago che è scomparso",
+      "place": "Lago di Pergusa, Enna",
+      "country": "Italia",
+      "latitude": 37.517,
+      "longitude": 14.305,
+      "side_km": 4,
+      "event_date": "2024-07-01",
+      "summary": "Dopo un autunno e un inverno quasi senza piogge, nel 2024 la Sicilia ha vissuto una grave crisi idrica. Il lago di Pergusa, l'unico lago naturale dell'isola in un bacino chiuso, già segnalato come prosciugato a gennaio, nell'estate del 2024 era scomparso.",
+      "what_to_look": "Nei colori reali lo specchio d'acqua scuro lascia il posto al fondo asciutto del lago. Nell'NDVI l'acqua (in blu) sparisce, e nelle campagne intorno il giallo del suolo secco prende il posto del verde.",
+      "caveat": "Il livello del lago dipende anche dai prelievi e dall'evaporazione, non solo dalle piogge: l'immagine mostra l'effetto, non tutte le sue cause.",
+      "facts": [
+        "Periodo di confronto: estate 2022 e estate 2024",
+        "Lago di Pergusa: bacino endoreico, senza emissari",
+        "Gennaio 2024: primi allarmi sul prosciugamento"
+      ],
+      "sources": [
+        {
+          "title": "Il Fatto Quotidiano – Siccità in Sicilia, il Lago di Pergusa si è prosciugato (gennaio 2024)",
+          "url": "https://www.ilfattoquotidiano.it/2024/01/11/siccita-in-sicilia-il-lago-di-pergusa-si-e-prosciugato-il-grido-dallarme-di-legambiente-la-situazione-e-drammatica/7401555/"
+        },
+        {
+          "title": "MeteoWeb – Siccità Sicilia, il Lago Pergusa è scomparso (luglio 2024)",
+          "url": "https://www.meteoweb.eu/2024/07/siccita-sicilia-lago-pergusa-scomparso/1001525084/"
+        }
+      ],
+      "before": {
+        "start": "2022-06-01",
+        "end": "2022-08-31",
+        "target": "2022-07-15"
+      },
+      "after": {
+        "start": "2024-06-01",
+        "end": "2024-08-31",
+        "target": "2024-07-15"
+      },
+      "min_valid_percentage": 90,
+      "before_item_id": "S2B_33SVB_20220716_0_L2A",
+      "after_item_id": "S2B_33SVB_20240715_0_L2A",
+      "diff_note": "Attenzione: nella variazione il lago appare verde, cioè NDVI in aumento. Non è vegetazione che cresce: l'acqua ha NDVI negativo, il fondo secco leggermente positivo. Intorno, il rosso indica campi più secchi rispetto al 2022."
+    },
+    {
+      "id": "noto-2024",
+      "category": "Terremoto e tsunami",
+      "title": "La costa sollevata di Noto",
+      "place": "Baia di Minazuki, Wajima",
+      "country": "Giappone",
+      "latitude": 37.35,
+      "longitude": 136.752,
+      "side_km": 4,
+      "event_date": "2024-01-01",
+      "summary": "Il 1° gennaio 2024 un terremoto di magnitudo 7,5 ha colpito la penisola di Noto, generando anche uno tsunami. Sulla costa nord il suolo si è sollevato fino a 4 metri: nella baia di Minazuki la linea di costa si è spostata di circa 200 metri verso il mare, e lungo le coste sono emersi circa 4,4 km² di nuova terra.",
+      "what_to_look": "Trascina il cursore lungo la baia: nell'immagine dopo il terremoto la spiaggia è più larga e una fascia chiara di fondale, prima sommersa, è emersa. Nella baia di Minazuki la costa è avanzata fino a circa 200 metri.",
+      "caveat": "Il sollevamento si vede come spostamento della linea di costa nei colori reali, non come variazione di vegetazione. La mappa NDVI della variazione, sul mare, mostra soprattutto differenze di onde e torbidità.",
+      "facts": [
+        "Data: 1° gennaio 2024, ore 16:10 (ora giapponese)",
+        "Magnitudo: 7,5",
+        "Sollevamento massimo: circa 4 metri",
+        "Baia di Minazuki: costa avanzata fino a circa 200 m"
+      ],
+      "sources": [
+        {
+          "title": "NASA Earth Observatory – Earthquake Lifts the Noto Peninsula",
+          "url": "https://science.nasa.gov/earth/earth-observatory/earthquake-lifts-the-noto-peninsula-152350/"
+        },
+        {
+          "title": "Scientific Reports – Shoreline advance due to the 2024 Noto Peninsula earthquake",
+          "url": "https://www.nature.com/articles/s41598-024-79044-4"
+        }
+      ],
+      "before": {
+        "start": "2023-02-15",
+        "end": "2023-06-30",
+        "target": "2023-04-10"
+      },
+      "after": {
+        "start": "2024-02-15",
+        "end": "2024-06-30",
+        "target": "2024-04-10"
+      },
+      "min_valid_percentage": 95,
+      "diff_note": "Qui la mappa della variazione è poco utile: il cambiamento è la posizione della costa, visibile nei colori reali.",
+      "before_item_id": "S2A_53SPB_20230410_0_L2A",
+      "after_item_id": "S2A_53SPB_20240414_0_L2A"
+    }
+  ]
+}

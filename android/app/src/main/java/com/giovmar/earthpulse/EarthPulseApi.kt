@@ -43,6 +43,8 @@ private const val SEARCH_READ_TIMEOUT_MS = 90_000
 private const val WAKE_UP_READ_TIMEOUT_MS = 90_000
 private const val IMAGERY_READ_TIMEOUT_MS = 120_000
 
+private const val STORY_READ_TIMEOUT_MS = 150_000
+
 // Lato dell'area mostrata nelle immagini "dall'alto" (km).
 const val IMAGERY_SIDE_KM = 3.0
 
@@ -143,6 +145,30 @@ data class ImageryScenes(
     val diffStops: List<ColorStop>
 )
 
+// Storie (/api/v1/stories)
+
+data class StorySummary(
+    val id: String,
+    val category: String,
+    val title: String,
+    val place: String,
+    val country: String,
+    val eventDate: String,
+    val summary: String
+)
+
+data class StorySource(val title: String, val url: String)
+
+data class StoryDetail(
+    val summary: StorySummary,
+    val whatToLook: String,
+    val caveat: String,
+    val diffNote: String?,
+    val facts: List<String>,
+    val sources: List<StorySource>,
+    val scenes: ImageryScenes
+)
+
 /** Errore con un messaggio già comprensibile per l'utente. */
 class ApiException(message: String) : Exception(message)
 
@@ -198,6 +224,20 @@ object EarthPulseApi {
             BACKEND_BASE_URL, latitude, longitude, IMAGERY_SIDE_KM
         )
         return parseImageryScenes(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
+    }
+
+    suspend fun fetchStories(): List<StorySummary> {
+        val root = JSONObject(getJson("$BACKEND_BASE_URL/api/v1/stories", SEARCH_READ_TIMEOUT_MS))
+        val array = root.optJSONArray("stories") ?: JSONArray()
+        return (0 until array.length()).map { parseStorySummary(array.getJSONObject(it)) }
+    }
+
+    suspend fun fetchStory(id: String): StoryDetail {
+        val encoded = URLEncoder.encode(id, "UTF-8")
+        val root = JSONObject(
+            getJson("$BACKEND_BASE_URL/api/v1/stories/$encoded", STORY_READ_TIMEOUT_MS)
+        )
+        return parseStoryDetail(root)
     }
 
     /** Scarica un'immagine PNG del backend (url relativo, es. "/api/v1/imagery/image?..."). */
@@ -411,5 +451,45 @@ private fun parseImageryScenes(root: JSONObject): ImageryScenes {
         attribution = root.optString("attribution"),
         ndviStops = parseColorStops(legend.optJSONArray("ndvi_color_stops")),
         diffStops = parseColorStops(legend.optJSONArray("diff_color_stops"))
+    )
+}
+
+private fun parseStorySummary(o: JSONObject) = StorySummary(
+    id = o.getString("id"),
+    category = o.optString("category"),
+    title = o.optString("title"),
+    place = o.optString("place"),
+    country = o.optString("country"),
+    eventDate = o.optString("event_date"),
+    summary = o.optString("summary")
+)
+
+private fun parseStoryDetail(root: JSONObject): StoryDetail {
+    val area = root.optJSONObject("place_area") ?: JSONObject()
+    val legend = root.optJSONObject("legend") ?: JSONObject()
+    val messages = root.optJSONArray("messages") ?: JSONArray()
+    val facts = root.optJSONArray("facts") ?: JSONArray()
+    val sources = root.optJSONArray("sources") ?: JSONArray()
+
+    return StoryDetail(
+        summary = parseStorySummary(root),
+        whatToLook = root.optString("what_to_look"),
+        caveat = root.optString("caveat"),
+        diffNote = root.optString("diff_note").takeIf { it.isNotBlank() && it != "null" },
+        facts = (0 until facts.length()).map { facts.getString(it) },
+        sources = (0 until sources.length()).mapNotNull { i ->
+            sources.optJSONObject(i)?.let {
+                StorySource(it.optString("title"), it.optString("url"))
+            }
+        },
+        scenes = ImageryScenes(
+            sideKm = area.optDouble("side_km", IMAGERY_SIDE_KM),
+            after = parseScene(root.optJSONObject("after")),
+            before = parseScene(root.optJSONObject("before")),
+            messages = (0 until messages.length()).map { messages.getString(it) },
+            attribution = root.optString("attribution"),
+            ndviStops = parseColorStops(legend.optJSONArray("ndvi_color_stops")),
+            diffStops = parseColorStops(legend.optJSONArray("diff_color_stops"))
+        )
     )
 }

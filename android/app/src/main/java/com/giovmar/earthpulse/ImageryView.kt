@@ -162,7 +162,12 @@ fun ImagerySection(state: ImageryState) {
 }
 
 @Composable
-private fun ImageryContent(state: ImageryState, scenes: ImageryScenes, after: SceneImages) {
+internal fun ImageryContent(
+    state: ImageryState,
+    scenes: ImageryScenes,
+    after: SceneImages,
+    showAnalysisArea: Boolean = true
+) {
     val before = scenes.before
     var selectedLayer by rememberSaveable { mutableStateOf(ImageryLayer.RGB) }
 
@@ -194,7 +199,9 @@ private fun ImageryContent(state: ImageryState, scenes: ImageryScenes, after: Sc
     }
     Spacer(Modifier.height(10.dp))
 
-    val areaFraction = (ANALYSIS_SIDE_KM / scenes.sideKm).toFloat()
+    // Riquadro dell'area analizzata (1 km): solo per l'analisi di un luogo.
+    val areaFraction =
+        if (showAnalysisArea) (ANALYSIS_SIDE_KM / scenes.sideKm).toFloat() else 0f
     val beforeLabel = before?.let { "Prima · ${formatDate(it.date)}" }
     val afterLabel = "Dopo · ${formatDate(after.date)}"
 
@@ -407,6 +414,7 @@ private fun ImageStatus(ready: Boolean, failure: String?) {
 /** Riquadro tratteggiato dell'area analizzata (1 km), al centro. */
 @Composable
 private fun AnalysisAreaOverlay(areaFraction: Float) {
+    if (areaFraction <= 0f) return
     Canvas(Modifier.fillMaxSize()) {
         val side = size.minDimension * areaFraction
         drawRect(

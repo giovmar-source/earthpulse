@@ -125,7 +125,7 @@ private fun JSONObject.optNullableDouble(key: String): Double? {
     return optDouble(key).takeIf { it.isFinite() }
 }
 
-enum class Screen { MAP, ANALYSIS, EXAMPLES, FOREST_DEMO, METHODOLOGY }
+enum class Screen { MAP, ANALYSIS, STORIES, STORY, EXAMPLES, FOREST_DEMO, METHODOLOGY }
 
 @Composable
 fun EarthPulseApp() {
@@ -139,6 +139,7 @@ fun EarthPulseApp() {
     var selectedLat by rememberSaveable { mutableStateOf<Double?>(null) }
     var selectedLon by rememberSaveable { mutableStateOf<Double?>(null) }
     var selectedLabel by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedStoryId by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Schermata a cui tornare quando si chiude la Metodologia.
     var methodologyFrom by rememberSaveable { mutableStateOf(Screen.MAP) }
@@ -163,6 +164,8 @@ fun EarthPulseApp() {
     // Tasto/gesto "indietro" di Android.
     BackHandler(enabled = screen != Screen.MAP) {
         screen = when (screen) {
+            Screen.STORY -> Screen.STORIES
+            Screen.EXAMPLES -> Screen.STORIES
             Screen.FOREST_DEMO -> Screen.EXAMPLES
             Screen.METHODOLOGY -> methodologyFrom
             else -> Screen.MAP
@@ -187,7 +190,7 @@ fun EarthPulseApp() {
                     selectedLabel = place.label
                 },
                 onAnalyzeClick = { screen = Screen.ANALYSIS },
-                onExamplesClick = { screen = Screen.EXAMPLES },
+                onExamplesClick = { screen = Screen.STORIES },
                 onMethodologyClick = { openMethodology() }
             )
         } else if (screen == Screen.ANALYSIS && selectedPlace != null) {
@@ -198,6 +201,20 @@ fun EarthPulseApp() {
             )
         } else if (screen == Screen.METHODOLOGY) {
             MethodologyScreen(onBack = { screen = methodologyFrom })
+        } else if (screen == Screen.STORIES) {
+            StoriesListScreen(
+                onBack = { screen = Screen.MAP },
+                onStoryClick = { id ->
+                    selectedStoryId = id
+                    screen = Screen.STORY
+                },
+                onForestDemoClick = { screen = Screen.EXAMPLES }
+            )
+        } else if (screen == Screen.STORY && selectedStoryId != null) {
+            StoryDetailScreen(
+                storyId = selectedStoryId ?: "",
+                onBack = { screen = Screen.STORIES }
+            )
         } else {
             val currentData = data
 

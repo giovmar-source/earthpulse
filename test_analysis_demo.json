@@ -1,0 +1,123 @@
+{
+    "status": "ok",
+    "reference_date": "2025-07-20",
+    "processed_at": "2026-09-29T15:22:21+00:00",
+    "latest_observation": {
+        "date": "2025-07-20",
+        "acquisition_datetime": "2025-07-20T09:59:21.300000Z",
+        "item_id": "S2B_33TWF_20250720_0_L2A",
+        "ndvi_mean": 0.8636181354522705,
+        "ndvi_median": 0.8670969009399414,
+        "valid_percentage": 100.0,
+        "cloud_cover_percent": 2.529958,
+        "days_since_observation": 0,
+        "is_recent": true,
+        "max_days_for_recent": 20
+    },
+    "baseline": {
+        "ndvi_median": 0.8760438561439514,
+        "ndvi_min": 0.8612269759178162,
+        "ndvi_max": 0.9019677042961121,
+        "samples": 9,
+        "support": "forte",
+        "years": [
+            2022,
+            2023,
+            2024
+        ],
+        "window_days": 15,
+        "observations": [
+            {
+                "date": "2022-07-16",
+                "ndvi_mean": 0.8867167830467224,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2022-07-21",
+                "ndvi_mean": 0.8745620846748352,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2022-07-26",
+                "ndvi_mean": 0.867278516292572,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2023-07-06",
+                "ndvi_mean": 0.9019677042961121,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2023-07-11",
+                "ndvi_mean": 0.8939679861068726,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2023-07-16",
+                "ndvi_mean": 0.8760438561439514,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2024-07-10",
+                "ndvi_mean": 0.8656613230705261,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2024-07-30",
+                "ndvi_mean": 0.8833249807357788,
+                "valid_percentage": 100.0
+            },
+            {
+                "date": "2024-08-04",
+                "ndvi_mean": 0.8612269759178162,
+                "valid_percentage": 100.0
+            }
+        ]
+    },
+    "comparison": {
+        "delta_ndvi": -0.012425720691680908,
+        "anomaly_percent": -1.4183902557544008,
+        "percent_meaningful": true,
+        "classification": "leggermente sotto la baseline"
+    },
+    "messages": [],
+    "place": {
+        "latitude": 40.81,
+        "longitude": 15.007,
+        "side_km": 1.0,
+        "bbox": [
+            15.00104859614621,
+            40.8054954954955,
+            15.012951403853789,
+            40.814504504504505
+        ]
+    },
+    "quality": {
+        "min_valid_percentage": 70.0,
+        "max_cloud_percent": 60.0,
+        "recent_period": {
+            "start_date": "2025-06-05",
+            "end_date": "2025-07-20"
+        },
+        "recent_scenes_found": 31,
+        "recent_scenes_evaluated": 4,
+        "recent_scenes_rejected_quality": 0,
+        "baseline_scenes_found": 37,
+        "baseline_scenes_evaluated": 9,
+        "baseline_scenes_rejected_quality": 0,
+        "errors": []
+    },
+    "methodology": {
+        "indicator": "NDVI",
+        "formula": "(B08 - B04) / (B08 + B04)",
+        "source": "Sentinel-2 L2A (Element84 Earth Search, STAC)",
+        "spatial_resolution_m": 10,
+        "cloud_mask": "Sentinel-2 Scene Classification Layer (SCL)",
+        "aggregation": "Media NDVI dei pixel validi nell'area",
+        "latest_selection": "Scena più recente con pixel validi >= min_valid_percentage",
+        "baseline": "Mediana NDVI di osservazioni valide dei 3 anni precedenti, entro ±15 giorni dalla stessa data",
+        "anomaly": "(NDVI osservato - baseline) / |baseline| * 100"
+    },
+    "processing_seconds": 21.4,
+    "warning": "L'NDVI è un indicatore della risposta spettrale della vegetazione, non una misura diretta della sua salute. Una variazione non dimostra da sola la causa del cambiamento."
+}

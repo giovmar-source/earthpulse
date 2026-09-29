@@ -19,6 +19,7 @@ from src.analysis import (
     seasonal_windows,
 )
 from src.geocoding import GeocodingUnavailable, search_places
+from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.imagery import (
     DIFF_COLOR_STOPS,
     Grid,
@@ -64,7 +65,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.5.0",
+    version="0.6.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -818,6 +819,63 @@ def find_clear_scene(bbox, start_date, end_date, target_date,
     return choose_clear_scene(rows, min_valid=min_valid), len(items), len(candidates)
 
 
+def describe_scene(chosen, lat: float, lon: float, side_km: float):
+    """Scena scelta -> dizionario per l'app, con gli indirizzi delle immagini."""
+    if chosen is None:
+        return None
+    item, valid_percentage = chosen
+    remember_item(item)
+    params = urlencode({
+        "item_id": item.id,
+        "lat": lat,
+        "lon": lon,
+        "side_km": side_km,
+    })
+    return {
+        "item_id": item.id,
+        "date": item.datetime.date().isoformat(),
+        "valid_percentage": (
+            round(valid_percentage, 1) if valid_percentage is not None else None
+        ),
+        "cloud_cover_percent": item.properties.get("eo:cloud_cover"),
+        "images": {
+            "rgb": f"/api/v1/imagery/image?{params}&kind=rgb",
+            "ndvi": f"/api/v1/imagery/image?{params}&kind=ndvi",
+        },
+    }
+
+
+def add_diff_url(after_info, before_info, lat: float, lon: float, side_km: float):
+    """Aggiunge la mappa della variazione se ci sono entrambe le date."""
+    if not (after_info and before_info):
+        return
+    diff_params = urlencode({
+        "item_id": after_info["item_id"],
+        "compare_id": before_info["item_id"],
+        "lat": lat,
+        "lon": lon,
+        "side_km": side_km,
+    })
+    after_info["images"]["diff"] = f"/api/v1/imagery/image?{diff_params}&kind=diff"
+
+
+def imagery_legend() -> dict:
+    return {
+        "ndvi_color_stops": color_stops_hex(),
+        "diff_color_stops": color_stops_hex(DIFF_COLOR_STOPS),
+        "invalid_color": "#b4b4b4",
+        "invalid_meaning": "Nuvole, ombre, neve o dati mancanti (SCL)",
+    }
+
+
+def imagery_attribution(*infos) -> str:
+    years = sorted({info["date"][:4] for info in infos if info})
+    return (
+        "Contiene dati Copernicus Sentinel modificati"
+        + (f" ({', '.join(years)})" if years else "")
+    )
+
+
 @app.get("/api/v1/imagery/scenes")
 def get_imagery_scenes(
     lat: float = Query(..., ge=-80, le=80),
@@ -862,43 +920,9 @@ def get_imagery_scenes(
             detail=f"Errore durante la ricerca delle immagini: {str(exc)}",
         ) from exc
 
-    def describe(chosen):
-        if chosen is None:
-            return None
-        item, valid_percentage = chosen
-        remember_item(item)
-        params = urlencode({
-            "item_id": item.id,
-            "lat": lat,
-            "lon": lon,
-            "side_km": side_km,
-        })
-        return {
-            "item_id": item.id,
-            "date": item.datetime.date().isoformat(),
-            "valid_percentage": round(valid_percentage, 1),
-            "cloud_cover_percent": item.properties.get("eo:cloud_cover"),
-            "images": {
-                "rgb": f"/api/v1/imagery/image?{params}&kind=rgb",
-                "ndvi": f"/api/v1/imagery/image?{params}&kind=ndvi",
-            },
-        }
-
-    after_info = describe(after)
-    before_info = describe(before)
-
-    # Mappa della variazione: solo se ci sono entrambe le date.
-    if after_info and before_info:
-        diff_params = urlencode({
-            "item_id": after_info["item_id"],
-            "compare_id": before_info["item_id"],
-            "lat": lat,
-            "lon": lon,
-            "side_km": side_km,
-        })
-        after_info["images"]["diff"] = (
-            f"/api/v1/imagery/image?{diff_params}&kind=diff"
-        )
+    after_info = describe_scene(after, lat, lon, side_km)
+    before_info = describe_scene(before, lat, lon, side_km)
+    add_diff_url(after_info, before_info, lat, lon, side_km)
 
     messages = []
     if after_info is None:
@@ -911,10 +935,6 @@ def get_imagery_scenes(
             f"Nessuna immagine abbastanza nitida {years_back} "
             f"{'anno' if years_back == 1 else 'anni'} prima."
         )
-
-    years = sorted({
-        info["date"][:4] for info in (after_info, before_info) if info
-    })
 
     return {
         "place": {
@@ -935,16 +955,8 @@ def get_imagery_scenes(
             "before_scenes_checked": before_checked,
             "min_valid_percentage": 95.0,
         },
-        "legend": {
-            "ndvi_color_stops": color_stops_hex(),
-            "diff_color_stops": color_stops_hex(DIFF_COLOR_STOPS),
-            "invalid_color": "#b4b4b4",
-            "invalid_meaning": "Nuvole, ombre, neve o dati mancanti (SCL)",
-        },
-        "attribution": (
-            "Contiene dati Copernicus Sentinel modificati"
-            + (f" ({', '.join(years)})" if years else "")
-        ),
+        "legend": imagery_legend(),
+        "attribution": imagery_attribution(after_info, before_info),
         "processing_seconds": round(time.monotonic() - started, 1),
     }
 
@@ -955,7 +967,7 @@ def get_imagery_image(
                          pattern=r"^[A-Za-z0-9_\-]+$"),
     lat: float = Query(..., ge=-80, le=80),
     lon: float = Query(..., ge=-180, le=180),
-    side_km: float = Query(3.0, gt=0, le=10),
+    side_km: float = Query(3.0, gt=0, le=MAX_STORY_SIDE_KM),
     kind: str = Query("rgb", pattern=r"^(rgb|ndvi|diff)$"),
     compare_id: str | None = Query(None, min_length=5, max_length=100,
                                    pattern=r"^[A-Za-z0-9_\-]+$"),
@@ -1017,3 +1029,117 @@ def get_imagery_image(
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=604800"},
     )
+
+
+# ============================================================
+# ENDPOINT 11-12: STORIE (eventi reali curati)
+# ============================================================
+
+# Le scene scelte per ogni storia non cambiano: si calcolano una volta.
+_STORY_SCENES_CACHE: dict = {}
+
+
+def get_stories() -> list:
+    try:
+        return load_stories()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Archivio delle storie non valido: {exc}",
+        ) from exc
+
+
+def pinned_or_search(story: dict, window_name: str, bbox):
+    """Usa la scena fissata nel JSON, se presente; altrimenti la cerca."""
+    pinned_id = story.get(f"{window_name}_item_id")
+    if pinned_id:
+        item = get_item_by_id(pinned_id)
+        if item is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Scena fissata non trovata: {pinned_id}",
+            )
+        return (item, None), 1, 1
+
+    window = story[window_name]
+    return find_clear_scene(
+        bbox,
+        window["start"],
+        window["end"],
+        window["target"],
+        max_candidates=8,
+        min_valid=story["min_valid_percentage"],
+    )
+
+
+@app.get("/api/v1/stories")
+def list_stories():
+    """Elenco delle storie disponibili (senza immagini)."""
+    stories = get_stories()
+    return {
+        "count": len(stories),
+        "stories": [story_summary(story) for story in stories],
+    }
+
+
+@app.get("/api/v1/stories/{story_id}")
+def get_story(story_id: str):
+    """Storia completa con le scene prima/dopo e gli indirizzi delle immagini."""
+    stories = {story["id"]: story for story in get_stories()}
+    story = stories.get(story_id)
+    if story is None:
+        raise HTTPException(status_code=404, detail="Storia non trovata.")
+
+    if story_id in _STORY_SCENES_CACHE:
+        return _STORY_SCENES_CACHE[story_id]
+
+    started = time.monotonic()
+    lat, lon, side_km = story["latitude"], story["longitude"], float(story["side_km"])
+    bbox = make_bbox(lat, lon, side_km)
+
+    try:
+        before, _bf, _bc = pinned_or_search(story, "before", bbox)
+        after, _af, _ac = pinned_or_search(story, "after", bbox)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Errore durante la ricerca delle immagini: {str(exc)}",
+        ) from exc
+
+    before_info = describe_scene(before, lat, lon, side_km)
+    after_info = describe_scene(after, lat, lon, side_km)
+    add_diff_url(after_info, before_info, lat, lon, side_km)
+
+    messages = []
+    if before_info is None:
+        messages.append("Nessuna immagine abbastanza nitida prima dell'evento.")
+    if after_info is None:
+        messages.append("Nessuna immagine abbastanza nitida dopo l'evento.")
+
+    result = {
+        **story_summary(story),
+        "what_to_look": story["what_to_look"],
+        "caveat": story["caveat"],
+        "diff_note": story.get("diff_note"),
+        "facts": story["facts"],
+        "sources": story["sources"],
+        "place_area": {
+            "latitude": lat,
+            "longitude": lon,
+            "side_km": side_km,
+            "bbox": bbox,
+        },
+        "before": before_info,
+        "after": after_info,
+        "messages": messages,
+        "legend": imagery_legend(),
+        "attribution": imagery_attribution(before_info, after_info),
+        "processing_seconds": round(time.monotonic() - started, 1),
+    }
+
+    # Si memorizza solo un risultato completo.
+    if before_info and after_info:
+        _STORY_SCENES_CACHE[story_id] = result
+    return result
