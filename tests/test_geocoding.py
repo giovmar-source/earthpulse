@@ -1,33 +1,41 @@
 
 import unittest
 
+import requests
+
 from src import geocoding
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    def __init__(self, payload, status_code=200):
         self._payload = payload
+        self.status_code = status_code
 
     def raise_for_status(self):
-        pass
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} error")
 
     def json(self):
         return self._payload
 
 
 class FakeSession:
-    """Simula requests: registra le chiamate senza usare la rete."""
+    """
+    Simula requests senza usare la rete.
+    responses: {url: (payload, status_code)}
+    """
 
-    def __init__(self, payload):
-        self.payload = payload
+    def __init__(self, responses):
+        self.responses = responses
         self.calls = []
 
     def get(self, url, params=None, headers=None, timeout=None):
         self.calls.append({"url": url, "params": params, "headers": headers})
-        return FakeResponse(self.payload)
+        payload, status = self.responses[url]
+        return FakeResponse(payload, status)
 
 
-PAYLOAD = [{
+NOMINATIM_PAYLOAD = [{
     "name": "Salerno",
     "display_name": "Salerno, Campania, Italia",
     "lat": "40.6803",
@@ -36,20 +44,38 @@ PAYLOAD = [{
     "category": "place",
 }]
 
+PHOTON_PAYLOAD = {
+    "type": "FeatureCollection",
+    "features": [{
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [14.7594, 40.6803]},
+        "properties": {
+            "name": "Salerno",
+            "county": "Salerno",
+            "state": "Campania",
+            "country": "Italia",
+            "osm_key": "place",
+            "osm_value": "city",
+        },
+    }],
+}
+
 
 class TestGeocoding(unittest.TestCase):
 
     def setUp(self):
         geocoding._cache.clear()
+        geocoding._nominatim_blocked_until[0] = 0.0
         # Nessuna attesa tra le chiamate durante i test.
         self._interval = geocoding.MIN_INTERVAL_SECONDS
         geocoding.MIN_INTERVAL_SECONDS = 0.0
 
     def tearDown(self):
         geocoding.MIN_INTERVAL_SECONDS = self._interval
+        geocoding._nominatim_blocked_until[0] = 0.0
 
-    def test_parses_results_and_sends_user_agent(self):
-        session = FakeSession(PAYLOAD)
+    def test_nominatim_results_and_user_agent(self):
+        session = FakeSession({geocoding.NOMINATIM_URL: (NOMINATIM_PAYLOAD, 200)})
         results = geocoding.search_places("Salerno", session=session)
 
         self.assertEqual(results[0]["name"], "Salerno")
@@ -57,7 +83,7 @@ class TestGeocoding(unittest.TestCase):
         self.assertIn("EarthPulse", session.calls[0]["headers"]["User-Agent"])
 
     def test_cache_avoids_second_request(self):
-        session = FakeSession(PAYLOAD)
+        session = FakeSession({geocoding.NOMINATIM_URL: (NOMINATIM_PAYLOAD, 200)})
         geocoding.search_places("Salerno", session=session)
         geocoding.search_places("  salerno ", session=session)
 
@@ -65,7 +91,33 @@ class TestGeocoding(unittest.TestCase):
 
     def test_short_query_rejected(self):
         with self.assertRaises(ValueError):
-            geocoding.search_places(" a ", session=FakeSession([]))
+            geocoding.search_places(" a ", session=FakeSession({}))
+
+    def test_fallback_to_photon_when_nominatim_blocks(self):
+        session = FakeSession({
+            geocoding.NOMINATIM_URL: ({}, 429),
+            geocoding.PHOTON_URL: (PHOTON_PAYLOAD, 200),
+        })
+        results = geocoding.search_places("Salerno", session=session)
+
+        self.assertEqual(results[0]["name"], "Salerno")
+        # GeoJSON [lon, lat] convertito correttamente
+        self.assertAlmostEqual(results[0]["latitude"], 40.6803)
+        self.assertAlmostEqual(results[0]["longitude"], 14.7594)
+        self.assertIn("Campania", results[0]["display_name"])
+
+        # Dopo il rifiuto, la ricerca successiva salta Nominatim.
+        geocoding.search_places("Napoli", session=session)
+        urls = [call["url"] for call in session.calls]
+        self.assertEqual(urls.count(geocoding.NOMINATIM_URL), 1)
+
+    def test_both_services_down(self):
+        session = FakeSession({
+            geocoding.NOMINATIM_URL: ({}, 500),
+            geocoding.PHOTON_URL: ({}, 503),
+        })
+        with self.assertRaises(geocoding.GeocodingUnavailable):
+            geocoding.search_places("Salerno", session=session)
 
 
 if __name__ == "__main__":

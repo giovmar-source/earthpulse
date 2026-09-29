@@ -275,10 +275,14 @@ object EarthPulseApi {
             }
         }.getOrNull()
 
+        // 503: il server ha già un messaggio completo per l'utente.
+        if (code == 503 && !detail.isNullOrBlank()) return detail
+
         val prefix = when (code) {
             400, 422 -> "Richiesta non valida"
             404 -> "Dati non trovati"
             502 -> "Servizio satellitare non raggiungibile"
+            503 -> "Servizio temporaneamente non disponibile"
             else -> "Errore del server ($code)"
         }
         return if (detail.isNullOrBlank()) prefix else "$prefix: $detail"

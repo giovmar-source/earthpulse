@@ -18,7 +18,7 @@ from src.analysis import (
     pick_recent_candidates,
     seasonal_windows,
 )
-from src.geocoding import search_places
+from src.geocoding import GeocodingUnavailable, search_places
 from src.imagery import (
     DIFF_COLOR_STOPS,
     Grid,
@@ -735,17 +735,16 @@ def geocode(
         results = search_places(q, limit=limit, language=language)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except requests.RequestException as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Servizio di ricerca non disponibile: {exc}",
-        ) from exc
+    except GeocodingUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return {
         "query": q,
         "count": len(results),
         "results": results,
-        "attribution": "Dati © OpenStreetMap contributors (ODbL) · Ricerca: Nominatim",
+        "attribution": (
+            "Dati © OpenStreetMap contributors (ODbL) · Ricerca: Nominatim / Photon"
+        ),
     }
 
 

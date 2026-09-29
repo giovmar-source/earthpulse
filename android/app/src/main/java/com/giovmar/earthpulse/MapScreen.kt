@@ -380,7 +380,7 @@ fun MapScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Ricerca: Nominatim · © OpenStreetMap",
+                            "Ricerca: Nominatim / Photon · © OpenStreetMap",
                             fontSize = 10.sp,
                             color = Muted,
                             modifier = Modifier.weight(1f)
