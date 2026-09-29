@@ -7,6 +7,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import org.osmdroid.config.Configuration
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -31,12 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
 
-private val Green = Color(0xFF176B50)
-private val DarkGreen = Color(0xFF103C32)
-private val Background = Color(0xFFF5F7F4)
-private val Muted = Color(0xFF718078)
-private val PaleGreen = Color(0xFFE3F3E9)
-private val Orange = Color(0xFFD98239)
+internal val Green = Color(0xFF176B50)
+internal val DarkGreen = Color(0xFF103C32)
+internal val Background = Color(0xFFF5F7F4)
+internal val Muted = Color(0xFF718078)
+internal val PaleGreen = Color(0xFFE3F3E9)
+internal val Orange = Color(0xFFD98239)
 
 data class NdviObservation(
     val date: String,
@@ -60,6 +65,16 @@ data class ForestData(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Configurazione osmdroid: user-agent identificabile (richiesto
+        // dalla policy dei tile OpenStreetMap) e cache nella cartella
+        // privata dell'app, senza permessi di archiviazione.
+        Configuration.getInstance().apply {
+            userAgentValue = packageName
+            osmdroidBasePath = File(cacheDir, "osmdroid")
+            osmdroidTileCache = File(cacheDir, "osmdroid/tiles")
+        }
+
         setContent {
             MaterialTheme {
                 EarthPulseApp()
@@ -111,13 +126,19 @@ private fun JSONObject.optNullableDouble(key: String): Double? {
     return optDouble(key).takeIf { it.isFinite() }
 }
 
+enum class Screen { MAP, EXAMPLES, FOREST_DEMO }
+
 @Composable
 fun EarthPulseApp() {
     val context = LocalContext.current
 
     var data by remember { mutableStateOf<ForestData?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var showDetail by remember { mutableStateOf(false) }
+
+    // rememberSaveable: lo stato sopravvive alla rotazione dello schermo.
+    var screen by rememberSaveable { mutableStateOf(Screen.MAP) }
+    var selectedLat by rememberSaveable { mutableStateOf<Double?>(null) }
+    var selectedLon by rememberSaveable { mutableStateOf<Double?>(null) }
 
     LaunchedEffect(Unit) {
         try {
@@ -127,52 +148,97 @@ fun EarthPulseApp() {
         }
     }
 
+    // Tasto/gesto "indietro" di Android.
+    BackHandler(enabled = screen != Screen.MAP) {
+        screen = if (screen == Screen.FOREST_DEMO) Screen.EXAMPLES else Screen.MAP
+    }
+
+    val lat = selectedLat
+    val lon = selectedLon
+    val selectedPlace =
+        if (lat != null && lon != null) SelectedPlace(lat, lon) else null
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Background
     ) {
-        when {
-            error != null -> Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text("Impossibile caricare i dati",
-                    fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text(error ?: "", color = Muted)
-                Text(
-                    "Controlla che entrambi i JSON siano in app/src/main/assets.",
-                    color = Muted
+        if (screen == Screen.MAP) {
+            MapScreen(
+                selectedPlace = selectedPlace,
+                onPlaceSelected = { place ->
+                    selectedLat = place.latitude
+                    selectedLon = place.longitude
+                },
+                onAnalyzeClick = {
+                    // Collegamento al backend: passo successivo.
+                    Toast.makeText(
+                        context,
+                        "Analisi NDVI: collegamento al backend nel prossimo passo.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                },
+                onExamplesClick = { screen = Screen.EXAMPLES }
+            )
+        } else {
+            val currentData = data
+
+            when {
+                error != null -> Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("Impossibile caricare i dati",
+                        fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(error ?: "", color = Muted)
+                    Text(
+                        "Controlla che entrambi i JSON siano in app/src/main/assets.",
+                        color = Muted
+                    )
+                }
+
+                currentData == null -> Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Green)
+                }
+
+                screen == Screen.FOREST_DEMO -> ForestDetailScreen(
+                    data = currentData,
+                    onBack = { screen = Screen.EXAMPLES }
+                )
+
+                else -> HomeScreen(
+                    data = currentData,
+                    onForestClick = { screen = Screen.FOREST_DEMO },
+                    onBackToMap = { screen = Screen.MAP }
                 )
             }
-
-            data == null -> Box(
-                Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Green)
-            }
-
-            showDetail -> ForestDetailScreen(
-                data = data!!,
-                onBack = { showDetail = false }
-            )
-
-            else -> HomeScreen(
-                data = data!!,
-                onForestClick = { showDetail = true }
-            )
         }
     }
 }
 
 @Composable
-fun HomeScreen(data: ForestData, onForestClick: () -> Unit) {
+fun HomeScreen(
+    data: ForestData,
+    onForestClick: () -> Unit,
+    onBackToMap: () -> Unit
+) {
     Column(
         Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 22.dp, vertical = 26.dp)
     ) {
+        Text(
+            "←  Mappa",
+            color = Green,
+            modifier = Modifier
+                .clickable { onBackToMap() }
+                .padding(vertical = 8.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(42.dp)
