@@ -109,13 +109,24 @@ def seasonal_windows(target: date, years_back: int, window_days: int) -> list:
 # Calcolo parallelo
 # ------------------------------------------------------------------
 
-def compute_many(items, compute_fn, max_workers: int = 6) -> list:
+# Gruppo FISSO di thread, riutilizzato da tutte le richieste.
+# Creare e distruggere thread a ogni richiesta può lasciare in uno stato
+# incoerente le connessioni HTTP che GDAL conserva per ogni thread
+# (osservato su Windows: "Resolving timed out").
+READ_WORKERS = 6
+_READ_POOL = ThreadPoolExecutor(
+    max_workers=READ_WORKERS, thread_name_prefix="earthpulse-read"
+)
+
+
+def compute_many(items, compute_fn, max_workers: int = READ_WORKERS) -> list:
     """
     Esegue compute_fn(item) in parallelo (lettura di file remoti:
     il tempo è dominato dalla rete, i thread sono efficaci).
 
     Restituisce [(item, risultato o None, errore o None)] nello stesso
-    ordine degli item.
+    ordine degli item. compute_fn non deve chiamare a sua volta
+    compute_many (userebbe lo stesso gruppo di thread).
     """
     if not items:
         return []
@@ -126,9 +137,10 @@ def compute_many(items, compute_fn, max_workers: int = 6) -> list:
         except Exception as exc:  # noqa: BLE001 - riportato all'utente
             return item, None, str(exc)
 
-    workers = max(1, min(max_workers, len(items)))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(run, items))
+    if max_workers <= 1 or len(items) == 1:
+        return [run(item) for item in items]
+
+    return list(_READ_POOL.map(run, items))
 
 
 # ------------------------------------------------------------------

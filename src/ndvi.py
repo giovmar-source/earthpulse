@@ -3,11 +3,18 @@ import os
 
 # Ottimizzazioni GDAL per leggere i file COG remoti di Sentinel-2:
 # evita di elencare le cartelle remote e unisce le richieste HTTP vicine.
+# (GDAL_HTTP_MULTIPLEX non viene attivato: con molte letture in parallelo
+# può bloccare le connessioni su alcune installazioni.)
 # setdefault: non sovrascrive eventuali impostazioni dell'utente.
 os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
 os.environ.setdefault("GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "YES")
-os.environ.setdefault("GDAL_HTTP_MULTIPLEX", "YES")
 os.environ.setdefault("VSI_CACHE", "TRUE")
+# Tempi massimi: una lettura remota bloccata diventa un errore
+# dopo pochi secondi invece di bloccare il server.
+os.environ.setdefault("GDAL_HTTP_CONNECTTIMEOUT", "10")
+os.environ.setdefault("GDAL_HTTP_TIMEOUT", "30")
+os.environ.setdefault("GDAL_HTTP_MAX_RETRY", "2")
+os.environ.setdefault("GDAL_HTTP_RETRY_DELAY", "1")
 
 import numpy as np
 import rasterio

@@ -20,6 +20,8 @@ from src.analysis import (
 )
 from src.geocoding import search_places
 from src.imagery import (
+    DIFF_COLOR_STOPS,
+    Grid,
     choose_clear_scene,
     color_stops_hex,
     render_png,
@@ -38,6 +40,18 @@ PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 STAC_URL = "https://earth-search.aws.element84.com/v1"
 SENTINEL_COLLECTION = "sentinel-2-l2a"
+
+# Tempo massimo per le richieste al catalogo STAC (connessione, lettura).
+STAC_TIMEOUT = (10, 30)
+
+
+def open_catalog():
+    """Apre il catalogo STAC con un tempo massimo di attesa."""
+    try:
+        return Client.open(STAC_URL, timeout=STAC_TIMEOUT)
+    except TypeError:
+        # Versioni di pystac-client senza il parametro timeout.
+        return Client.open(STAC_URL)
 
 
 # ============================================================
@@ -126,7 +140,7 @@ def search_sentinel_items(
     max_items: int,
 ):
     """Cerca scene Sentinel-2 L2A nel catalogo STAC."""
-    catalog = Client.open(STAC_URL)
+    catalog = open_catalog()
 
     search = catalog.search(
         collections=[SENTINEL_COLLECTION],
@@ -760,7 +774,7 @@ def get_item_by_id(item_id: str):
     if item_id in _ITEM_CACHE:
         return _ITEM_CACHE[item_id]
 
-    catalog = Client.open(STAC_URL)
+    catalog = open_catalog()
     items = list(
         catalog.search(
             collections=[SENTINEL_COLLECTION],
@@ -874,6 +888,19 @@ def get_imagery_scenes(
     after_info = describe(after)
     before_info = describe(before)
 
+    # Mappa della variazione: solo se ci sono entrambe le date.
+    if after_info and before_info:
+        diff_params = urlencode({
+            "item_id": after_info["item_id"],
+            "compare_id": before_info["item_id"],
+            "lat": lat,
+            "lon": lon,
+            "side_km": side_km,
+        })
+        after_info["images"]["diff"] = (
+            f"/api/v1/imagery/image?{diff_params}&kind=diff"
+        )
+
     messages = []
     if after_info is None:
         messages.append(
@@ -911,6 +938,7 @@ def get_imagery_scenes(
         },
         "legend": {
             "ndvi_color_stops": color_stops_hex(),
+            "diff_color_stops": color_stops_hex(DIFF_COLOR_STOPS),
             "invalid_color": "#b4b4b4",
             "invalid_meaning": "Nuvole, ombre, neve o dati mancanti (SCL)",
         },
@@ -929,31 +957,52 @@ def get_imagery_image(
     lat: float = Query(..., ge=-80, le=80),
     lon: float = Query(..., ge=-180, le=180),
     side_km: float = Query(3.0, gt=0, le=10),
-    kind: str = Query("rgb", pattern=r"^(rgb|ndvi)$"),
+    kind: str = Query("rgb", pattern=r"^(rgb|ndvi|diff)$"),
+    compare_id: str | None = Query(None, min_length=5, max_length=100,
+                                   pattern=r"^[A-Za-z0-9_\-]+$"),
 ):
-    """Immagine PNG dell'area: colori reali ("rgb") o NDVI ("ndvi")."""
-    key = (item_id, round(lat, 5), round(lon, 5), round(side_km, 3), kind)
+    """
+    Immagine PNG dell'area sulla griglia comune a 10 m:
+    colori reali ("rgb"), NDVI ("ndvi") oppure variazione NDVI ("diff",
+    item_id = dopo, compare_id = prima).
+    """
+    if kind == "diff" and compare_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="kind=diff richiede compare_id (scena precedente).",
+        )
+
+    key = (item_id, compare_id if kind == "diff" else None,
+           round(lat, 5), round(lon, 5), round(side_km, 3), kind)
     png = _PNG_CACHE.get(key)
 
     if png is None:
-        try:
-            item = get_item_by_id(item_id)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Errore durante la ricerca STAC: {str(exc)}",
-            ) from exc
+        def load(identifier):
+            try:
+                found = get_item_by_id(identifier)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Errore durante la ricerca STAC: {str(exc)}",
+                ) from exc
+            if found is None:
+                raise HTTPException(
+                    status_code=404, detail=f"Scena non trovata: {identifier}"
+                )
+            if not all(a in found.assets for a in IMAGERY_ASSETS):
+                raise HTTPException(
+                    status_code=404,
+                    detail="La scena non contiene le bande necessarie.",
+                )
+            return found
 
-        if item is None:
-            raise HTTPException(status_code=404, detail="Scena non trovata.")
-        if not all(a in item.assets for a in IMAGERY_ASSETS):
-            raise HTTPException(
-                status_code=404,
-                detail="La scena non contiene le bande necessarie.",
+        item = load(item_id)
+        compare_item = load(compare_id) if kind == "diff" else None
+
+        try:
+            png = render_png(
+                item, Grid(lat, lon, side_km), kind, compare_item=compare_item
             )
-
-        try:
-            png = render_png(item, make_bbox(lat, lon, side_km), kind)
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
