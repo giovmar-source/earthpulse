@@ -996,6 +996,136 @@ def get_imagery_scenes(
     }
 
 
+# ============================================================
+# ENDPOINT: LINEA DEL TEMPO (una scena nitida per stagione)
+# ============================================================
+
+SEASONS = {
+    12: "Inverno", 1: "Inverno", 2: "Inverno",
+    3: "Primavera", 4: "Primavera", 5: "Primavera",
+    6: "Estate", 7: "Estate", 8: "Estate",
+    9: "Autunno", 10: "Autunno", 11: "Autunno",
+}
+SEASON_ORDER = {"Inverno": 0, "Primavera": 1, "Estate": 2, "Autunno": 3}
+
+_TIMELINE_CACHE: dict = {}
+MAX_TIMELINE_CACHE = 50
+
+
+def season_key(day: date) -> tuple:
+    """
+    (anno, stagione) di una data. Dicembre appartiene all'inverno
+    dell'anno successivo: "Inverno 2024" = dicembre 2023 - febbraio 2024.
+    """
+    season = SEASONS[day.month]
+    year = day.year + 1 if day.month == 12 else day.year
+    return year, season
+
+
+def pair_templates(lat: float, lon: float, side_km: float) -> dict:
+    """
+    Indirizzi delle immagini che dipendono da DUE date scelte dall'utente.
+    L'app sostituisce {before} e {after} con gli item_id scelti.
+    """
+    common = f"lat={lat}&lon={lon}&side_km={side_km}"
+    return {
+        "diff": f"/api/v1/imagery/image?item_id={{after}}&compare_id={{before}}&{common}&kind=diff",
+        "dnbr": f"/api/v1/imagery/image?item_id={{after}}&compare_id={{before}}&{common}&kind=dnbr",
+        "rgb_before": f"/api/v1/imagery/image?item_id={{before}}&compare_id={{after}}&{common}&kind=rgb",
+    }
+
+
+@app.get("/api/v1/imagery/timeline")
+def get_imagery_timeline(
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(3.0, gt=0, le=MAX_STORY_SIDE_KM),
+    years: int = Query(5, ge=1, le=8),
+    min_valid: float = Query(90.0, ge=50, le=100),
+):
+    """
+    Una scena nitida per ogni stagione degli ultimi `years` anni:
+    l'utente sceglie liberamente le due date da confrontare.
+    """
+    key = (round(lat, 4), round(lon, 4), round(side_km, 2), years, min_valid)
+    if key in _TIMELINE_CACHE:
+        return _TIMELINE_CACHE[key]
+
+    started = time.monotonic()
+    today = datetime.now(timezone.utc).date()
+    first_day = date(today.year - years, 12, 1)   # dall'inverno di `years` anni fa
+    bbox = make_bbox(lat, lon, side_km)
+
+    # Ricerca anno per anno (risultati del catalogo più contenuti).
+    items = []
+    try:
+        start = first_day
+        while start <= today:
+            end = min(date(start.year + 1, start.month, 1) - timedelta(days=1), today)
+            items.extend(search_sentinel_items(
+                bbox=bbox, start_date=start, end_date=end,
+                max_cloud=30.0, max_items=200,
+            ))
+            start = end + timedelta(days=1)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Errore durante la ricerca delle immagini: {str(exc)}",
+        ) from exc
+
+    items = [
+        i for i in items
+        if i.datetime and all(a in i.assets for a in IMAGERY_ASSETS)
+    ]
+
+    # Candidati: per ogni stagione le 3 scene con meno nuvole dichiarate.
+    groups: dict = {}
+    for day, item in best_item_per_day(items).items():
+        groups.setdefault(season_key(day), []).append(item)
+    candidates = {
+        group: sorted(group_items, key=lambda it: it.properties.get("eo:cloud_cover", 100))[:3]
+        for group, group_items in groups.items()
+    }
+
+    flat = [item for group_items in candidates.values() for item in group_items]
+    measured = {
+        item.id: pct
+        for item, pct, _err in compute_many(
+            flat, lambda it: scl_valid_percentage(it, bbox)
+        )
+    }
+
+    scenes = []
+    for (year, season), group_items in candidates.items():
+        rows = [(it, measured.get(it.id), None) for it in group_items]
+        chosen = choose_clear_scene(rows, min_valid=min_valid, fallback_min_valid=80.0)
+        if chosen is None:
+            continue
+        info = describe_scene(chosen, lat, lon, side_km)
+        info["label"] = f"{season} {year}"
+        info["season"] = season
+        info["season_year"] = year
+        scenes.append(info)
+
+    scenes.sort(key=lambda s: s["date"])
+
+    result = {
+        "place": {"latitude": lat, "longitude": lon, "side_km": side_km, "bbox": bbox},
+        "years": years,
+        "min_valid_percentage": min_valid,
+        "scenes": scenes,
+        "pair_templates": pair_templates(lat, lon, side_km),
+        "layers": layer_list(DEFAULT_LAYERS),
+        "attribution": imagery_attribution(*scenes),
+        "processing_seconds": round(time.monotonic() - started, 1),
+    }
+
+    if len(_TIMELINE_CACHE) >= MAX_TIMELINE_CACHE:
+        _TIMELINE_CACHE.clear()
+    _TIMELINE_CACHE[key] = result
+    return result
+
+
 @app.get("/api/v1/imagery/image")
 def get_imagery_image(
     item_id: str = Query(..., min_length=5, max_length=100,

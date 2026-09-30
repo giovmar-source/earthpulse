@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 // ------------------------------------------------------------------
 // STATO: scene e immagini scaricate
@@ -68,6 +70,43 @@ class ImageryState {
     // Immagini già scaricate (per url) ed eventuali errori.
     val bitmaps = mutableStateMapOf<String, ImageBitmap>()
     val failures = mutableStateMapOf<String, String>()
+
+    // Linea del tempo e date scelte dall'utente.
+    var timeline by mutableStateOf<ImageryTimeline?>(null)
+    var timelineLoading by mutableStateOf(false)
+    var timelineError by mutableStateOf<String?>(null)
+    var customBeforeId by mutableStateOf<String?>(null)
+    var customAfterId by mutableStateOf<String?>(null)
+}
+
+/**
+ * Scene da mostrare: quelle scelte sulla linea del tempo se l'utente
+ * ha selezionato due date valide, altrimenti quelle proposte dal backend.
+ */
+fun ImageryState.effectiveScenes(base: ImageryScenes): ImageryScenes {
+    val line = timeline ?: return base
+    val b = line.scenes.firstOrNull { it.scene.itemId == customBeforeId }?.scene ?: return base
+    val a = line.scenes.firstOrNull { it.scene.itemId == customAfterId }?.scene ?: return base
+    if (b.date >= a.date) return base
+
+    fun fill(template: String) =
+        template.replace("{before}", b.itemId).replace("{after}", a.itemId)
+
+    val afterImages = a.images.toMutableMap()
+    line.pairTemplates["diff"]?.let { afterImages["diff"] = fill(it) }
+    if (base.layers.any { it.key == "dnbr" }) {
+        line.pairTemplates["dnbr"]?.let { afterImages["dnbr"] = fill(it) }
+    }
+    val beforeImages = b.images.toMutableMap()
+    line.pairTemplates["rgb_before"]?.let { beforeImages["rgb"] = fill(it) }
+
+    val years = listOf(b.date, a.date).map { it.take(4) }.distinct().joinToString(", ")
+    return base.copy(
+        before = b.copy(images = beforeImages),
+        after = a.copy(images = afterImages),
+        messages = emptyList(),
+        attribution = "Contiene dati Copernicus Sentinel modificati ($years)"
+    )
 }
 
 /**
@@ -197,10 +236,13 @@ fun ImagerySection(
 @Composable
 internal fun ImageryContent(
     state: ImageryState,
-    scenes: ImageryScenes,
-    after: SceneImages,
+    baseScenes: ImageryScenes,
+    baseAfter: SceneImages,
     showAnalysisArea: Boolean = true
 ) {
+    // Date scelte sulla linea del tempo (se presenti).
+    val scenes = state.effectiveScenes(baseScenes)
+    val after = scenes.after ?: baseAfter
     val before = scenes.before
 
     // Livelli descritti dal backend, limitati a quelli con un'immagine.
@@ -234,6 +276,9 @@ internal fun ImageryContent(
             }
         }
     }
+    Spacer(Modifier.height(10.dp))
+
+    DatePicker(state, baseScenes)
     Spacer(Modifier.height(10.dp))
 
     // Riquadro dell'area analizzata (1 km): solo per l'analisi di un luogo.
@@ -319,6 +364,185 @@ private fun fallbackLayers(scenes: ImageryScenes): List<ImageryLayerInfo> = list
         "Differenza di NDVI tra le due date, solo dove entrambe sono valide.",
         null, scenes.diffStops, listOf("NDVI in calo", "Stabile", "NDVI in aumento"))
 )
+
+// ------------------------------------------------------------------
+// SCELTA DELLE DATE (linea del tempo)
+// ------------------------------------------------------------------
+
+@Composable
+private fun DatePicker(state: ImageryState, baseScenes: ImageryScenes) {
+    val scope = rememberCoroutineScope()
+    var open by remember { mutableStateOf(false) }
+    val shown = state.effectiveScenes(baseScenes)
+    val canLoad = !baseScenes.latitude.isNaN() && !baseScenes.longitude.isNaN()
+
+    fun loadTimeline() {
+        if (state.timeline != null || state.timelineLoading || !canLoad) return
+        state.timelineLoading = true
+        state.timelineError = null
+        scope.launch {
+            try {
+                state.timeline = EarthPulseApi.fetchTimeline(
+                    baseScenes.latitude, baseScenes.longitude, baseScenes.sideKm
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                state.timelineError = e.message ?: "Linea del tempo non disponibile."
+            } finally {
+                state.timelineLoading = false
+            }
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            listOfNotNull(shown.before?.date, shown.after?.date)
+                .joinToString("  →  ") { formatDate(it) },
+            fontSize = 13.sp, color = DarkGreen, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
+        )
+        if (canLoad) {
+            Text(
+                if (open) "Chiudi" else "Scegli le date",
+                color = Green, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clickable {
+                        open = !open
+                        if (open) loadTimeline()
+                    }
+                    .padding(vertical = 6.dp, horizontal = 4.dp)
+            )
+        }
+    }
+
+    if (!open) return
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier.padding(top = 6.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            val line = state.timeline
+            when {
+                state.timelineLoading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp), color = Green, strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Cerchiamo una scena nitida per ogni stagione degli ultimi 5 anni… " +
+                                "(fino a un minuto)",
+                        fontSize = 12.sp, color = Muted
+                    )
+                }
+
+                state.timelineError != null -> Text(
+                    state.timelineError ?: "", fontSize = 12.sp, color = Muted
+                )
+
+                line == null || line.scenes.size < 2 -> Text(
+                    "Non ci sono abbastanza scene nitide per scegliere le date.",
+                    fontSize = 12.sp, color = Muted
+                )
+
+                else -> {
+                    val beforeDate = line.scenes
+                        .firstOrNull { it.scene.itemId == state.customBeforeId }?.scene?.date
+
+                    Text("Prima", fontSize = 12.sp, color = Muted, fontWeight = FontWeight.SemiBold)
+                    DateChips(
+                        scenes = line.scenes.dropLast(1),
+                        selectedId = state.customBeforeId,
+                        enabled = { true },
+                        onSelect = { id ->
+                            state.customBeforeId = id
+                            // Se il "dopo" non è più successivo, lo si azzera.
+                            val chosen = line.scenes.first { it.scene.itemId == id }.scene.date
+                            val afterScene = line.scenes
+                                .firstOrNull { it.scene.itemId == state.customAfterId }?.scene
+                            if (afterScene != null && afterScene.date <= chosen) {
+                                state.customAfterId = null
+                            }
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("Dopo", fontSize = 12.sp, color = Muted, fontWeight = FontWeight.SemiBold)
+                    DateChips(
+                        scenes = line.scenes.drop(1),
+                        selectedId = state.customAfterId,
+                        enabled = { scene -> beforeDate == null || scene.date > beforeDate },
+                        onSelect = { id -> state.customAfterId = id }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (state.customBeforeId != null && state.customAfterId != null)
+                                "Confronto personalizzato attivo."
+                            else "Scegli una data \"prima\" e una \"dopo\".",
+                            fontSize = 12.sp, color = Muted,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (state.customBeforeId != null || state.customAfterId != null) {
+                            Text(
+                                "Ripristina",
+                                color = Green, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clickable {
+                                        state.customBeforeId = null
+                                        state.customAfterId = null
+                                    }
+                                    .padding(6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateChips(
+    scenes: List<TimelineScene>,
+    selectedId: String?,
+    enabled: (SceneImages) -> Boolean,
+    onSelect: (String) -> Unit
+) {
+    Row(
+        Modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        scenes.forEach { entry ->
+            val selected = entry.scene.itemId == selectedId
+            val active = enabled(entry.scene)
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = when {
+                    selected -> Green
+                    active -> Background
+                    else -> Color(0xFFEDEDED)
+                },
+                modifier = Modifier.clickable(enabled = active) { onSelect(entry.scene.itemId) }
+            ) {
+                Column(Modifier.padding(horizontal = 10.dp, vertical = 5.dp)) {
+                    Text(
+                        entry.label,
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        color = when {
+                            selected -> Color.White
+                            active -> DarkGreen
+                            else -> Muted
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
 
 // ------------------------------------------------------------------
 // COMPONENTI GRAFICI

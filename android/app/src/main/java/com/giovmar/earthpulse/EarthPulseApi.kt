@@ -158,7 +158,19 @@ data class ImageryScenes(
     val attribution: String,
     val ndviStops: List<ColorStop>,
     val diffStops: List<ColorStop>,
-    val layers: List<ImageryLayerInfo> = emptyList()
+    val layers: List<ImageryLayerInfo> = emptyList(),
+    // Centro dell'area: serve per chiedere la linea del tempo.
+    val latitude: Double = Double.NaN,
+    val longitude: Double = Double.NaN
+)
+
+// Linea del tempo (/api/v1/imagery/timeline): una scena nitida per stagione.
+data class TimelineScene(val label: String, val scene: SceneImages)
+
+data class ImageryTimeline(
+    val scenes: List<TimelineScene>,
+    // Indirizzi che dipendono da due date: {before} e {after} da sostituire.
+    val pairTemplates: Map<String, String>
 )
 
 // Storie (/api/v1/stories)
@@ -244,6 +256,25 @@ object EarthPulseApi {
             BACKEND_BASE_URL, latitude, longitude, sideKm
         )
         return parseImageryScenes(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
+    }
+
+    suspend fun fetchTimeline(latitude: Double, longitude: Double, sideKm: Double): ImageryTimeline {
+        val url = String.format(
+            Locale.US,
+            "%s/api/v1/imagery/timeline?lat=%.6f&lon=%.6f&side_km=%.2f",
+            BACKEND_BASE_URL, latitude, longitude, sideKm
+        )
+        val root = JSONObject(getJson(url, STORY_READ_TIMEOUT_MS))
+        val array = root.optJSONArray("scenes") ?: JSONArray()
+        val templates = root.optJSONObject("pair_templates") ?: JSONObject()
+        return ImageryTimeline(
+            scenes = (0 until array.length()).mapNotNull { i ->
+                val o = array.optJSONObject(i) ?: return@mapNotNull null
+                parseScene(o)?.let { TimelineScene(o.optString("label"), it) }
+            },
+            pairTemplates = templates.keys().asSequence()
+                .associateWith { templates.optString(it) }
+        )
     }
 
     suspend fun fetchStories(): List<StorySummary> {
@@ -482,6 +513,8 @@ private fun parseImageryScenes(root: JSONObject): ImageryScenes {
     val messages = root.optJSONArray("messages") ?: JSONArray()
     return ImageryScenes(
         sideKm = place.optDouble("side_km", IMAGERY_SIDE_KM),
+        latitude = place.optDouble("latitude", Double.NaN),
+        longitude = place.optDouble("longitude", Double.NaN),
         after = parseScene(root.optJSONObject("after")),
         before = parseScene(root.optJSONObject("before")),
         messages = (0 until messages.length()).map { messages.getString(it) },
@@ -522,6 +555,8 @@ private fun parseStoryDetail(root: JSONObject): StoryDetail {
         },
         scenes = ImageryScenes(
             sideKm = area.optDouble("side_km", IMAGERY_SIDE_KM),
+            latitude = area.optDouble("latitude", Double.NaN),
+            longitude = area.optDouble("longitude", Double.NaN),
             after = parseScene(root.optJSONObject("after")),
             before = parseScene(root.optJSONObject("before")),
             messages = (0 until messages.length()).map { messages.getString(it) },
