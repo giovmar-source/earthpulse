@@ -143,6 +143,22 @@ fun MethodologyScreen(onBack: () -> Unit) {
             )
         }
 
+        MethodSection("Altri indici") {
+            Paragraph(
+                "Oltre all'NDVI mostriamo altri indici calcolati dalle stesse " +
+                        "immagini Sentinel-2, tutti come differenze normalizzate tra due bande:"
+            )
+            Formula("NDWI = (B03 − B08) / (B03 + B08)")
+            Bullet("Acqua (NDWI): evidenzia laghi, fiumi e allagamenti; in città può confondere tetti e ombre con l'acqua.")
+            Formula("NDMI = (B08 − B11) / (B08 + B11)")
+            Bullet("Umidità (NDMI): contenuto d'acqua della vegetazione, utile per lo stress idrico e la siccità.")
+            Formula("NDBI = (B11 − B08) / (B11 + B08)")
+            Bullet("Costruito (NDBI): evidenzia edifici e superfici impermeabili, ma anche suolo nudo e rocce.")
+            Formula("dNBR = NBR(prima) − NBR(dopo)")
+            Bullet("Gravità incendio (dNBR, con NBR = (B08 − B12) / (B08 + B12)): classi USGS 0,10 · 0,27 · 0,44 · 0,66. Misura l'effetto sulla vegetazione, non l'intensità delle fiamme.")
+            Bullet("B11 e B12 hanno pixel di 20 m: sono ricampionate in modo bilineare sulla griglia di 10 m, quindi i dettagli più fini sono meno nitidi.")
+        }
+
         MethodSection("Immagini dall'alto") {
             Paragraph(
                 "Per ogni luogo mostriamo un'area di 3 × 3 km da due scene quasi " +

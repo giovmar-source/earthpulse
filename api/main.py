@@ -20,6 +20,14 @@ from src.analysis import (
 )
 from src.geocoding import GeocodingUnavailable, search_places
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
+from src.indices import (
+    DEFAULT_LAYERS,
+    INDICES,
+    REQUIRED_ASSETS,
+    layer_list,
+    render_dnbr_png,
+    render_index_png,
+)
 from src.imagery import (
     DIFF_COLOR_STOPS,
     Grid,
@@ -753,7 +761,11 @@ def geocode(
 # ENDPOINT 9-10: IMMAGINI "DALL'ALTO" (colori reali e NDVI)
 # ============================================================
 
-IMAGERY_ASSETS = ("visual", "red", "nir", "scl")
+# Bande necessarie per tutti i livelli (colori reali, NDVI, NDWI, NDMI, NDBI, NBR).
+IMAGERY_ASSETS = REQUIRED_ASSETS
+
+# Indici mostrati come immagini per ogni scena (oltre a colori reali e NDVI).
+EXTRA_INDEX_LAYERS = ("ndwi", "ndmi", "ndbi")
 
 # Cache in memoria: evita di rileggere il catalogo e di ricalcolare
 # le stesse immagini. Si svuota quando il server si riavvia.
@@ -841,12 +853,20 @@ def describe_scene(chosen, lat: float, lon: float, side_km: float):
         "images": {
             "rgb": f"/api/v1/imagery/image?{params}&kind=rgb",
             "ndvi": f"/api/v1/imagery/image?{params}&kind=ndvi",
+            **{
+                key: f"/api/v1/imagery/image?{params}&kind=index&index={key}"
+                for key in EXTRA_INDEX_LAYERS
+            },
         },
     }
 
 
-def add_diff_url(after_info, before_info, lat: float, lon: float, side_km: float):
-    """Aggiunge la mappa della variazione se ci sono entrambe le date."""
+def add_diff_url(after_info, before_info, lat: float, lon: float, side_km: float,
+                 include_dnbr: bool = False):
+    """
+    Aggiunge la mappa della variazione (e, per gli incendi, il dNBR)
+    se ci sono entrambe le date.
+    """
     if not (after_info and before_info):
         return
     diff_params = urlencode({
@@ -857,6 +877,8 @@ def add_diff_url(after_info, before_info, lat: float, lon: float, side_km: float
         "side_km": side_km,
     })
     after_info["images"]["diff"] = f"/api/v1/imagery/image?{diff_params}&kind=diff"
+    if include_dnbr:
+        after_info["images"]["dnbr"] = f"/api/v1/imagery/image?{diff_params}&kind=dnbr"
 
     # Colori reali della data precedente armonizzati alla più recente
     # (solo visualizzazione: NDVI e variazione usano i dati originali).
@@ -968,6 +990,7 @@ def get_imagery_scenes(
             "min_valid_percentage": 95.0,
         },
         "legend": imagery_legend(),
+        "layers": layer_list(DEFAULT_LAYERS),
         "attribution": imagery_attribution(after_info, before_info),
         "processing_seconds": round(time.monotonic() - started, 1),
     }
@@ -980,23 +1003,30 @@ def get_imagery_image(
     lat: float = Query(..., ge=-80, le=80),
     lon: float = Query(..., ge=-180, le=180),
     side_km: float = Query(3.0, gt=0, le=MAX_STORY_SIDE_KM),
-    kind: str = Query("rgb", pattern=r"^(rgb|ndvi|diff)$"),
+    kind: str = Query("rgb", pattern=r"^(rgb|ndvi|diff|index|dnbr)$"),
+    index: str | None = Query(None, pattern=r"^(ndvi|ndwi|ndmi|ndbi|nbr)$"),
     compare_id: str | None = Query(None, min_length=5, max_length=100,
                                    pattern=r"^[A-Za-z0-9_\-]+$"),
 ):
     """
-    Immagine PNG dell'area sulla griglia comune a 10 m:
-    colori reali ("rgb"), NDVI ("ndvi") oppure variazione NDVI ("diff",
-    item_id = dopo, compare_id = prima).
+    Immagine PNG dell'area sulla griglia comune:
+    - "rgb": colori reali (con compare_id: armonizzati a quella data);
+    - "ndvi": NDVI; "index": indice scelto con index=ndwi|ndmi|ndbi|nbr;
+    - "diff": variazione NDVI; "dnbr": gravità dell'incendio
+      (item_id = dopo, compare_id = prima).
     """
-    if kind == "diff" and compare_id is None:
+    if kind in ("diff", "dnbr") and compare_id is None:
         raise HTTPException(
             status_code=400,
-            detail="kind=diff richiede compare_id (scena precedente).",
+            detail=f"kind={kind} richiede compare_id (scena precedente).",
         )
+    if kind == "index" and (index is None or index not in INDICES):
+        raise HTTPException(status_code=400, detail="kind=index richiede index.")
 
-    key = (item_id, compare_id if kind in ("diff", "rgb") else None,
-           round(lat, 5), round(lon, 5), round(side_km, 3), kind)
+    uses_compare = kind in ("diff", "rgb", "dnbr")
+    key = (item_id, compare_id if uses_compare else None,
+           round(lat, 5), round(lon, 5), round(side_km, 3), kind,
+           index if kind == "index" else None)
     png = _PNG_CACHE.get(key)
 
     if png is None:
@@ -1020,14 +1050,16 @@ def get_imagery_image(
             return found
 
         item = load(item_id)
-        compare_item = (
-            load(compare_id) if kind in ("diff", "rgb") and compare_id else None
-        )
+        compare_item = load(compare_id) if uses_compare and compare_id else None
+        grid = Grid(lat, lon, side_km)
 
         try:
-            png = render_png(
-                item, Grid(lat, lon, side_km), kind, compare_item=compare_item
-            )
+            if kind == "index":
+                png = render_index_png(item, grid, index)
+            elif kind == "dnbr":
+                png = render_dnbr_png(item, compare_item, grid)
+            else:
+                png = render_png(item, grid, kind, compare_item=compare_item)
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
@@ -1124,7 +1156,9 @@ def get_story(story_id: str):
 
     before_info = describe_scene(before, lat, lon, side_km)
     after_info = describe_scene(after, lat, lon, side_km)
-    add_diff_url(after_info, before_info, lat, lon, side_km)
+    extra_layers = [key for key in story.get("extra_layers", []) if key in ("dnbr",)]
+    add_diff_url(after_info, before_info, lat, lon, side_km,
+                 include_dnbr="dnbr" in extra_layers)
 
     messages = []
     if before_info is None:
@@ -1149,6 +1183,7 @@ def get_story(story_id: str):
         "after": after_info,
         "messages": messages,
         "legend": imagery_legend(),
+        "layers": layer_list(DEFAULT_LAYERS + extra_layers),
         "attribution": imagery_attribution(before_info, after_info),
         "processing_seconds": round(time.monotonic() - started, 1),
     }

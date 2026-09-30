@@ -110,9 +110,11 @@ class Grid:
         self.transform = from_origin(x - half, y + half, resolution, resolution)
 
 
-def read_on_grid(href: str, grid: Grid, indexes=1) -> np.ndarray:
+def read_on_grid(href: str, grid: Grid, indexes=1,
+                 resampling: Resampling = Resampling.nearest) -> np.ndarray:
     """
-    Legge un raster ricampionandolo (nearest) sulla griglia comune.
+    Legge un raster ricampionandolo sulla griglia comune
+    (nearest per classi e bande a 10 m, bilinear per le bande a 20 m).
     WarpedVRT legge solo i blocchi necessari del file remoto.
     Le zone fuori dalla scena valgono 0 (= nessun dato).
     """
@@ -123,7 +125,7 @@ def read_on_grid(href: str, grid: Grid, indexes=1) -> np.ndarray:
             transform=grid.transform,
             width=grid.width,
             height=grid.height,
-            resampling=Resampling.nearest,
+            resampling=resampling,
         ) as vrt:
             return vrt.read(indexes)
 
@@ -138,8 +140,14 @@ def pixel_window(src, bbox_wgs84) -> Window:
         "EPSG:4326", src.crs, *bbox_wgs84, densify_pts=21
     )
     inverse = ~src.transform
-    c0, r0 = inverse * (left, top)
-    c1, r1 = inverse * (right, bottom)
+    # Coordinate -> (colonna, riga) con i coefficienti della trasformazione
+    # inversa: compatibile con tutte le versioni della libreria affine.
+    def to_pixel(x, y):
+        return inverse.a * x + inverse.b * y + inverse.c, \
+            inverse.d * x + inverse.e * y + inverse.f
+
+    c0, r0 = to_pixel(left, top)
+    c1, r1 = to_pixel(right, bottom)
 
     col_off = int(math.floor(min(c0, c1)))
     row_off = int(math.floor(min(r0, r1)))

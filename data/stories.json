@@ -14,7 +14,7 @@
       "event_date": "2021-07-24",
       "summary": "Il 24 luglio 2021 un incendio partito lungo la strada tra Bonarcado e Santu Lussurgiu, spinto dal vento, ha percorso circa 13.000 ettari del massiccio del Montiferru. È stato dichiarato spento il 14 agosto.",
       "what_to_look": "Nella mappa della variazione la cicatrice dell'incendio appare come una vasta area rossa: boschi, macchia e pascoli hanno perso la loro risposta nell'infrarosso. Nei colori reali il verde lascia il posto al bruno scuro del bruciato.",
-      "caveat": "L'NDVI misura la perdita di vegetazione attiva, non la gravità dell'incendio: per quella si usano indici dedicati come il dNBR, che richiede la banda SWIR.",
+      "caveat": "La mappa \"Gravità incendio\" usa il dNBR con le classi USGS: misura l'effetto dell'incendio sulla vegetazione confrontando le bande infrarosse B08 e B12 prima e dopo, non l'intensità delle fiamme. Le soglie sono indicative e andrebbero calibrate con rilievi sul campo.",
       "facts": [
         "Inizio: 24 luglio 2021",
         "Superficie percorsa: circa 13.000 ettari",
@@ -42,7 +42,10 @@
       },
       "min_valid_percentage": 95,
       "before_item_id": "S2B_32TMK_20210710_1_L2A",
-      "after_item_id": "S2A_32TMK_20210821_1_L2A"
+      "after_item_id": "S2A_32TMK_20210821_1_L2A",
+      "extra_layers": [
+        "dnbr"
+      ]
     },
     {
       "id": "la-palma-2021",

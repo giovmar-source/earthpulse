@@ -3,6 +3,8 @@ package com.giovmar.earthpulse
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -47,6 +49,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,11 +59,6 @@ import kotlinx.coroutines.CancellationException
 // STATO: scene e immagini scaricate
 // ------------------------------------------------------------------
 
-enum class ImageryLayer(val label: String) {
-    RGB("Colori reali"),
-    NDVI("NDVI"),
-    CHANGE("Variazione")
-}
 
 class ImageryState {
     var scenes by mutableStateOf<ImageryScenes?>(null)
@@ -204,23 +202,27 @@ internal fun ImageryContent(
     showAnalysisArea: Boolean = true
 ) {
     val before = scenes.before
-    var selectedLayer by rememberSaveable { mutableStateOf(ImageryLayer.RGB) }
 
-    val available = buildList {
-        add(ImageryLayer.RGB)
-        add(ImageryLayer.NDVI)
-        if (after.diffUrl != null) add(ImageryLayer.CHANGE)
-    }
-    val layer = if (selectedLayer in available) selectedLayer else ImageryLayer.RGB
+    // Livelli descritti dal backend, limitati a quelli con un'immagine.
+    val layers = scenes.layers
+        .ifEmpty { fallbackLayers(scenes) }
+        .filter { after.images.containsKey(it.key) }
+    if (layers.isEmpty()) return
 
-    // Selettore del livello
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        available.forEach { option ->
-            val selected = option == layer
+    var selectedKey by rememberSaveable { mutableStateOf(layers.first().key) }
+    val layer = layers.firstOrNull { it.key == selectedKey } ?: layers.first()
+
+    // Selettore del livello (scorrevole: i livelli possono essere molti)
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        layers.forEach { option ->
+            val selected = option.key == layer.key
             Surface(
                 shape = RoundedCornerShape(50),
                 color = if (selected) DarkGreen else Color.White,
-                modifier = Modifier.clickable { selectedLayer = option }
+                modifier = Modifier.clickable { selectedKey = option.key }
             ) {
                 Text(
                     option.label,
@@ -240,81 +242,58 @@ internal fun ImageryContent(
     val beforeLabel = before?.let { "Prima · ${formatDate(it.date)}" }
     val afterLabel = "Dopo · ${formatDate(after.date)}"
 
-    when (layer) {
-        ImageryLayer.RGB, ImageryLayer.NDVI -> {
-            val afterUrl = if (layer == ImageryLayer.RGB) after.rgbUrl else after.ndviUrl
-            val beforeUrl = before?.let { if (layer == ImageryLayer.RGB) it.rgbUrl else it.ndviUrl }
-            val afterImage = rememberImage(state, afterUrl)
-            val beforeImage = rememberImage(state, beforeUrl)
+    val afterUrl = after.images[layer.key]
+    val beforeUrl = before?.images?.get(layer.key)
 
-            if (before != null && beforeLabel != null) {
-                BeforeAfterSlider(
-                    before = beforeImage,
-                    after = afterImage,
-                    beforeLabel = beforeLabel,
-                    afterLabel = afterLabel,
-                    areaFraction = areaFraction,
-                    failure = state.failures[afterUrl] ?: beforeUrl?.let { state.failures[it] }
-                )
-                Text(
-                    "Trascina la linea bianca per confrontare le due date.",
-                    fontSize = 12.sp, color = Muted,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-            } else {
-                SingleImage(afterImage, afterLabel, areaFraction, state.failures[afterUrl])
-            }
+    if (layer.mode == "compare" && beforeUrl != null && beforeLabel != null) {
+        val afterImage = rememberImage(state, afterUrl)
+        val beforeImage = rememberImage(state, beforeUrl)
+        BeforeAfterSlider(
+            before = beforeImage,
+            after = afterImage,
+            beforeLabel = beforeLabel,
+            afterLabel = afterLabel,
+            areaFraction = areaFraction,
+            failure = afterUrl?.let { state.failures[it] } ?: state.failures[beforeUrl]
+        )
+        Text(
+            "Trascina la linea bianca per confrontare le due date.",
+            fontSize = 12.sp, color = Muted,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    } else {
+        val label = if (layer.mode == "single" && before != null)
+            "${formatDate(before.date)} → ${formatDate(after.date)}"
+        else afterLabel
+        SingleImage(
+            rememberImage(state, afterUrl),
+            label,
+            areaFraction,
+            afterUrl?.let { state.failures[it] }
+        )
+    }
 
-            if (layer == ImageryLayer.NDVI) {
-                Spacer(Modifier.height(10.dp))
-                GradientLegend(
-                    stops = scenes.ndviStops,
-                    leftLabel = "Suolo, acqua",
-                    centerLabel = "Vegetazione rada",
-                    rightLabel = "Vegetazione densa"
-                )
-            }
-        }
-
-        ImageryLayer.CHANGE -> {
-            val url = after.diffUrl
-            val image = rememberImage(state, url)
-            SingleImage(
-                image,
-                before?.let { "${formatDate(it.date)} → ${formatDate(after.date)}" } ?: afterLabel,
-                areaFraction,
-                url?.let { state.failures[it] }
-            )
-            Spacer(Modifier.height(10.dp))
-            GradientLegend(
-                stops = scenes.diffStops,
-                leftLabel = "NDVI in calo",
-                centerLabel = "Stabile",
-                rightLabel = "NDVI in aumento"
-            )
-        }
+    if (layer.stops.size >= 2) {
+        Spacer(Modifier.height(10.dp))
+        val labels = layer.legendLabels + List(3) { "" }
+        GradientLegend(
+            stops = layer.stops,
+            leftLabel = labels[0],
+            centerLabel = labels[1],
+            rightLabel = labels[2]
+        )
     }
 
     Spacer(Modifier.height(10.dp))
-    Text(
-        when (layer) {
-            ImageryLayer.RGB ->
-                "Come l'occhio vedrebbe l'area dallo spazio (bande B04, B03, B02). " +
-                        "I colori della data precedente sono armonizzati a quelli della " +
-                        "più recente (luce, foschia): solo per la visualizzazione, " +
-                        "NDVI e variazione usano i dati originali."
-            ImageryLayer.NDVI ->
-                "Indice di vegetazione pixel per pixel (10 m). In grigio i pixel " +
-                        "esclusi: nuvole, ombre, neve o dati mancanti."
-            ImageryLayer.CHANGE ->
-                "Differenza di NDVI tra le due date, solo dove entrambe le immagini " +
-                        "sono valide. Un calo non indica da solo la causa: stagione, " +
-                        "sfalci, siccità, tagli o incendi possono produrlo. Lungo " +
-                        "strade e fiumi possono comparire sottili bordi rossi e verdi " +
-                        "dovuti al piccolo disallineamento tra le acquisizioni."
-        },
-        fontSize = 12.sp, lineHeight = 17.sp, color = Muted
-    )
+    Text(layer.caption, fontSize = 12.sp, lineHeight = 17.sp, color = Muted)
+    layer.formula?.let { formula ->
+        Text(
+            formula,
+            fontSize = 12.sp, color = DarkGreen,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
 
     scenes.messages.forEach { message ->
         Text("⚠  $message", fontSize = 12.sp, color = Color(0xFF8A4B14),
@@ -327,6 +306,19 @@ internal fun ImageryContent(
         modifier = Modifier.padding(top = 6.dp)
     )
 }
+
+/** Livelli minimi se il backend non li descrive (versioni precedenti). */
+private fun fallbackLayers(scenes: ImageryScenes): List<ImageryLayerInfo> = listOf(
+    ImageryLayerInfo("rgb", "Colori reali", "compare",
+        "Come l'occhio vedrebbe l'area dallo spazio (bande B04, B03, B02).",
+        null, emptyList(), emptyList()),
+    ImageryLayerInfo("ndvi", "Vegetazione", "compare",
+        "NDVI pixel per pixel. In grigio i pixel esclusi (nuvole, ombre, dati mancanti).",
+        null, scenes.ndviStops, listOf("Suolo, acqua", "Vegetazione rada", "Vegetazione densa")),
+    ImageryLayerInfo("diff", "Variazione", "single",
+        "Differenza di NDVI tra le due date, solo dove entrambe sono valide.",
+        null, scenes.diffStops, listOf("NDVI in calo", "Stabile", "NDVI in aumento"))
+)
 
 // ------------------------------------------------------------------
 // COMPONENTI GRAFICI

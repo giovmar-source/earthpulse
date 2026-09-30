@@ -53,7 +53,9 @@ class SyntheticScene:
     """
 
     def __init__(self, folder: Path, crs: str = "EPSG:32633",
-                 nir_value: int = 3000, dn_offset: int = 0):
+                 nir_value: int = 3000, dn_offset: int = 0,
+                 swir16_value: int = 1500, swir22_value: int = 800):
+        folder.mkdir(parents=True, exist_ok=True)
         (x,), (y,) = transform("EPSG:4326", crs, [LON], [LAT])
         half = 3000
         west, north = x - half, y + half
@@ -70,6 +72,10 @@ class SyntheticScene:
         # (la zona centrale inizia a 1500 m dal bordo = pixel 75 a 20 m).
         scl[75:95, 75:95] = 9
 
+        green = np.full((n10, n10), 800 + dn_offset, dtype=np.uint16)
+        swir16 = np.full((n20, n20), swir16_value + dn_offset, dtype=np.uint16)
+        swir22 = np.full((n20, n20), swir22_value + dn_offset, dtype=np.uint16)
+
         visual = np.zeros((3, n10, n10), dtype=np.uint8)
         visual[0], visual[1], visual[2] = 40, 70, 35       # verde scuro
 
@@ -77,6 +83,7 @@ class SyntheticScene:
         for name, data, tr in [
             ("red", red, t10), ("nir", nir, t10),
             ("scl", scl, t20), ("visual", visual, t10),
+            ("green", green, t10), ("swir16", swir16, t20), ("swir22", swir22, t20),
         ]:
             path = folder / f"{name}.tif"
             write_raster(path, data, tr, crs=crs)

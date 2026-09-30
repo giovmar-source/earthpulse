@@ -128,9 +128,24 @@ data class SceneImages(
     val itemId: String,
     val date: String,
     val validPercentage: Double?,
-    val rgbUrl: String,
-    val ndviUrl: String,
-    val diffUrl: String?
+    // Indirizzi delle immagini per livello: "rgb", "ndvi", "ndwi", "diff"...
+    val images: Map<String, String>
+) {
+    val rgbUrl: String? get() = images["rgb"]
+    val ndviUrl: String? get() = images["ndvi"]
+    val diffUrl: String? get() = images["diff"]
+}
+
+/** Descrizione di un livello, fornita dal backend. */
+data class ImageryLayerInfo(
+    val key: String,
+    val label: String,
+    // "compare": cursore prima/dopo; "single": un'immagine sola
+    val mode: String,
+    val caption: String,
+    val formula: String?,
+    val stops: List<ColorStop>,
+    val legendLabels: List<String>
 )
 
 data class ColorStop(val value: Float, val color: Color)
@@ -142,7 +157,8 @@ data class ImageryScenes(
     val messages: List<String>,
     val attribution: String,
     val ndviStops: List<ColorStop>,
-    val diffStops: List<ColorStop>
+    val diffStops: List<ColorStop>,
+    val layers: List<ImageryLayerInfo> = emptyList()
 )
 
 // Storie (/api/v1/stories)
@@ -437,10 +453,27 @@ private fun parseScene(o: JSONObject?): SceneImages? {
         itemId = o.optString("item_id"),
         date = o.optString("date"),
         validPercentage = o.optDoubleOrNull("valid_percentage"),
-        rgbUrl = images.getString("rgb"),
-        ndviUrl = images.getString("ndvi"),
-        diffUrl = images.optString("diff").takeIf { it.isNotBlank() }
+        images = images.keys().asSequence()
+            .associateWith { images.optString(it) }
+            .filterValues { it.isNotBlank() }
     )
+}
+
+private fun parseLayers(array: JSONArray?): List<ImageryLayerInfo> {
+    if (array == null) return emptyList()
+    return (0 until array.length()).mapNotNull { i ->
+        val o = array.optJSONObject(i) ?: return@mapNotNull null
+        val labels = o.optJSONArray("legend_labels") ?: JSONArray()
+        ImageryLayerInfo(
+            key = o.optString("key"),
+            label = o.optString("label"),
+            mode = o.optString("mode", "compare"),
+            caption = o.optString("caption"),
+            formula = o.optString("formula").takeIf { it.isNotBlank() && it != "null" },
+            stops = parseColorStops(o.optJSONArray("color_stops")),
+            legendLabels = (0 until labels.length()).map { labels.optString(it) }
+        )
+    }
 }
 
 private fun parseImageryScenes(root: JSONObject): ImageryScenes {
@@ -454,7 +487,8 @@ private fun parseImageryScenes(root: JSONObject): ImageryScenes {
         messages = (0 until messages.length()).map { messages.getString(it) },
         attribution = root.optString("attribution"),
         ndviStops = parseColorStops(legend.optJSONArray("ndvi_color_stops")),
-        diffStops = parseColorStops(legend.optJSONArray("diff_color_stops"))
+        diffStops = parseColorStops(legend.optJSONArray("diff_color_stops")),
+        layers = parseLayers(root.optJSONArray("layers"))
     )
 }
 
@@ -493,7 +527,8 @@ private fun parseStoryDetail(root: JSONObject): StoryDetail {
             messages = (0 until messages.length()).map { messages.getString(it) },
             attribution = root.optString("attribution"),
             ndviStops = parseColorStops(legend.optJSONArray("ndvi_color_stops")),
-            diffStops = parseColorStops(legend.optJSONArray("diff_color_stops"))
+            diffStops = parseColorStops(legend.optJSONArray("diff_color_stops")),
+            layers = parseLayers(root.optJSONArray("layers"))
         )
     )
 }

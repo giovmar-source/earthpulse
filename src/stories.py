@@ -21,6 +21,9 @@ STORIES_PATH = Path(__file__).resolve().parents[1] / "data" / "stories.json"
 
 MAX_STORY_SIDE_KM = 12.0
 
+# Livelli aggiuntivi consentiti per le storie (oltre a quelli standard).
+ALLOWED_EXTRA_LAYERS = {"dnbr"}
+
 REQUIRED_FIELDS = [
     "id", "category", "title", "place", "country",
     "latitude", "longitude", "side_km", "event_date",
@@ -64,6 +67,10 @@ def validate_story(story: dict) -> dict:
         raise StoryError(f"{story_id}: side_km deve essere tra 0 e {MAX_STORY_SIDE_KM}")
     if not story["sources"]:
         raise StoryError(f"{story_id}: servono fonti verificabili")
+
+    unknown = set(story.get("extra_layers", [])) - ALLOWED_EXTRA_LAYERS
+    if unknown:
+        raise StoryError(f"{story_id}: livelli sconosciuti {sorted(unknown)}")
 
     event = date.fromisoformat(story["event_date"])
     before = parse_window(story["before"], story_id, "before")
