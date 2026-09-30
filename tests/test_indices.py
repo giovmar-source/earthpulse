@@ -231,3 +231,28 @@ class TestNewIndices(unittest.TestCase):
             self.assertIn(key, DEFAULT_LAYERS)
             self.assertTrue(LAYERS[key]["color_stops"])
         self.assertEqual(LAYERS["ndwi"].get("stat"), "water")
+
+
+class TestIndexStatEndpoint(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp())
+        cls.scene = SyntheticScene(cls.tmp / "s", water_patch=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_index_stat_median_over_area(self):
+        from api import main
+        item = self.scene.item()
+        with mock.patch.object(main, "get_item_by_id", return_value=item):
+            main._INDEX_STAT_CACHE.clear()
+            ndvi = main.get_index_stat(item_id="S2A_TEST", lat=LAT, lon=LON,
+                                       side_km=3.0, index="ndvi")
+            ndci = main.get_index_stat(item_id="S2A_TEST", lat=LAT, lon=LON,
+                                       side_km=3.0, index="ndci")
+        self.assertAlmostEqual(ndvi["median"], (3000 - 500) / 3500, places=2)
+        self.assertIsNotNone(ndci["median"])                 # c'è il lago
+        self.assertLess(ndci["valid_percentage"], 10)        # solo l'acqua conta

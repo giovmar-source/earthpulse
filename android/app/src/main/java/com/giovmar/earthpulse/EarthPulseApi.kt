@@ -157,6 +157,12 @@ data class WaterStat(
     val date: String?
 )
 
+data class IndexStat(
+    val median: Double?,
+    val validPercentage: Double?,
+    val date: String?
+)
+
 data class ColorStop(val value: Float, val color: Color)
 
 data class ImageryScenes(
@@ -422,6 +428,15 @@ object EarthPulseApi {
             waterHa = o.optDouble("water_ha", 0.0),
             observedPercentage = o.optDoubleOrNull("observed_percentage"),
             areaHa = o.optDoubleOrNull("area_ha"),
+            date = o.optStringOrNull("date")
+        )
+    }
+
+    suspend fun fetchIndexStat(relativeUrl: String): IndexStat {
+        val o = JSONObject(getJson(BACKEND_BASE_URL + relativeUrl, IMAGERY_READ_TIMEOUT_MS))
+        return IndexStat(
+            median = o.optDoubleOrNull("median"),
+            validPercentage = o.optDoubleOrNull("valid_percentage"),
             date = o.optStringOrNull("date")
         )
     }

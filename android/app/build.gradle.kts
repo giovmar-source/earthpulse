@@ -13,8 +13,8 @@ android {
         applicationId = "com.giovmar.earthpulse"
         minSdk = 26
         targetSdk = 37
-        versionCode = 11
-        versionName = "0.10.1"
+        versionCode = 14
+        versionName = "0.12.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

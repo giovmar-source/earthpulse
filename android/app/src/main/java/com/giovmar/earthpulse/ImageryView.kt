@@ -72,6 +72,8 @@ class ImageryState {
     val failures = mutableStateMapOf<String, String>()
     // Numeri dei livelli (es. superficie d'acqua) per url
     val waterStats = mutableStateMapOf<String, WaterStat>()
+    val indexStats = mutableStateMapOf<String, IndexStat>()
+    val indexStatFailures = mutableStateMapOf<String, Boolean>()
 
     // Linea del tempo e date scelte dall'utente.
     var timeline by mutableStateOf<ImageryTimeline?>(null)
@@ -162,7 +164,8 @@ fun ImagerySection(
     state: ImageryState,
     sideKm: Double = IMAGERY_SIDE_KM,
     onSideChange: ((Double) -> Unit)? = null,
-    shareTitle: String? = null
+    shareTitle: String? = null,
+    profile: Profile = Profile.ALL
 ) {
     Spacer(Modifier.height(24.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,7 +238,8 @@ fun ImagerySection(
         else -> ImageryContent(
             state, scenes, after,
             shareTitle = shareTitle,
-            shareSubtitle = "Sentinel-2 · area ${sideKm.toInt()} × ${sideKm.toInt()} km"
+            shareSubtitle = "Sentinel-2 · area ${sideKm.toInt()} × ${sideKm.toInt()} km",
+            profile = profile
         )
     }
 }
@@ -250,7 +254,9 @@ internal fun ImageryContent(
     // Condivisione: titolo della scheda (null = nessun pulsante)
     shareTitle: String? = null,
     shareSubtitle: String = "Sentinel-2",
-    shareHighlight: String? = null
+    shareHighlight: String? = null,
+    // Profilo "Per chi lavora": ordine dei livelli e consigli pratici
+    profile: Profile = Profile.ALL
 ) {
     // Date scelte sulla linea del tempo (se presenti).
     val scenes = state.effectiveScenes(baseScenes)
@@ -258,12 +264,20 @@ internal fun ImageryContent(
     val before = scenes.before
 
     // Livelli descritti dal backend, limitati a quelli con un'immagine.
-    val layers = scenes.layers
+    val allLayers = scenes.layers
         .ifEmpty { fallbackLayers(scenes) }
         .filter { after.images.containsKey(it.key) }
-    if (layers.isEmpty()) return
+        .let { list -> profile.sortLayers(list) { it.key } }
+    if (allLayers.isEmpty()) return
 
-    var selectedKey by rememberSaveable { mutableStateOf(layers.first().key) }
+    // Con un profilo si vedono solo i suoi livelli; gli altri con "Tutti i livelli".
+    var showAll by rememberSaveable(profile) { mutableStateOf(false) }
+    val profileLayers = allLayers.filter { it.key in profile.layers }
+    val layers = if (profile == Profile.ALL || showAll || profileLayers.isEmpty()) allLayers
+                 else profileLayers
+
+    // Cambiando profilo si parte dal suo livello principale.
+    var selectedKey by rememberSaveable(profile) { mutableStateOf(layers.first().key) }
     val layer = layers.firstOrNull { it.key == selectedKey } ?: layers.first()
 
     // Selettore del livello (scorrevole: i livelli possono essere molti)
@@ -287,8 +301,35 @@ internal fun ImageryContent(
                 )
             }
         }
+        if (profile != Profile.ALL && profileLayers.isNotEmpty() && profileLayers.size < allLayers.size) {
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = PaleGreen,
+                modifier = Modifier.clickable { showAll = !showAll }
+            ) {
+                Text(
+                    if (showAll) "Solo ${profile.icon}" else "Tutti i livelli ▸",
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    color = Green,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
     Spacer(Modifier.height(10.dp))
+
+    // Valore dell'indice scelto nell'area analizzata (1 km): prima e dopo.
+    if (showAnalysisArea && layer.key in STAT_INDEX_KEYS) {
+        IndexValueCard(
+            state = state,
+            layer = layer,
+            afterTemplate = after.images["stat_index"],
+            beforeTemplate = before?.images?.get("stat_index"),
+            beforeDate = before?.date
+        )
+        Spacer(Modifier.height(10.dp))
+    }
 
     if (showDatePicker) {
         DatePicker(state, baseScenes)
@@ -390,6 +431,7 @@ internal fun ImageryContent(
             modifier = Modifier.padding(top = 4.dp)
         )
     }
+    ProfileTip(profile, layer.key)
 
     scenes.messages.forEach { message ->
         Text("⚠  $message", fontSize = 12.sp, color = Color(0xFF8A4B14),
@@ -811,7 +853,7 @@ internal fun InfoBox(content: @Composable () -> Unit) {
 // ------------------------------------------------------------------
 
 @Composable
-private fun rememberWaterStat(state: ImageryState, url: String?): WaterStat? {
+internal fun rememberWaterStat(state: ImageryState, url: String?): WaterStat? {
     LaunchedEffect(url) {
         if (url == null || state.waterStats.containsKey(url)) return@LaunchedEffect
         try {
@@ -825,7 +867,7 @@ private fun rememberWaterStat(state: ImageryState, url: String?): WaterStat? {
     return url?.let { state.waterStats[it] }
 }
 
-private fun hectares(value: Double): String =
+internal fun hectares(value: Double): String =
     if (value >= 100) String.format(java.util.Locale.ITALIAN, "%,.0f ha", value)
     else String.format(java.util.Locale.ITALIAN, "%.1f ha", value)
 
@@ -850,6 +892,112 @@ private fun WaterStatLine(state: ImageryState, afterUrl: String?, beforeUrl: Str
                     "Parte dell'area era coperta da nuvole: il confronto è indicativo.",
                     fontSize = 11.sp, color = Muted, modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// VALORE DELL'INDICE NELL'AREA DI 1 KM
+// ------------------------------------------------------------------
+
+internal val STAT_INDEX_KEYS = setOf("ndvi", "ndwi", "ndmi", "ndbi", "ndre", "ndsi", "ndci", "ndti")
+internal val WATER_ONLY_KEYS = setOf("ndci", "ndti")
+
+@Composable
+internal fun rememberIndexStat(state: ImageryState, url: String?): IndexStat? {
+    LaunchedEffect(url) {
+        if (url == null || state.indexStats.containsKey(url) || state.indexStatFailures.containsKey(url)) {
+            return@LaunchedEffect
+        }
+        try {
+            state.indexStats[url] = EarthPulseApi.fetchIndexStat(url)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            state.indexStatFailures[url] = true
+        }
+    }
+    return url?.let { state.indexStats[it] }
+}
+
+internal fun decimal(value: Double): String =
+    String.format(java.util.Locale.ITALIAN, "%.2f", value)
+
+@Composable
+private fun IndexValueCard(
+    state: ImageryState,
+    layer: ImageryLayerInfo,
+    afterTemplate: String?,
+    beforeTemplate: String?,
+    beforeDate: String?
+) {
+    val afterUrl = afterTemplate?.replace("{index}", layer.key) ?: return
+    val beforeUrl = beforeTemplate?.replace("{index}", layer.key)
+    val after = rememberIndexStat(state, afterUrl)
+    val before = rememberIndexStat(state, beforeUrl)
+    // Nome breve dell'indice dalla formula ("NDRE = ..." -> "NDRE")
+    val code = layer.formula?.substringBefore("=")?.trim()?.takeIf { it.isNotEmpty() }
+    val title = if (code != null) "${layer.label} ($code)" else layer.label
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkGreen)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                "${title.uppercase()} · AREA DI 1 KM",
+                color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp,
+                letterSpacing = 1.sp, fontWeight = FontWeight.Bold
+            )
+            val value = after?.median
+            when {
+                after == null && !state.indexStatFailures.containsKey(afterUrl) -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("Calcolo del valore…", color = Color.White, fontSize = 13.sp)
+                }
+
+                value == null -> Text(
+                    if (layer.key in WATER_ONLY_KEYS)
+                        "Nell'area di 1 km non c'è acqua libera: l'indice non si applica."
+                    else "Troppi pochi pixel validi (nuvole o dati mancanti).",
+                    color = Color.White, fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                else -> {
+                    Text(
+                        decimal(value),
+                        color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    after?.date?.let {
+                        Text("Mediana dei pixel validi · ${formatDate(it)}",
+                            color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                    }
+                    val previous = before?.median
+                    if (previous != null && beforeDate != null) {
+                        val delta = value - previous
+                        val trend = when {
+                            delta > 0.03 -> "in aumento"
+                            delta < -0.03 -> "in calo"
+                            else -> "stabile"
+                        }
+                        Text(
+                            "Prima (${formatDate(beforeDate)}): ${decimal(previous)} · " +
+                                String.format(java.util.Locale.ITALIAN, "%+.2f", delta) + " $trend",
+                            color = Color(0xFFF2C98A), fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
             }
         }
     }

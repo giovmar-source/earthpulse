@@ -29,6 +29,7 @@ from src.indices import (
     REQUIRED_ASSETS,
     layer_list,
     render_dnbr_png,
+    index_on_grid,
     render_index_png,
     water_area,
 )
@@ -42,6 +43,7 @@ from src.imagery import (
 )
 
 import requests
+import numpy as np
 
 
 # ============================================================
@@ -863,6 +865,10 @@ def describe_scene(chosen, lat: float, lon: float, side_km: float):
             },
             # Numeri associati a un livello (JSON, non immagine)
             "stat_water": f"/api/v1/imagery/water?{params}",
+            # Valore medio di un indice nell'area analizzata di 1 km ({index} da sostituire)
+            "stat_index": "/api/v1/imagery/index-stat?" + urlencode({
+                "item_id": item.id, "lat": lat, "lon": lon, "side_km": ANALYSIS_AREA_KM,
+            }) + "&index={index}",
         },
     }
 
@@ -1133,6 +1139,45 @@ def get_imagery_timeline(
 
 
 _WATER_CACHE: dict = {}
+_INDEX_STAT_CACHE: dict = {}
+ANALYSIS_AREA_KM = 1.0
+
+
+@app.get("/api/v1/imagery/index-stat")
+def get_index_stat(
+    item_id: str = Query(..., min_length=5, max_length=100,
+                         pattern=r"^[A-Za-z0-9_\-]+$"),
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(ANALYSIS_AREA_KM, gt=0, le=MAX_STORY_SIDE_KM),
+    index: str = Query(..., pattern=r"^(ndvi|ndwi|ndmi|ndbi|ndre|ndsi|ndci|ndti)$"),
+):
+    """
+    Valore medio (mediana) di un indice nell'area, per la scena indicata.
+    Usa solo i pixel validi; per gli indici dell'acqua solo i pixel d'acqua.
+    """
+    key = (item_id, round(lat, 5), round(lon, 5), round(side_km, 3), index)
+    if key not in _INDEX_STAT_CACHE:
+        item = get_item_by_id(item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Scena non trovata: {item_id}")
+        try:
+            values, valid = index_on_grid(item, Grid(lat, lon, side_km), index)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Calcolo dell'indice non riuscito: {exc}",
+            ) from exc
+        count = int(valid.sum())
+        result = {
+            "index": index,
+            "date": item.datetime.date().isoformat() if item.datetime else None,
+            "median": round(float(np.median(values[valid])), 3) if count >= 20 else None,
+            "valid_percentage": round(100.0 * count / valid.size, 1),
+        }
+        if len(_INDEX_STAT_CACHE) > 400:
+            _INDEX_STAT_CACHE.clear()
+        _INDEX_STAT_CACHE[key] = result
+    return _INDEX_STAT_CACHE[key]
 
 
 @app.get("/api/v1/imagery/water")

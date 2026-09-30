@@ -80,6 +80,9 @@ fun AnalysisScreen(
     val imagery = rememberImageryState(place, imagerySideKm)
 
     // Anche le luci notturne partono subito, in parallelo.
+    // Profilo "Per chi lavora" (ricordato anche alla prossima apertura)
+    val profileHolder = rememberProfileState()
+
     // Le sezioni pesanti si caricano solo quando l'utente le apre.
     var nightActive by rememberSaveable(place) { mutableStateOf(false) }
     var heatActive by rememberSaveable(place) { mutableStateOf(false) }
@@ -158,12 +161,20 @@ fun AnalysisScreen(
                 onBack = onBack
             )
             is AnalysisUiState.Success -> {
+                ProfileSection(profileHolder, imagery) { section ->
+                    when (section) {
+                        ExtraSection.NIGHT -> nightActive = true
+                        ExtraSection.HEAT -> heatActive = true
+                        ExtraSection.ARCHIVE -> archiveActive = true
+                    }
+                }
                 ResultContent(
                     placeTitle = place.label ?: formatCoordinates(place),
                     analysis = s.analysis,
                     imagery = imagery,
                     imagerySideKm = imagerySideKm,
-                    onImagerySideChange = { imagerySideKm = it }
+                    onImagerySideChange = { imagerySideKm = it },
+                    profile = profileHolder.profile
                 )
                 NightLightsSection(
                     nightLights, nightSideKm,
@@ -276,7 +287,8 @@ private fun ResultContent(
     analysis: PlaceAnalysis,
     imagery: ImageryState,
     imagerySideKm: Double,
-    onImagerySideChange: (Double) -> Unit
+    onImagerySideChange: (Double) -> Unit,
+    profile: Profile = Profile.ALL
 ) {
     HeroCard(analysis)
 
@@ -302,7 +314,8 @@ private fun ResultContent(
     }
 
     // ---------- immagini satellitari ----------
-    ImagerySection(imagery, imagerySideKm, onImagerySideChange, shareTitle = placeTitle)
+    ImagerySection(imagery, imagerySideKm, onImagerySideChange,
+        shareTitle = placeTitle, profile = profile)
 
     // ---------- confronto con gli anni precedenti ----------
     if (analysis.baseline.observations.isNotEmpty()) {
