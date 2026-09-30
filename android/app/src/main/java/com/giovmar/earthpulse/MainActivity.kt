@@ -9,8 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
-import org.osmdroid.config.Configuration
-import java.io.File
+import org.maplibre.android.MapLibre
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -65,14 +64,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Configurazione osmdroid: user-agent identificabile (richiesto
-        // dalla policy dei tile OpenStreetMap) e cache nella cartella
-        // privata dell'app, senza permessi di archiviazione.
-        Configuration.getInstance().apply {
-            userAgentValue = packageName
-            osmdroidBasePath = File(cacheDir, "osmdroid")
-            osmdroidTileCache = File(cacheDir, "osmdroid/tiles")
-        }
+        // MapLibre (mappa vettoriale) va inizializzata prima di creare le mappe.
+        MapLibre.getInstance(this)
 
         setContent {
             MaterialTheme {

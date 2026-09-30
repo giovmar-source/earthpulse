@@ -168,7 +168,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
         MethodSection("Fonti e attribuzioni") {
             Bullet("Contiene dati Copernicus Sentinel modificati, elaborati da EarthPulse.")
             Bullet("Catalogo delle immagini: Earth Search (Element 84), dati Sentinel-2 su AWS Open Data.")
-            Bullet("Mappa e ricerca dei luoghi: © OpenStreetMap contributors (ODbL), Nominatim.")
+            Bullet("Mappa: OpenFreeMap e OpenMapTiles, dati © OpenStreetMap contributors (ODbL). Ricerca dei luoghi: Nominatim e Photon.")
         }
 
         Spacer(Modifier.height(30.dp))

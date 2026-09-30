@@ -57,13 +57,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.CustomZoomButtonsController
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Polygon
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
@@ -85,10 +87,11 @@ data class SelectedPlace(
     val label: String? = null
 )
 
-// Contenitore semplice per conservare il riferimento alla MapView
+// Contenitore semplice per conservare mappa e stile
 // senza provocare ricomposizioni.
 private class MapHolder {
-    var map: MapView? = null
+    var map: MapLibreMap? = null
+    var style: Style? = null
 }
 
 @Composable
@@ -100,7 +103,13 @@ fun MapScreen(
     onMethodologyClick: () -> Unit
 ) {
     val currentOnPlaceSelected by rememberUpdatedState(onPlaceSelected)
+    val currentSelectedPlace by rememberUpdatedState(selectedPlace)
     val holder = remember { MapHolder() }
+    val mapContext = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // MapView di MapLibre, creata una volta per questa schermata.
+    val mapView = remember { MapView(mapContext).apply { onCreate(null) } }
 
     // ---- stato della ricerca ----
     // Nessun autocompletamento: si cerca solo quando l'utente conferma
@@ -164,11 +173,7 @@ fun MapScreen(
             currentOnPlaceSelected(place)
             results = emptyList()
             searchError = null
-            holder.map?.controller?.animateTo(
-                GeoPoint(place.latitude, place.longitude),
-                SELECTION_ZOOM,
-                900L
-            )
+            holder.map?.let { flyTo(it, place.latitude, place.longitude, SELECTION_ZOOM) }
         }
     }
 
@@ -203,19 +208,82 @@ fun MapScreen(
         query = result.name
         results = emptyList()
         searchError = null
-        holder.map?.controller?.animateTo(
-            GeoPoint(place.latitude, place.longitude),
-            SELECTION_ZOOM,
-            900L
-        )
+        holder.map?.let { flyTo(it, place.latitude, place.longitude, SELECTION_ZOOM) }
     }
 
-    // Libera le risorse della mappa quando la schermata viene chiusa.
-    DisposableEffect(Unit) {
-        onDispose {
-            holder.map?.onDetach()
-            holder.map = null
+    // Ciclo di vita della MapView collegato a quello dell'app.
+    DisposableEffect(lifecycleOwner, mapView) {
+        val lifecycle = lifecycleOwner.lifecycle
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                else -> Unit
+            }
         }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) mapView.onPause()
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) mapView.onStop()
+            mapView.onDestroy()
+            holder.map = null
+            holder.style = null
+        }
+    }
+
+    // Configurazione della mappa (una volta).
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            holder.map = map
+
+            map.uiSettings.isAttributionEnabled = false   // attribuzione nel pannello
+            map.uiSettings.isLogoEnabled = false
+            map.uiSettings.isRotateGesturesEnabled = false
+            map.uiSettings.isTiltGesturesEnabled = false
+            map.setMinZoomPreference(1.5)
+            map.setMaxZoomPreference(18.0)
+
+            // Se un luogo era già selezionato (ritorno da un'altra schermata),
+            // riparti da lì; altrimenti mostra l'Italia.
+            val start = currentSelectedPlace
+            map.cameraPosition = CameraPosition.Builder()
+                .target(
+                    if (start != null) LatLng(start.latitude, start.longitude)
+                    else LatLng(41.9, 12.5)
+                )
+                .zoom(if (start != null) SELECTION_ZOOM else 4.5)
+                .build()
+
+            map.setStyle(Style.Builder().fromUri(BASE_MAP_STYLE_URL)) { style ->
+                localizeLabels(style)
+                addSelectionLayers(style)
+                holder.style = style
+                showSelection(style, currentSelectedPlace)
+            }
+
+            map.addOnMapClickListener { point ->
+                val place = SelectedPlace(
+                    latitude = point.latitude,
+                    longitude = normalizeLongitude(point.longitude)
+                )
+                currentOnPlaceSelected(place)
+
+                // Da lontano il quadrato di 1 km non si vede:
+                // avviciniamo la mappa al punto scelto.
+                if (map.cameraPosition.zoom < 11.0) {
+                    flyTo(map, place.latitude, place.longitude, SELECTION_ZOOM)
+                }
+                true
+            }
+        }
+    }
+
+    // Aggiorna punto e quadrato quando cambia il luogo scelto.
+    LaunchedEffect(selectedPlace) {
+        holder.style?.let { showSelection(it, selectedPlace) }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -223,68 +291,7 @@ fun MapScreen(
         // ---------------- MAPPA ----------------
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                MapView(context).apply {
-                    setTileSource(baseMapTileSource())
-                    // Tessere scalate alla densità dello schermo: etichette leggibili.
-                    setTilesScaledToDpi(true)
-                    setMultiTouchControls(true)
-                    zoomController.setVisibility(
-                        CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT
-                    )
-                    setMinZoomLevel(2.0)
-                    setMaxZoomLevel(18.0)
-                    setHorizontalMapRepetitionEnabled(true)
-                    setVerticalMapRepetitionEnabled(false)
-
-                    // Se un luogo era già selezionato (ritorno dagli esempi),
-                    // riparti da lì; altrimenti mostra l'Italia.
-                    if (selectedPlace != null) {
-                        controller.setZoom(SELECTION_ZOOM)
-                        controller.setCenter(
-                            GeoPoint(selectedPlace.latitude, selectedPlace.longitude)
-                        )
-                    } else {
-                        controller.setZoom(5.0)
-                        controller.setCenter(GeoPoint(41.9, 12.5))
-                    }
-
-                    val map = this
-
-                    val receiver = object : MapEventsReceiver {
-                        override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                            if (p == null) return false
-
-                            val place = SelectedPlace(
-                                latitude = p.latitude,
-                                longitude = normalizeLongitude(p.longitude)
-                            )
-                            currentOnPlaceSelected(place)
-
-                            // Da lontano il quadrato di 1 km non si vede:
-                            // avviciniamo la mappa al punto scelto.
-                            if (map.zoomLevelDouble < 11.0) {
-                                map.controller.animateTo(
-                                    GeoPoint(place.latitude, place.longitude),
-                                    SELECTION_ZOOM,
-                                    800L
-                                )
-                            }
-                            return true
-                        }
-
-                        override fun longPressHelper(p: GeoPoint?): Boolean = false
-                    }
-
-                    // In posizione 0: riceve i tocchi non gestiti dagli altri overlay.
-                    overlays.add(0, MapEventsOverlay(receiver))
-
-                    holder.map = this
-                }
-            },
-            update = { map ->
-                showSelection(map, selectedPlace)
-            }
+            factory = { mapView }
         )
 
         // ---------------- BARRA SUPERIORE + RICERCA ----------------
@@ -593,46 +600,12 @@ fun MapScreen(
 }
 
 /**
- * Disegna segnaposto e quadrato dell'area di analisi.
- * Viene chiamata ogni volta che cambia il luogo selezionato.
- */
-private fun showSelection(map: MapView, place: SelectedPlace?) {
-    map.overlays.removeAll { it is Marker || it is Polygon }
-
-    if (place != null) {
-        val point = GeoPoint(place.latitude, place.longitude)
-
-        val area = Polygon(map).apply {
-            points = analysisSquare(place, ANALYSIS_SIDE_KM)
-            fillPaint.color = android.graphics.Color.argb(45, 23, 107, 80)
-            outlinePaint.color = android.graphics.Color.rgb(23, 107, 80)
-            outlinePaint.strokeWidth = 4f
-            // false: il tocco passa alla mappa, così si può
-            // scegliere un nuovo punto anche dentro il quadrato.
-            setOnClickListener { _, _, _ -> false }
-        }
-
-        val marker = Marker(map).apply {
-            position = point
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            // Nessuna finestra informativa al tocco del segnaposto.
-            setOnMarkerClickListener { _, _ -> true }
-        }
-
-        map.overlays.add(area)
-        map.overlays.add(marker)
-    }
-
-    map.invalidate()
-}
-
-/**
  * Quadrato di lato sideKm centrato sul punto.
  * Usa la stessa approssimazione di make_bbox() in api/main.py
  * (1° di latitudine ≈ 111 km), così l'area disegnata coincide
  * con quella analizzata dal backend.
  */
-fun analysisSquare(place: SelectedPlace, sideKm: Double): List<GeoPoint> {
+fun analysisSquare(place: SelectedPlace, sideKm: Double): List<Pair<Double, Double>> {
     val halfLat = sideKm / 222.0
     val cosLat = abs(cos(Math.toRadians(place.latitude))).coerceAtLeast(1e-6)
     val halfLon = sideKm / (222.0 * cosLat)
@@ -642,12 +615,13 @@ fun analysisSquare(place: SelectedPlace, sideKm: Double): List<GeoPoint> {
     val west = place.longitude - halfLon
     val east = place.longitude + halfLon
 
+    // Coppie (latitudine, longitudine), anello chiuso.
     return listOf(
-        GeoPoint(south, west),
-        GeoPoint(south, east),
-        GeoPoint(north, east),
-        GeoPoint(north, west),
-        GeoPoint(south, west)
+        south to west,
+        south to east,
+        north to east,
+        north to west,
+        south to west
     )
 }
 
