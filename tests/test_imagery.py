@@ -245,6 +245,30 @@ class TestImageHelpers(unittest.TestCase):
         b[:, 0, 0] = 250
         self.assertEqual(tuple(stretch_rgb(a)[2, 2]), tuple(stretch_rgb(b)[2, 2]))
 
+    def test_white_point_fixed_for_normal_scenes(self):
+        from src.imagery import RGB_HIGH, rgb_white_point
+        rng = np.random.default_rng(1)
+        green = rng.integers(20, 110, size=(3, 40, 40)).astype(np.uint8)
+        green[:, 0, :20] = 250          # pochi tetti chiari: non contano
+        self.assertEqual(rgb_white_point(green), RGB_HIGH)
+
+    def test_desert_is_not_burned_white(self):
+        from src.imagery import RGB_HIGH, rgb_white_point
+        rng = np.random.default_rng(2)
+        sand = np.stack([
+            rng.integers(180, 225, size=(40, 40)),   # R
+            rng.integers(150, 190, size=(40, 40)),   # G
+            rng.integers(110, 150, size=(40, 40)),   # B
+        ]).astype(np.uint8)
+        high = rgb_white_point(sand)
+        self.assertGreater(high, RGB_HIGH)
+        out = stretch_rgb(sand, high)
+        # Con il bianco fisso quasi tutto sarebbe (255, 255, x); ora no.
+        self.assertLess(np.mean(out[..., 1] == 255), 0.05)
+        self.assertGreater(out[..., 0].mean(), out[..., 2].mean() + 30)   # resta color sabbia
+        burned = stretch_rgb(sand)
+        self.assertGreater(np.mean(burned[..., 1] == 255), 0.9)
+
     def test_stretch_keeps_nodata_black(self):
         rgb = np.zeros((3, 20, 20), dtype=np.uint8)
         rgb[:, :10, :] = np.arange(10, 210, 10, dtype=np.uint8)[np.newaxis, np.newaxis, :]

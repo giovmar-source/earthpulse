@@ -75,6 +75,9 @@ DIFF_COLOR_STOPS = [
 
 # Contrasto fisso per i colori reali (valori TCI 8 bit).
 RGB_LOW, RGB_HIGH, RGB_GAMMA = 0.0, 145.0, 0.8
+# Scene molto chiare (deserti, neve, saline): se oltre questa quota di pixel
+# supera RGB_HIGH, il bianco si sposta al 99° percentile per non "bruciarle".
+RGB_SATURATION_LIMIT = 0.05
 
 TARGET_RESOLUTION_M = 10.0
 
@@ -208,18 +211,36 @@ def scl_valid_percentage(item, bbox_wgs84) -> float:
 # Elaborazione delle immagini
 # ------------------------------------------------------------------
 
-def stretch_rgb(rgb: np.ndarray) -> np.ndarray:
+def rgb_white_point(rgb: np.ndarray) -> float:
     """
-    Contrasto FISSO per la True Color Image (uguale per tutte le date):
-    schiarisce la TCI, che per la vegetazione risulta scura, senza
-    adattarsi alla singola immagine (renderebbe falsi i confronti).
+    Valore della TCI che diventa bianco.
+
+    Di norma e' fisso (RGB_HIGH), cosi' tutte le date e tutti i luoghi
+    verdi hanno lo stesso contrasto. Nelle scene molto chiare (deserti,
+    neve) quel valore brucerebbe l'immagine: se piu' del 5% dei pixel lo
+    supera, usiamo il 99° percentile del canale piu' luminoso.
+    """
+    has_data = np.any(rgb > 0, axis=0)
+    brightest = rgb.max(axis=0)[has_data]
+    if brightest.size < 100:
+        return RGB_HIGH
+    if float(np.mean(brightest >= RGB_HIGH)) <= RGB_SATURATION_LIMIT:
+        return RGB_HIGH
+    return float(min(255.0, max(RGB_HIGH, np.percentile(brightest, 99))))
+
+
+def stretch_rgb(rgb: np.ndarray, high: float = RGB_HIGH) -> np.ndarray:
+    """
+    Contrasto per la True Color Image: schiarisce la TCI, che per la
+    vegetazione risulta scura. "high" e' il valore che diventa bianco
+    (vedi rgb_white_point); per due date si usa lo stesso valore.
 
     rgb: array (3, righe, colonne) uint8 -> (righe, colonne, 3) uint8
     """
     data = rgb.astype(np.float32)
     has_data = np.any(rgb > 0, axis=0)
 
-    stretched = (data - RGB_LOW) / (RGB_HIGH - RGB_LOW)
+    stretched = (data - RGB_LOW) / (high - RGB_LOW)
     stretched = np.clip(stretched, 0, 1) ** RGB_GAMMA * 255
     stretched[:, ~has_data] = 0
     return np.transpose(stretched, (1, 2, 0)).astype(np.uint8)
@@ -358,7 +379,9 @@ def render_rgb_png(item, grid: Grid, reference_item=None) -> bytes:
             reference_item.assets["visual"].href, grid, indexes=[1, 2, 3]
         )
         rgb = harmonize_rgb(rgb, reference)
-    return to_png(stretch_rgb(rgb))
+        # Stesso bianco della data di riferimento: le due immagini restano confrontabili.
+        return to_png(stretch_rgb(rgb, rgb_white_point(reference)))
+    return to_png(stretch_rgb(rgb, rgb_white_point(rgb)))
 
 
 def render_ndvi_png(item, grid: Grid) -> bytes:
