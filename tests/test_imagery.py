@@ -84,6 +84,8 @@ class SyntheticScene:
             green[280:320, 280:320] = 600 + dn_offset
         swir16 = np.full((n20, n20), swir16_value + dn_offset, dtype=np.uint16)
         swir22 = np.full((n20, n20), swir22_value + dn_offset, dtype=np.uint16)
+        # Red-edge B05 (20 m): tra rosso e NIR, come nella vegetazione reale
+        rededge1 = np.full((n20, n20), (500 + nir_value) // 2 + dn_offset, dtype=np.uint16)
 
         visual = np.zeros((3, n10, n10), dtype=np.uint8)
         visual[0], visual[1], visual[2] = 40, 70, 35       # verde scuro
@@ -93,6 +95,7 @@ class SyntheticScene:
             ("red", red, t10), ("nir", nir, t10),
             ("scl", scl, t20), ("visual", visual, t10),
             ("green", green, t10), ("swir16", swir16, t20), ("swir22", swir22, t20),
+            ("rededge1", rededge1, t20),
         ]:
             path = folder / f"{name}.tif"
             write_raster(path, data, tr, crs=crs)

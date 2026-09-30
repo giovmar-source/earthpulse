@@ -70,6 +70,8 @@ class ImageryState {
     // Immagini già scaricate (per url) ed eventuali errori.
     val bitmaps = mutableStateMapOf<String, ImageBitmap>()
     val failures = mutableStateMapOf<String, String>()
+    // Numeri dei livelli (es. superficie d'acqua) per url
+    val waterStats = mutableStateMapOf<String, WaterStat>()
 
     // Linea del tempo e date scelte dall'utente.
     var timeline by mutableStateOf<ImageryTimeline?>(null)
@@ -372,6 +374,10 @@ internal fun ImageryContent(
             centerLabel = labels[1],
             rightLabel = labels[2]
         )
+    }
+
+    if (layer.stat == "water") {
+        WaterStatLine(state, after.images["stat_water"], before?.images?.get("stat_water"))
     }
 
     Spacer(Modifier.height(10.dp))
@@ -797,5 +803,54 @@ internal fun InfoBox(content: @Composable () -> Unit) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) { content() }
+    }
+}
+
+// ------------------------------------------------------------------
+// SUPERFICIE D'ACQUA (livello "Acqua")
+// ------------------------------------------------------------------
+
+@Composable
+private fun rememberWaterStat(state: ImageryState, url: String?): WaterStat? {
+    LaunchedEffect(url) {
+        if (url == null || state.waterStats.containsKey(url)) return@LaunchedEffect
+        try {
+            state.waterStats[url] = EarthPulseApi.fetchWaterStat(url)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Il numero è un di più: se non arriva, la mappa resta comunque.
+        }
+    }
+    return url?.let { state.waterStats[it] }
+}
+
+private fun hectares(value: Double): String =
+    if (value >= 100) String.format(java.util.Locale.ITALIAN, "%,.0f ha", value)
+    else String.format(java.util.Locale.ITALIAN, "%.1f ha", value)
+
+@Composable
+private fun WaterStatLine(state: ImageryState, afterUrl: String?, beforeUrl: String?) {
+    val after = rememberWaterStat(state, afterUrl) ?: return
+    val before = rememberWaterStat(state, beforeUrl)
+    val text = if (before != null && before.waterHa > 0.5) {
+        val change = 100.0 * (after.waterHa - before.waterHa) / before.waterHa
+        "Superficie d'acqua nell'area: ${hectares(before.waterHa)} → ${hectares(after.waterHa)} " +
+            String.format(java.util.Locale.ITALIAN, "(%+.0f%%)", change)
+    } else {
+        "Superficie d'acqua nell'area: ${hectares(after.waterHa)}"
+    }
+    val cloudy = listOfNotNull(after.observedPercentage, before?.observedPercentage).any { it < 90.0 }
+    Spacer(Modifier.height(10.dp))
+    InfoBox {
+        Column {
+            Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = DarkGreen)
+            if (cloudy) {
+                Text(
+                    "Parte dell'area era coperta da nuvole: il confronto è indicativo.",
+                    fontSize = 11.sp, color = Muted, modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
     }
 }

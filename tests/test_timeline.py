@@ -7,7 +7,7 @@ from unittest import mock
 
 def fake_item(item_id, day, cloud):
     assets = {k: SimpleNamespace(href=f"https://example.org/{item_id}/{k}.tif")
-              for k in ("visual", "scl", "green", "red", "nir", "swir16", "swir22")}
+              for k in ("visual", "scl", "green", "red", "rededge1", "nir", "swir16", "swir22")}
     return SimpleNamespace(
         id=item_id,
         datetime=datetime.fromisoformat(day).replace(hour=10, tzinfo=timezone.utc),

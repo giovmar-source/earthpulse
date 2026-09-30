@@ -30,6 +30,7 @@ from src.indices import (
     layer_list,
     render_dnbr_png,
     render_index_png,
+    water_area,
 )
 from src.imagery import (
     DIFF_COLOR_STOPS,
@@ -76,7 +77,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.9.0",
+    version="0.10.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -768,7 +769,7 @@ def geocode(
 IMAGERY_ASSETS = REQUIRED_ASSETS
 
 # Indici mostrati come immagini per ogni scena (oltre a colori reali e NDVI).
-EXTRA_INDEX_LAYERS = ("ndwi", "ndmi", "ndbi")
+EXTRA_INDEX_LAYERS = ("ndwi", "ndmi", "ndbi", "ndre", "ndsi", "ndci", "ndti")
 
 # Cache in memoria: evita di rileggere il catalogo e di ricalcolare
 # le stesse immagini. Si svuota quando il server si riavvia.
@@ -860,6 +861,8 @@ def describe_scene(chosen, lat: float, lon: float, side_km: float):
                 key: f"/api/v1/imagery/image?{params}&kind=index&index={key}"
                 for key in EXTRA_INDEX_LAYERS
             },
+            # Numeri associati a un livello (JSON, non immagine)
+            "stat_water": f"/api/v1/imagery/water?{params}",
         },
     }
 
@@ -1129,6 +1132,36 @@ def get_imagery_timeline(
     return result
 
 
+_WATER_CACHE: dict = {}
+
+
+@app.get("/api/v1/imagery/water")
+def get_imagery_water(
+    item_id: str = Query(..., min_length=5, max_length=100,
+                         pattern=r"^[A-Za-z0-9_\-]+$"),
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(3.0, gt=0, le=MAX_STORY_SIDE_KM),
+):
+    """Superficie d'acqua libera (ettari) nella scena, sull'area mostrata."""
+    key = (item_id, round(lat, 5), round(lon, 5), round(side_km, 3))
+    if key not in _WATER_CACHE:
+        item = get_item_by_id(item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Scena non trovata: {item_id}")
+        try:
+            result = water_area(item, Grid(lat, lon, side_km))
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Calcolo dell'acqua non riuscito: {exc}",
+            ) from exc
+        result["date"] = item.datetime.date().isoformat() if item.datetime else None
+        if len(_WATER_CACHE) > 200:
+            _WATER_CACHE.clear()
+        _WATER_CACHE[key] = result
+    return _WATER_CACHE[key]
+
+
 @app.get("/api/v1/imagery/image")
 def get_imagery_image(
     item_id: str = Query(..., min_length=5, max_length=100,
@@ -1137,7 +1170,7 @@ def get_imagery_image(
     lon: float = Query(..., ge=-180, le=180),
     side_km: float = Query(3.0, gt=0, le=MAX_STORY_SIDE_KM),
     kind: str = Query("rgb", pattern=r"^(rgb|ndvi|diff|index|dnbr)$"),
-    index: str | None = Query(None, pattern=r"^(ndvi|ndwi|ndmi|ndbi|nbr)$"),
+    index: str | None = Query(None, pattern=r"^(ndvi|ndwi|ndmi|ndbi|nbr|ndre|ndsi|ndci|ndti)$"),
     compare_id: str | None = Query(None, min_length=5, max_length=100,
                                    pattern=r"^[A-Za-z0-9_\-]+$"),
 ):

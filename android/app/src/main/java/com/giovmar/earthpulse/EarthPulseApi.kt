@@ -145,7 +145,16 @@ data class ImageryLayerInfo(
     val caption: String,
     val formula: String?,
     val stops: List<ColorStop>,
-    val legendLabels: List<String>
+    val legendLabels: List<String>,
+    // Numero associato al livello, es. "water" = superficie d'acqua in ettari
+    val stat: String? = null
+)
+
+data class WaterStat(
+    val waterHa: Double,
+    val observedPercentage: Double?,
+    val areaHa: Double?,
+    val date: String?
 )
 
 data class ColorStop(val value: Float, val color: Color)
@@ -407,6 +416,16 @@ object EarthPulseApi {
         return parseArchive(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
     }
 
+    suspend fun fetchWaterStat(relativeUrl: String): WaterStat {
+        val o = JSONObject(getJson(BACKEND_BASE_URL + relativeUrl, IMAGERY_READ_TIMEOUT_MS))
+        return WaterStat(
+            waterHa = o.optDouble("water_ha", 0.0),
+            observedPercentage = o.optDoubleOrNull("observed_percentage"),
+            areaHa = o.optDoubleOrNull("area_ha"),
+            date = o.optStringOrNull("date")
+        )
+    }
+
     /** Scarica un'immagine PNG del backend (url relativo, es. "/api/v1/imagery/image?..."). */
     suspend fun fetchImage(relativeUrl: String): ImageBitmap {
         val bytes = getBytes(BACKEND_BASE_URL + relativeUrl, IMAGERY_READ_TIMEOUT_MS, "image/png")
@@ -618,7 +637,8 @@ private fun parseLayers(array: JSONArray?): List<ImageryLayerInfo> {
             caption = o.optString("caption"),
             formula = o.optString("formula").takeIf { it.isNotBlank() && it != "null" },
             stops = parseColorStops(o.optJSONArray("color_stops")),
-            legendLabels = (0 until labels.length()).map { labels.optString(it) }
+            legendLabels = (0 until labels.length()).map { labels.optString(it) },
+            stat = o.optStringOrNull("stat")
         )
     }
 }

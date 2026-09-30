@@ -178,3 +178,56 @@ class TestIndexEndpoints(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestNewIndices(unittest.TestCase):
+    """NDRE, NDSI, NDCI, NDTI e superficie dell'acqua."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp())
+        cls.lake = SyntheticScene(cls.tmp / "lake", water_patch=True)
+        cls.grid = Grid(LAT, LON, 3.0)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_ndre_on_land(self):
+        values, valid = index_on_grid(self.lake.item(), self.grid, "ndre")
+        b05 = (500 + 3000) // 2
+        self.assertAlmostEqual(float(np.nanmedian(values[valid])), (3000 - b05) / (3000 + b05), places=3)
+        self.assertFalse(valid[150, 150])        # il lago al centro è escluso
+
+    def test_water_quality_indices_only_on_water(self):
+        for key in ("ndci", "ndti"):
+            with self.subTest(index=key):
+                _, valid = index_on_grid(self.lake.item(), self.grid, key)
+                self.assertTrue(valid[150, 150])     # lago
+                self.assertFalse(valid[40, 250])     # terraferma
+
+    def test_ndsi_keeps_snow(self):
+        from src import indices
+        scl = np.full((4, 4), indices.SCL_SNOW, dtype=np.uint8)
+        with mock.patch.object(indices, "read_on_grid", return_value=scl), \
+                mock.patch.object(indices, "read_band",
+                                  side_effect=lambda item, band, grid: np.full(
+                                      (4, 4), 4000 if band == "B03" else 500, np.uint16)), \
+                mock.patch.object(indices, "effective_offset", return_value=0):
+            fake = mock.Mock()
+            fake.assets = {"scl": mock.Mock(href="scl.tif")}
+            values, valid = index_on_grid(fake, None, "ndsi")
+        self.assertTrue(valid.all())
+        self.assertAlmostEqual(float(values[0, 0]), 3500 / 4500, places=4)
+
+    def test_water_area_counts_the_lake(self):
+        from src.indices import water_area
+        result = water_area(self.lake.item(), self.grid)
+        self.assertAlmostEqual(result["water_ha"], 16.0, delta=2.0)   # 400 × 400 m = 16 ha
+        self.assertAlmostEqual(result["area_ha"], 900.0, delta=1.0)
+
+    def test_new_layers_listed(self):
+        for key in ("ndre", "ndsi", "ndci", "ndti"):
+            self.assertIn(key, DEFAULT_LAYERS)
+            self.assertTrue(LAYERS[key]["color_stops"])
+        self.assertEqual(LAYERS["ndwi"].get("stat"), "water")

@@ -156,7 +156,16 @@ fun MethodologyScreen(onBack: () -> Unit) {
             Bullet("Costruito (NDBI): evidenzia edifici e superfici impermeabili, ma anche suolo nudo e rocce.")
             Formula("dNBR = NBR(prima) − NBR(dopo)")
             Bullet("Gravità incendio (dNBR, con NBR = (B08 − B12) / (B08 + B12)): classi USGS 0,10 · 0,27 · 0,44 · 0,66. Misura l'effetto sulla vegetazione, non l'intensità delle fiamme.")
-            Bullet("B11 e B12 hanno pixel di 20 m: sono ricampionate in modo bilineare sulla griglia di 10 m, quindi i dettagli più fini sono meno nitidi.")
+            Formula("NDRE = (B08 − B05) / (B08 + B05)")
+            Bullet("Clorofilla (NDRE): usa la banda red-edge B05, sensibile alla clorofilla; nelle colture fitte distingue meglio dell'NDVI le piante in difficoltà.")
+            Formula("NDSI = (B03 − B11) / (B03 + B11)")
+            Bullet("Neve (NDSI): sopra 0,4 di solito neve o ghiaccio. Qui la classe \"neve\" della SCL non viene scartata.")
+            Formula("NDCI = (B05 − B04) / (B05 + B04)")
+            Bullet("Alghe (NDCI), solo sull'acqua: clorofilla del fitoplancton, indicatore qualitativo delle fioriture.")
+            Formula("NDTI = (B04 − B03) / (B04 + B03)")
+            Bullet("Torbidità (NDTI), solo sull'acqua: sedimenti in sospensione, per esempio dopo le piogge o alle foci.")
+            Bullet("Superficie d'acqua: pixel classificati come acqua dalla SCL oppure con NDWI > 0, esclusi quelli coperti da nuvole; il numero di pixel per l'area di un pixel dà gli ettari.")
+            Bullet("B05, B11 e B12 hanno pixel di 20 m: sono ricampionate in modo bilineare sulla griglia di 10 m, quindi i dettagli più fini sono meno nitidi.")
         }
 
         MethodSection("Immagini dall'alto") {

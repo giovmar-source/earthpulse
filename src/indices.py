@@ -35,11 +35,12 @@ from src.ndvi import effective_offset
 BAND_ASSETS = {
     "B03": "green",
     "B04": "red",
+    "B05": "rededge1",
     "B08": "nir",
     "B11": "swir16",
     "B12": "swir22",
 }
-BANDS_20M = {"B11", "B12"}
+BANDS_20M = {"B05", "B11", "B12"}
 
 
 # ------------------------------------------------------------------
@@ -72,6 +73,45 @@ NDBI_COLOR_STOPS = [          # dalla vegetazione (verde) al costruito (rosso)
     (0.25, (210, 90, 50)),
     (0.40, (140, 30, 30)),
 ]
+
+NDRE_COLOR_STOPS = [          # clorofilla (red-edge): dal giallo-bruno al verde scuro
+    (-0.10, (200, 170, 120)),
+    (0.10, (235, 225, 150)),
+    (0.25, (180, 210, 110)),
+    (0.40, (90, 170, 70)),
+    (0.55, (30, 115, 50)),
+    (0.70, (10, 70, 35)),
+]
+
+NDSI_COLOR_STOPS = [          # neve: da terra (bruno) a neve (bianco-azzurro)
+    (-0.40, (150, 120, 90)),
+    (0.00, (205, 190, 170)),
+    (0.30, (200, 215, 225)),
+    (0.40, (170, 215, 245)),
+    (0.70, (235, 245, 255)),
+    (1.00, (255, 255, 255)),
+]
+
+NDCI_COLOR_STOPS = [          # clorofilla nell'acqua: da limpida (blu) ad alghe (verde)
+    (-0.20, (25, 60, 140)),
+    (-0.05, (60, 130, 190)),
+    (0.05, (90, 180, 170)),
+    (0.15, (120, 200, 90)),
+    (0.30, (60, 160, 40)),
+    (0.45, (20, 100, 20)),
+]
+
+NDTI_COLOR_STOPS = [          # torbidità: da limpida (blu scuro) a torbida (marrone)
+    (-0.30, (20, 50, 120)),
+    (-0.10, (50, 110, 170)),
+    (0.00, (120, 170, 170)),
+    (0.10, (190, 170, 110)),
+    (0.20, (160, 110, 60)),
+    (0.35, (110, 70, 35)),
+]
+
+# Colore della terraferma negli indici che valgono solo sull'acqua.
+LAND_COLOR = (222, 218, 208)
 
 # dNBR: classi di gravità secondo USGS (Key & Benson, FIREMON).
 DNBR_COLOR_STOPS = [
@@ -121,7 +161,35 @@ INDICES = {
         "stops": NDVI_COLOR_STOPS,
         "mask_water": True,
     },
+    "ndre": {
+        "bands": ("B08", "B05"),
+        "formula": "NDRE = (B08 − B05) / (B08 + B05)",
+        "stops": NDRE_COLOR_STOPS,
+        "mask_water": True,
+    },
+    # keep_snow: la neve è ciò che vogliamo vedere, non va scartata con la SCL.
+    "ndsi": {
+        "bands": ("B03", "B11"),
+        "formula": "NDSI = (B03 − B11) / (B03 + B11)",
+        "stops": NDSI_COLOR_STOPS,
+        "keep_snow": True,
+    },
+    # only_water: indici di qualità dell'acqua, senza significato sulla terra.
+    "ndci": {
+        "bands": ("B05", "B04"),
+        "formula": "NDCI = (B05 − B04) / (B05 + B04)",
+        "stops": NDCI_COLOR_STOPS,
+        "only_water": True,
+    },
+    "ndti": {
+        "bands": ("B04", "B03"),
+        "formula": "NDTI = (B04 − B03) / (B04 + B03)",
+        "stops": NDTI_COLOR_STOPS,
+        "only_water": True,
+    },
 }
+
+SCL_SNOW = 11
 
 # Colore dell'acqua negli indici che non si applicano all'acqua.
 WATER_COLOR = (170, 195, 215)
@@ -186,6 +254,40 @@ LAYERS = {
         NDBI_COLOR_STOPS, ("Vegetazione", "", "Costruito, suolo nudo"),
         INDICES["ndbi"]["formula"],
     ),
+    "ndre": _layer(
+        "ndre", "Clorofilla", "compare",
+        "NDRE: usa la banda red-edge B05, molto sensibile alla clorofilla. Nelle "
+        "colture fitte, dove l'NDVI è già al massimo, distingue meglio le piante ben "
+        "nutrite da quelle in difficoltà (per esempio per carenza di azoto). "
+        "B05 ha pixel di 20 m. In azzurro-grigio l'acqua.",
+        NDRE_COLOR_STOPS, ("Poca clorofilla", "", "Molta clorofilla"),
+        INDICES["ndre"]["formula"],
+    ),
+    "ndsi": _layer(
+        "ndsi", "Neve", "compare",
+        "NDSI: la neve riflette molto la luce verde e pochissimo l'infrarosso a onde "
+        "corte (B11). Valori sopra 0,4 indicano di solito neve o ghiaccio. Anche "
+        "l'acqua dà valori alti: va letto insieme ai colori reali.",
+        NDSI_COLOR_STOPS, ("Senza neve", "", "Neve, ghiaccio"),
+        INDICES["ndsi"]["formula"],
+    ),
+    "ndci": _layer(
+        "ndci", "Alghe", "compare",
+        "NDCI, solo sull'acqua: stima la clorofilla nell'acqua (fitoplancton, "
+        "fioriture di alghe) con le bande B05 e B04. Valori alti possono indicare "
+        "acque ricche di nutrienti. È un indicatore qualitativo: le concentrazioni "
+        "richiedono analisi in loco. La terraferma è in grigio chiaro.",
+        NDCI_COLOR_STOPS, ("Acqua limpida", "", "Molte alghe"),
+        INDICES["ndci"]["formula"],
+    ),
+    "ndti": _layer(
+        "ndti", "Torbidità", "compare",
+        "NDTI, solo sull'acqua: l'acqua carica di sedimenti (dopo le piogge, alle "
+        "foci dei fiumi) riflette più rosso che verde. Indicatore qualitativo. "
+        "La terraferma è in grigio chiaro.",
+        NDTI_COLOR_STOPS, ("Limpida", "", "Torbida"),
+        INDICES["ndti"]["formula"],
+    ),
     "diff": _layer(
         "diff", "Variazione", "single",
         "Differenza di NDVI tra le due date, solo dove entrambe le immagini "
@@ -205,7 +307,10 @@ LAYERS = {
     ),
 }
 
-DEFAULT_LAYERS = ["rgb", "ndvi", "ndwi", "ndmi", "ndbi", "diff"]
+# Il livello "Acqua" ha anche un numero: la superficie d'acqua in ettari.
+LAYERS["ndwi"]["stat"] = "water"
+
+DEFAULT_LAYERS = ["rgb", "ndvi", "ndwi", "ndmi", "ndbi", "ndre", "ndsi", "ndci", "ndti", "diff"]
 
 
 def layer_list(keys) -> list:
@@ -237,12 +342,15 @@ def _index_arrays(item, grid: Grid, key: str):
     b = np.clip(raw_b - offset, 0, None)
     denominator = a + b
 
-    valid = valid_mask_from_scl(scl) & has_data & (denominator > 0)
+    good_scl = valid_mask_from_scl(scl)
+    if INDICES[key].get("keep_snow"):
+        good_scl |= scl == SCL_SNOW
+    valid = good_scl & has_data & (denominator > 0)
     values = np.full(a.shape, np.nan, dtype=np.float32)
     values[valid] = (a[valid] - b[valid]) / denominator[valid]
 
     water = np.zeros(values.shape, dtype=bool)
-    if INDICES[key].get("mask_water"):
+    if INDICES[key].get("mask_water") or INDICES[key].get("only_water"):
         water = water_mask(item, grid, scl, offset_hint=offset)
     return values, valid, water
 
@@ -272,14 +380,34 @@ def index_on_grid(item, grid: Grid, key: str):
     Per gli indici "da terraferma" l'acqua libera è esclusa dai valori validi.
     """
     values, valid, water = _index_arrays(item, grid, key)
+    if INDICES[key].get("only_water"):
+        return values, valid & water
     return values, valid & ~water
 
 
 def render_index_png(item, grid: Grid, key: str) -> bytes:
     values, valid, water = _index_arrays(item, grid, key)
+    if INDICES[key].get("only_water"):
+        image = colorize(values, valid & water, INDICES[key]["stops"])
+        image[~water] = LAND_COLOR
+        return to_png(image)
     image = colorize(values, valid & ~water, INDICES[key]["stops"])
     image[water] = WATER_COLOR
     return to_png(image)
+
+
+def water_area(item, grid: Grid) -> dict:
+    """Superficie d'acqua libera nell'area (SCL acqua oppure NDWI > 0), in ettari."""
+    scl = read_on_grid(item.assets["scl"].href, grid)
+    water = water_mask(item, grid, scl)
+    observed = (scl != 0) & ~np.isin(scl, (3, 8, 9, 10))   # senza nuvole né ombre
+    pixel_ha = abs(grid.transform.a * grid.transform.e) / 10_000
+    total_ha = scl.size * pixel_ha
+    return {
+        "water_ha": round(float((water & observed).sum()) * pixel_ha, 1),
+        "observed_percentage": round(100.0 * float(observed.mean()), 1),
+        "area_ha": round(total_ha, 1),
+    }
 
 
 def change_on_grid(after_item, before_item, grid: Grid, key: str):
@@ -324,4 +452,5 @@ __all__ = [
     "INDICES", "LAYERS", "DEFAULT_LAYERS", "REQUIRED_ASSETS",
     "index_on_grid", "render_index_png", "change_on_grid",
     "render_dnbr_png", "dnbr_severity_share", "layer_list", "INVALID_COLOR",
+    "water_area",
 ]
