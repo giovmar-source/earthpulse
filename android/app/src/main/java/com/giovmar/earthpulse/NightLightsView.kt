@@ -255,7 +255,7 @@ private fun NightLightsContent(state: NightLightsState, info: NightLightsInfo, s
 }
 
 @Composable
-private fun YearChips(label: String, years: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun YearChips(label: String, years: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 12.sp, color = Muted, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.width(44.dp))
@@ -271,7 +271,7 @@ private fun YearChips(label: String, years: List<Int>, selected: Int, onSelect: 
 }
 
 @Composable
-private fun SmallChip(
+internal fun SmallChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,

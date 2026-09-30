@@ -21,6 +21,7 @@ from src.analysis import (
 from src.geocoding import GeocodingUnavailable, search_places
 from src import nightlights
 from src import heat
+from src import archive
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
@@ -75,7 +76,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.8.0",
+    version="0.9.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -1474,6 +1475,115 @@ def get_heat_image(
 
 
 # ============================================================
+# ENDPOINT: ARCHIVIO STORICO LANDSAT (dal 1984)
+# ============================================================
+
+_ARCHIVE_PNG_CACHE: dict = {}
+MAX_ARCHIVE_PNG_CACHE = 40
+
+
+def archive_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, (archive.ArchiveUnavailable, heat.HeatUnavailable)):
+        return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(
+        status_code=502,
+        detail=f"Errore nella lettura dell'archivio Landsat: {str(exc)}",
+    )
+
+
+def archive_image_url(lat: float, lon: float, side_km: float, year, kind: str) -> str:
+    query = urlencode({"lat": round(lat, 5), "lon": round(lon, 5),
+                       "side_km": round(side_km, 1)})
+    return f"/api/v1/archive/image?{query}&year={year}&kind={kind}"
+
+
+def archive_scene_info(lat: float, lon: float, side_km: float, year: int) -> dict:
+    """Scena dell'anno nello stesso formato delle scene Sentinel-2 (per l'app)."""
+    scene = archive.scene_for_year(lat, lon, side_km, year)
+    return {
+        "item_id": scene.item_id,
+        "date": scene.date,
+        "sensor": scene.sensor,
+        "valid_percentage": scene.valid_pct,
+        "cloud_cover_percent": None,
+        "images": {kind: archive_image_url(lat, lon, side_km, year, kind)
+                   for kind in ("rgb", "ndvi")},
+    }
+
+
+_ARCHIVE_WHITE: dict = {}
+
+
+def archive_white_point(lat: float, lon: float, side_km: float) -> float:
+    """Bianco dei colori reali, uguale per tutti gli anni di un luogo (dall'anno più recente)."""
+    key = (round(lat, 4), round(lon, 4), round(side_km, 1))
+    if key not in _ARCHIVE_WHITE:
+        latest = max(archive.archive_years(lat, lon))
+        _ARCHIVE_WHITE[key] = archive.white_point(
+            archive.scene_for_year(lat, lon, side_km, latest))
+    return _ARCHIVE_WHITE[key]
+
+
+@app.get("/api/v1/archive")
+def get_archive(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(6.0, ge=1, le=MAX_STORY_SIDE_KM),
+):
+    """Anni disponibili nell'archivio Landsat (una giornata estiva per anno)."""
+    try:
+        years = archive.archive_years(lat, lon)
+    except Exception as exc:
+        raise archive_error(exc) from exc
+    if not years:
+        raise HTTPException(status_code=404,
+                            detail="Nessuna immagine Landsat estiva per quest'area.")
+    listed = sorted(years)
+    return {
+        "side_km": side_km,
+        "years": listed,
+        "sensors": {str(y): archive.SENSORS.get(
+            years[y][0].properties.get("platform", ""), "Landsat") for y in listed},
+        "default_before": listed[0],
+        "default_after": listed[-1],
+        "image_template": archive_image_url(lat, lon, side_km, "{year}", "{kind}"),
+        "layers": archive.LAYERS,
+        "caption": (
+            "Una giornata estiva limpida per ogni anno, dai satelliti Landsat 5, 7, 8 e 9 "
+            "(pixel di 30 m). Landsat 7 dopo il 2003 ha immagini a strisce e viene "
+            "usato solo se manca altro."
+        ),
+        "attribution": archive.ATTRIBUTION,
+    }
+
+
+@app.get("/api/v1/archive/image")
+def get_archive_image(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(6.0, ge=1, le=MAX_STORY_SIDE_KM),
+    year: int = Query(..., ge=archive.FIRST_YEAR, le=2100),
+    kind: str = Query("rgb", pattern=r"^(rgb|ndvi)$"),
+):
+    key = (round(lat, 5), round(lon, 5), round(side_km, 1), year, kind)
+    png = _ARCHIVE_PNG_CACHE.get(key)
+    if png is None:
+        try:
+            scene = archive.scene_for_year(lat, lon, side_km, year)
+            if kind == "rgb":
+                png = archive.render_rgb(scene, archive_white_point(lat, lon, side_km))
+            else:
+                png = archive.render_ndvi(scene)
+        except Exception as exc:
+            raise archive_error(exc) from exc
+        if len(_ARCHIVE_PNG_CACHE) >= MAX_ARCHIVE_PNG_CACHE:
+            _ARCHIVE_PNG_CACHE.clear()
+        _ARCHIVE_PNG_CACHE[key] = png
+    return Response(content=png, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ============================================================
 # ENDPOINT 11-12: STORIE (eventi reali curati)
 # ============================================================
 
@@ -1539,6 +1649,9 @@ def get_story(story_id: str):
     lat, lon, side_km = story["latitude"], story["longitude"], float(story["side_km"])
     bbox = make_bbox(lat, lon, side_km)
 
+    if story.get("source") == "landsat":
+        return landsat_story(story, lat, lon, side_km, bbox, started)
+
     try:
         before, _bf, _bc = pinned_or_search(story, "before", bbox)
         after, _af, _ac = pinned_or_search(story, "after", bbox)
@@ -1587,4 +1700,36 @@ def get_story(story_id: str):
     # Si memorizza solo un risultato completo.
     if before_info and after_info:
         _STORY_SCENES_CACHE[story_id] = result
+    return result
+
+
+def landsat_story(story: dict, lat: float, lon: float, side_km: float,
+                  bbox, started: float) -> dict:
+    """Storia sull'archivio Landsat: due anni lontani, stessa stagione."""
+    before_year = story["before"]["target"].year
+    after_year = story["after"]["target"].year
+    try:
+        before_info = archive_scene_info(lat, lon, side_km, before_year)
+        after_info = archive_scene_info(lat, lon, side_km, after_year)
+    except Exception as exc:
+        raise archive_error(exc) from exc
+
+    result = {
+        **story_summary(story),
+        "what_to_look": story["what_to_look"],
+        "caveat": story["caveat"],
+        "diff_note": story.get("diff_note"),
+        "facts": story["facts"],
+        "sources": story["sources"],
+        "place_area": {"latitude": lat, "longitude": lon,
+                       "side_km": side_km, "bbox": bbox},
+        "before": before_info,
+        "after": after_info,
+        "messages": [],
+        "legend": imagery_legend(),
+        "layers": archive.LAYERS,
+        "attribution": archive.ATTRIBUTION,
+        "processing_seconds": round(time.monotonic() - started, 1),
+    }
+    _STORY_SCENES_CACHE[story["id"]] = result
     return result

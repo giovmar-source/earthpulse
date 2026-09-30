@@ -48,6 +48,7 @@ private fun categoryIcon(category: String): String = when {
     category.contains("Terremoto", ignoreCase = true) -> "🌊"
     category.contains("Alluvione", ignoreCase = true) -> "🌧️"
     category.contains("Siccità", ignoreCase = true) -> "☀️"
+    category.contains("Città", ignoreCase = true) -> "🏙️"
     else -> "🛰️"
 }
 
@@ -181,7 +182,7 @@ private fun StoryCard(story: StorySummary, onClick: () -> Unit) {
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    story.category.uppercase() + " · " + formatDate(story.eventDate),
+                    story.category.uppercase() + " · " + (story.eventLabel ?: formatDate(story.eventDate)),
                     fontSize = 10.sp, color = Green,
                     fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp
                 )
@@ -289,7 +290,7 @@ private fun StoryContent(story: StoryDetail, imagery: ImageryState) {
     val uriHandler = LocalUriHandler.current
 
     Text(
-        "${categoryIcon(s.category)}  ${s.category.uppercase()} · ${formatDate(s.eventDate)}",
+        "${categoryIcon(s.category)}  ${s.category.uppercase()} · ${s.eventLabel ?: formatDate(s.eventDate)}",
         color = Green, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold
     )
     Spacer(Modifier.height(6.dp))
@@ -305,6 +306,9 @@ private fun StoryContent(story: StoryDetail, imagery: ImageryState) {
     if (after != null) {
         ImageryContent(
             imagery, scenes, after, showAnalysisArea = false,
+            // Le storie Landsat guardano indietro di decenni: niente scelta
+            // delle date Sentinel-2.
+            showDatePicker = s.source != "landsat",
             shareTitle = s.title,
             shareSubtitle = "${s.place} · ${s.country}",
             shareHighlight = s.summary

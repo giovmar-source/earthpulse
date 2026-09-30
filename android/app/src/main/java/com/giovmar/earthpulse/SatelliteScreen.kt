@@ -68,23 +68,28 @@ private data class SatPart(
     val inEarthPulse: String? = null
 )
 
-private enum class SatView(val label: String, val image: Int, val caption: String) {
-    EXTERIOR(
-        "Esterno", R.drawable.sentinel2_exterior,
-        "Sentinel-2 in orbita: a sinistra lo strumento nella coperta isolante dorata, " +
-            "a destra la piattaforma con l'ala del pannello solare."
-    ),
-    INTERIOR(
-        "Interno", R.drawable.sentinel2_interior,
-        "Vista interna, con le pareti della piattaforma aperte: al centro il serbatoio, " +
-            "a destra la struttura dello strumento con i sensori stellari sopra."
-    )
-}
+/** Un'immagine del satellite; i punti delle parti sono in exterior (0) e interior (1). */
+private data class SatImage(
+    val label: String,
+    val res: Int,
+    val caption: String,
+    val credit: String
+)
 
-private fun SatPart.spot(view: SatView): Offset? =
-    if (view == SatView.EXTERIOR) exterior else interior
+private data class SatelliteInfo(
+    val name: String,
+    val headline: String,
+    val intro: String,
+    val images: List<SatImage>,
+    val parts: List<SatPart>,
+    val overview: String,
+    val sources: String
+)
 
-private val PARTS: List<SatPart> = listOf(
+/** Punto della parte sull'immagine n. index (0 = prima immagine, 1 = seconda). */
+private fun SatPart.spot(index: Int): Offset? = if (index == 0) exterior else interior
+
+private val SENTINEL2_PARTS: List<SatPart> = listOf(
     SatPart(
         number = 1,
         name = "Piattaforma",
@@ -274,13 +279,299 @@ private const val OVERVIEW_TEXT =
         "numero sull'immagine per vedere come."
 
 // ------------------------------------------------------------------
+// LANDSAT 9 (immagine NASA, pubblico dominio)
+// ------------------------------------------------------------------
+
+private val LANDSAT9_PARTS: List<SatPart> = listOf(
+    SatPart(
+        number = 1,
+        name = "Piattaforma",
+        role = "Il satellite \"gemello\" di Landsat 8, costruito per dare continuità all'archivio.",
+        color = Color(0xFFD5DBE0),
+        exterior = Offset(0.22f, 0.50f),
+        interior = null,
+        description = "Landsat 9 è stato progettato e costruito da Northrop Grumman sulla " +
+            "piattaforma LEOStar-3 ed è stato lanciato il 27 settembre 2021 con un razzo " +
+            "Atlas V 401 da Vandenberg, in California. È gestito da NASA e USGS.",
+        facts = listOf(
+            SatFact("Lancio", "27 settembre 2021, Atlas V 401"),
+            SatFact("Costruttore", "Northrop Grumman (LEOStar-3)"),
+            SatFact("Vita di progetto", "5 anni"),
+            SatFact("Consumabili", "per 10 anni"),
+            SatFact("Scene al giorno", "circa 740")
+        ),
+        engineering = "Landsat 9 è molto simile a Landsat 8, per scelta: riusare un progetto " +
+            "già collaudato riduce rischi e tempi e, soprattutto, garantisce che i dati di " +
+            "oggi siano confrontabili con quelli di ieri. Per un archivio che copre decenni " +
+            "la continuità conta più della novità."
+    ),
+    SatPart(
+        number = 2,
+        name = "Strumento OLI-2",
+        role = "La fotocamera multispettrale: dal visibile all'infrarosso a onde corte.",
+        color = Color(0xFFEEF1F3),
+        exterior = Offset(0.155f, 0.57f),
+        interior = null,
+        description = "L'Operational Land Imager 2 riprende una striscia larga 185 km in 9 " +
+            "bande, dal visibile all'infrarosso a onde corte, con pixel di 30 m (15 m per la " +
+            "banda pancromatica, in bianco e nero).",
+        facts = listOf(
+            SatFact("Bande", "9"),
+            SatFact("Risoluzione", "30 m (pancromatica 15 m)"),
+            SatFact("Larghezza ripresa", "185 km"),
+            SatFact("Precisione dei valori", "14 bit")
+        ),
+        engineering = "14 bit significano 16.384 livelli per ogni pixel: più sfumature sia nelle " +
+            "zone molto scure, come l'acqua, sia in quelle molto chiare, come neve e deserti. " +
+            "Le bande sono scelte per restare compatibili con i Landsat precedenti.",
+        inEarthPulse = "Nella sezione \"Nel tempo\" le immagini degli ultimi anni vengono da " +
+            "OLI e OLI-2; quelle degli anni '80 e '90 dal suo antenato TM, su Landsat 5."
+    ),
+    SatPart(
+        number = 3,
+        name = "Strumento TIRS-2",
+        role = "Il termometro: misura il calore emesso dalle superfici.",
+        color = Color(0xFFE07A4F),
+        exterior = null,
+        interior = null,
+        description = "Il Thermal Infrared Sensor 2 misura la radiazione termica in 2 bande " +
+            "dell'infrarosso, con pixel di 100 m (distribuiti ricampionati a 30 m).",
+        facts = listOf(
+            SatFact("Bande termiche", "2"),
+            SatFact("Risoluzione", "100 m (distribuita a 30 m)"),
+            SatFact("Larghezza ripresa", "185 km")
+        ),
+        engineering = "Il calore ha lunghezze d'onda molto più lunghe della luce visibile: a " +
+            "parità di telescopio i dettagli sono più grossolani e i rivelatori devono essere " +
+            "raffreddati per non \"vedere\" il proprio calore. Per questo il termico ha pixel " +
+            "di 100 m mentre OLI-2 arriva a 30 m.",
+        inEarthPulse = "Le isole di calore di EarthPulse usano la temperatura delle superfici " +
+            "calcolata da TIRS e TIRS-2."
+    ),
+    SatPart(
+        number = 4,
+        name = "Pannello solare",
+        role = "Produce l'energia per il satellite.",
+        color = Color(0xFF26467F),
+        exterior = Offset(0.515f, 0.39f),
+        interior = null,
+        description = "Un'unica grande ala di pannelli fotovoltaici, orientata verso il Sole, " +
+            "alimenta strumenti e piattaforma e ricarica le batterie per la parte di orbita " +
+            "passata nell'ombra della Terra.",
+        facts = emptyList(),
+        engineering = "Un'ala sola su un lato è la soluzione più semplice e leggera per un " +
+            "satellite che guarda sempre la Terra: l'ala ruota per seguire il Sole mentre il " +
+            "corpo resta puntato verso il basso."
+    ),
+    SatPart(
+        number = 5,
+        name = "Orbita",
+        role = "Stessa orbita di Landsat 8, sfasata di mezzo ciclo.",
+        color = Color(0xFF3FA37A),
+        exterior = null,
+        interior = null,
+        description = "Orbita eliosincrona a 705 km: Landsat 9 passa sopra l'equatore verso le " +
+            "10:12 del mattino, ora locale. Da solo rivede lo stesso punto ogni 16 giorni; " +
+            "insieme a Landsat 8 ogni 8.",
+        facts = listOf(
+            SatFact("Quota", "705 km"),
+            SatFact("Ora di passaggio", "circa 10:12 (nodo discendente)"),
+            SatFact("Rivisita", "16 giorni · 8 con Landsat 8"),
+            SatFact("Archivio Landsat", "dal 1972")
+        ),
+        engineering = "L'orbita riprende quella dei Landsat precedenti: stessa quota e stessa " +
+            "griglia di passaggi a terra, così le immagini di anni diversi si sovrappongono " +
+            "e l'archivio resta coerente."
+    )
+)
+
+// ------------------------------------------------------------------
+// SUOMI NPP (immagine NASA, pubblico dominio)
+// ------------------------------------------------------------------
+
+private val SUOMI_PARTS: List<SatPart> = listOf(
+    SatPart(
+        number = 1,
+        name = "Piattaforma",
+        role = "Satellite meteorologico e climatico di NASA e NOAA.",
+        color = Color(0xFFD9A441),
+        exterior = Offset(0.44f, 0.32f),
+        interior = null,
+        description = "Suomi NPP porta il nome del meteorologo Verner Suomi. Costruito da Ball " +
+            "Aerospace sulla piattaforma BCP-2000, è stato lanciato il 28 ottobre 2011 con un " +
+            "razzo Delta II. Oltre a VIIRS porta altri quattro strumenti per meteo e clima: " +
+            "CrIS, ATMS, OMPS e CERES.",
+        facts = listOf(
+            SatFact("Lancio", "28 ottobre 2011, Delta II"),
+            SatFact("Massa al lancio", "circa 2,1 t"),
+            SatFact("Piattaforma", "Ball BCP-2000"),
+            SatFact("Vita di progetto", "5 anni (consumabili per 7)"),
+            SatFact("Distribuzione dati", "NOAA la interrompe dal 1° novembre 2026")
+        ),
+        engineering = "Progettato per 5 anni, ha lavorato per oltre 14: i margini su carburante " +
+            "e componenti si trasformano in anni di dati in più. Ora il suo lavoro passa a " +
+            "NOAA-20 e NOAA-21, che portano copie aggiornate degli stessi strumenti.",
+        inEarthPulse = "Le luci notturne di EarthPulse vengono da Suomi NPP (dal 2012). Per gli " +
+            "anni futuri useremo gli stessi prodotti ricavati da NOAA-20."
+    ),
+    SatPart(
+        number = 2,
+        name = "Strumento VIIRS",
+        role = "Vede tutta la Terra ogni giorno, anche di notte.",
+        color = Color(0xFFEEF1F3),
+        exterior = Offset(0.18f, 0.50f),
+        interior = null,
+        description = "Il Visible Infrared Imaging Radiometer Suite riprende una striscia larga " +
+            "3000 km in 22 bande, dal visibile all'infrarosso termico. Una di queste, la " +
+            "banda giorno/notte (Day/Night Band), è abbastanza sensibile da misurare le luci " +
+            "delle città e la luce della Luna riflessa dalle nuvole.",
+        facts = listOf(
+            SatFact("Bande", "22, dal visibile al termico"),
+            SatFact("Risoluzione", "da circa 400 a 800 m"),
+            SatFact("Larghezza ripresa", "3000 km"),
+            SatFact("Banda speciale", "giorno/notte (luci notturne)")
+        ),
+        engineering = "Con 3000 km di larghezza bastano due passaggi al giorno per vedere tutta " +
+            "la Terra, di giorno e di notte. Il prezzo è la risoluzione: pixel di centinaia di " +
+            "metri. È il compromesso opposto a Sentinel-2, che vede dettagli di 10 m ma torna " +
+            "sullo stesso punto ogni 5 giorni.",
+        inEarthPulse = "La sezione \"Di notte\" usa la media annuale della banda giorno/notte " +
+            "(NASA Black Marble VNP46A4), corretta per Luna, nuvole e atmosfera."
+    ),
+    SatPart(
+        number = 3,
+        name = "Comunicazioni",
+        role = "Scarica ogni orbita i dati di tutti gli strumenti.",
+        color = Color(0xFF8B6BBE),
+        exterior = Offset(0.39f, 0.60f),
+        interior = null,
+        description = "I dati memorizzati a bordo scendono in banda X a 300 Mbit/s; un secondo " +
+            "canale da 15 Mbit/s trasmette in diretta a chiunque abbia un'antenna adatta, per " +
+            "esempio i servizi meteo locali.",
+        facts = listOf(
+            SatFact("Dati memorizzati", "banda X, 300 Mbit/s"),
+            SatFact("Trasmissione diretta", "15 Mbit/s")
+        ),
+        engineering = "Per un satellite meteorologico conta la tempestività: la trasmissione " +
+            "diretta permette di usare le immagini pochi minuti dopo il passaggio, senza " +
+            "aspettare lo scarico alle stazioni principali."
+    ),
+    SatPart(
+        number = 4,
+        name = "Pannello solare",
+        role = "Produce l'energia per i cinque strumenti.",
+        color = Color(0xFF26467F),
+        exterior = Offset(0.883f, 0.25f),
+        interior = null,
+        description = "Un'ala di celle all'arseniuro di gallio (GaAs), più efficienti di quelle " +
+            "al silicio, fornisce in media circa 2 kW anche a fine vita.",
+        facts = listOf(
+            SatFact("Celle", "arseniuro di gallio (GaAs)"),
+            SatFact("Potenza media", "circa 2 kW a fine vita")
+        ),
+        engineering = "Cinque strumenti accesi sempre, giorno e notte, richiedono molta più " +
+            "energia di un satellite che riprende solo sopra le terre emerse: le celle ad alta " +
+            "efficienza riducono superficie e massa dell'ala."
+    ),
+    SatPart(
+        number = 5,
+        name = "Orbita",
+        role = "Passa di pomeriggio e nel cuore della notte.",
+        color = Color(0xFF3FA37A),
+        exterior = null,
+        interior = null,
+        description = "Orbita eliosincrona a circa 830 km, un giro ogni 101 minuti. Suomi NPP " +
+            "passa sopra ogni luogo verso le 13:30 e, dall'altra parte dell'orbita, verso l'1:30 " +
+            "di notte: è quel passaggio notturno che vede le luci delle città.",
+        facts = listOf(
+            SatFact("Quota", "circa 830 km"),
+            SatFact("Periodo", "101 minuti"),
+            SatFact("Passaggi", "circa 13:30 e 1:30 ora locale")
+        ),
+        engineering = "L'ora del passaggio è una scelta di missione: di notte all'1:30 le città " +
+            "sono ancora illuminate ma il traffico è basso, e la stessa ora ogni notte rende " +
+            "confrontabili le misure di giorni e anni diversi."
+    )
+)
+
+// ------------------------------------------------------------------
+// ELENCO DEI SATELLITI
+// ------------------------------------------------------------------
+
+private val SATELLITES = listOf(
+    SatelliteInfo(
+        name = "Sentinel-2",
+        headline = "Copernicus Sentinel-2 · ESA/UE",
+        intro = "Immagini a 10 m in 13 bande: analisi, colori reali, indici e storie.",
+        images = listOf(
+            SatImage(
+                "Esterno", R.drawable.sentinel2_exterior,
+                "Sentinel-2 in orbita: a sinistra lo strumento nella coperta isolante dorata, " +
+                    "a destra la piattaforma con l'ala del pannello solare.",
+                "Immagine: ESA/ATG medialab · Licenza standard ESA"
+            ),
+            SatImage(
+                "Interno", R.drawable.sentinel2_interior,
+                "Vista interna, con le pareti della piattaforma aperte: al centro il serbatoio, " +
+                    "a destra la struttura dello strumento con i sensori stellari sopra.",
+                "Immagine: ESA/ATG medialab · Licenza standard ESA"
+            )
+        ),
+        parts = SENTINEL2_PARTS,
+        overview = OVERVIEW_TEXT,
+        sources = "Fonti dei dati: ESA (Sentinel-2 operations; SentiWiki, S2 Mission) ed " +
+            "eoPortal (Copernicus: Sentinel-2)."
+    ),
+    SatelliteInfo(
+        name = "Landsat 9",
+        headline = "Landsat 9 · NASA/USGS",
+        intro = "Erede di 50 anni di Landsat: archivio dal 1984 e temperatura delle superfici.",
+        images = listOf(
+            SatImage(
+                "Esterno", R.drawable.landsat9,
+                "Landsat 9 in orbita: a sinistra gli strumenti rivolti verso la Terra, a " +
+                    "destra la grande ala del pannello solare.",
+                "Immagine: NASA · pubblico dominio"
+            )
+        ),
+        parts = LANDSAT9_PARTS,
+        overview = "Landsat osserva le terre emerse dal 1972: è l'archivio satellitare più " +
+            "lungo al mondo. Landsat 9 lavora in coppia con Landsat 8 e porta due strumenti: " +
+            "OLI-2 per la luce riflessa e TIRS-2 per il calore. Tocca un numero sull'immagine.",
+        sources = "Fonti dei dati: NASA Science (Landsat 9). TIRS-2 non ha un punto " +
+            "sull'immagine: lo trovi nell'elenco."
+    ),
+    SatelliteInfo(
+        name = "Suomi NPP",
+        headline = "Suomi NPP · NASA/NOAA",
+        intro = "Vede tutta la Terra ogni giorno e anche di notte: le luci notturne vengono da qui.",
+        images = listOf(
+            SatImage(
+                "Esterno", R.drawable.suomi_npp,
+                "Suomi NPP: il corpo dorato della piattaforma con gli strumenti, le antenne e, " +
+                    "a destra, l'ala del pannello solare.",
+                "Immagine: NASA · pubblico dominio"
+            )
+        ),
+        parts = SUOMI_PARTS,
+        overview = "Suomi NPP è nato come ponte tra i satelliti climatici NASA e la nuova " +
+            "serie meteorologica JPSS. Il suo strumento VIIRS riprende l'intero pianeta ogni " +
+            "giorno, anche di notte: è così che si misurano le luci delle città.",
+        sources = "Fonti dei dati: eoPortal (Suomi NPP) e Wikipedia (Suomi NPP)."
+    )
+)
+
+// ------------------------------------------------------------------
 // SCHERMATA
 // ------------------------------------------------------------------
 
 @Composable
 fun SatelliteScreen(onBack: () -> Unit) {
-    var view by rememberSaveable { mutableStateOf(SatView.EXTERIOR) }
+    var satIndex by rememberSaveable { mutableStateOf(0) }
+    var imageIndex by rememberSaveable { mutableStateOf(0) }
     var selected by rememberSaveable { mutableStateOf<Int?>(null) }
+    val satellite = SATELLITES[satIndex.coerceIn(0, SATELLITES.lastIndex)]
+    val image = satellite.images[imageIndex.coerceIn(0, satellite.images.lastIndex)]
 
     Column(
         Modifier
@@ -299,54 +590,59 @@ fun SatelliteScreen(onBack: () -> Unit) {
         )
         Spacer(Modifier.height(18.dp))
         Text(
-            "COM'È FATTO SENTINEL-2",
+            "I SATELLITI DI EARTHPULSE",
             color = Green, fontSize = 11.sp, letterSpacing = 1.5.sp,
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "Il satellite dietro le immagini",
+            "Chi scatta le immagini",
             fontSize = 24.sp, fontWeight = FontWeight.Bold, color = DarkGreen
         )
-        Text(
-            "Tocca un numero sull'immagine; passa alla vista interna per vedere dentro.",
-            fontSize = 13.sp, color = Muted
-        )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
 
-        // Esterno / Interno
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SatView.entries.forEach { option ->
-                val isSelected = option == view
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = if (isSelected) DarkGreen else Color.White,
-                    modifier = Modifier.clickable { view = option }
-                ) {
-                    Text(
-                        option.label,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = if (isSelected) Color.White else DarkGreen,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+        // Scelta del satellite
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SATELLITES.forEachIndexed { index, option ->
+                PillChip(option.name, index == satIndex) {
+                    satIndex = index
+                    imageIndex = 0
+                    selected = null
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
+        Text(satellite.headline, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = DarkGreen)
+        Text(satellite.intro, fontSize = 13.sp, lineHeight = 19.sp, color = Muted,
+            modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.height(12.dp))
+
+        // Viste (solo se il satellite ne ha più di una)
+        if (satellite.images.size > 1) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                satellite.images.forEachIndexed { index, option ->
+                    PillChip(option.label, index == imageIndex) { imageIndex = index }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
 
         SatelliteImage(
-            view = view,
+            satellite = satellite,
+            imageIndex = imageIndex,
             selected = selected,
             onSpotClick = { number -> selected = if (selected == number) null else number }
         )
         Text(
-            view.caption,
+            image.caption,
             fontSize = 12.sp, lineHeight = 17.sp, color = Muted,
             modifier = Modifier.padding(top = 6.dp)
         )
         Text(
-            "Immagine: ESA/ATG medialab · Licenza standard ESA",
+            image.credit,
             fontSize = 10.sp, color = Muted,
             modifier = Modifier.padding(top = 2.dp)
         )
@@ -357,7 +653,7 @@ fun SatelliteScreen(onBack: () -> Unit) {
             Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            PARTS.forEach { part ->
+            satellite.parts.forEach { part ->
                 val isSelected = part.number == selected
                 Surface(
                     shape = RoundedCornerShape(50),
@@ -365,9 +661,9 @@ fun SatelliteScreen(onBack: () -> Unit) {
                     modifier = Modifier.clickable {
                         selected = if (isSelected) null else part.number
                         // Se la parte si vede solo nell'altra vista, passiamo a quella.
-                        if (!isSelected && part.spot(view) == null) {
-                            SatView.entries.firstOrNull { part.spot(it) != null }
-                                ?.let { view = it }
+                        if (!isSelected && part.spot(imageIndex) == null) {
+                            satellite.images.indices.firstOrNull { part.spot(it) != null }
+                                ?.let { imageIndex = it }
                         }
                     }
                 ) {
@@ -394,22 +690,41 @@ fun SatelliteScreen(onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(14.dp))
-        val part = PARTS.firstOrNull { it.number == selected }
-        if (part == null) OverviewCard() else PartCard(part)
+        val part = satellite.parts.firstOrNull { it.number == selected }
+        if (part == null) OverviewCard(satellite.overview) else PartCard(part)
 
         Spacer(Modifier.height(16.dp))
-        Text(
-            "Fonti dei dati: ESA (Sentinel-2 operations; SentiWiki, S2 Mission) ed eoPortal " +
-                "(Copernicus: Sentinel-2). Immagini: ESA/ATG medialab.",
-            fontSize = 11.sp, lineHeight = 15.sp, color = Muted
-        )
+        Text(satellite.sources, fontSize = 11.sp, lineHeight = 15.sp, color = Muted)
         Spacer(Modifier.height(30.dp))
     }
 }
 
-/** Immagine ESA con i punti numerati sopra (posizioni in frazioni 0..1). */
 @Composable
-private fun SatelliteImage(view: SatView, selected: Int?, onSpotClick: (Int) -> Unit) {
+private fun PillChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = if (selected) DarkGreen else Color.White,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            color = if (selected) Color.White else DarkGreen,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+/** Immagine del satellite con i punti numerati sopra (posizioni in frazioni 0..1). */
+@Composable
+private fun SatelliteImage(
+    satellite: SatelliteInfo,
+    imageIndex: Int,
+    selected: Int?,
+    onSpotClick: (Int) -> Unit
+) {
+    val image = satellite.images[imageIndex.coerceIn(0, satellite.images.lastIndex)]
     BoxWithConstraints(
         Modifier
             .fillMaxWidth()
@@ -418,14 +733,14 @@ private fun SatelliteImage(view: SatView, selected: Int?, onSpotClick: (Int) -> 
             .background(Color.Black)
     ) {
         Image(
-            painter = painterResource(view.image),
-            contentDescription = "Sentinel-2, vista ${view.label.lowercase()}",
+            painter = painterResource(image.res),
+            contentDescription = "${satellite.name}, ${image.label.lowercase()}",
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit
         )
         val spotSize = 28.dp
-        PARTS.forEach { part ->
-            val spot = part.spot(view) ?: return@forEach
+        satellite.parts.forEach { part ->
+            val spot = part.spot(imageIndex) ?: return@forEach
             val isSelected = part.number == selected
             Box(
                 Modifier
@@ -452,11 +767,11 @@ private fun SatelliteImage(view: SatView, selected: Int?, onSpotClick: (Int) -> 
 }
 
 @Composable
-private fun OverviewCard() {
+private fun OverviewCard(text: String) {
     InfoCardBox {
         Text("Visione d'insieme", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkGreen)
         Spacer(Modifier.height(6.dp))
-        Text(OVERVIEW_TEXT, fontSize = 14.sp, lineHeight = 21.sp, color = Muted)
+        Text(text, fontSize = 14.sp, lineHeight = 21.sp, color = Muted)
     }
 }
 

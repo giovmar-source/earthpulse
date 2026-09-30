@@ -24,6 +24,10 @@ MAX_STORY_SIDE_KM = 12.0
 # Livelli aggiuntivi consentiti per le storie (oltre a quelli standard).
 ALLOWED_EXTRA_LAYERS = {"dnbr"}
 
+# Sorgente delle immagini: Sentinel-2 (predefinita) o archivio Landsat,
+# per le storie che guardano indietro di decenni (dal 1984).
+ALLOWED_SOURCES = {"sentinel-2", "landsat"}
+
 REQUIRED_FIELDS = [
     "id", "category", "title", "place", "country",
     "latitude", "longitude", "side_km", "event_date",
@@ -72,6 +76,9 @@ def validate_story(story: dict) -> dict:
     if unknown:
         raise StoryError(f"{story_id}: livelli sconosciuti {sorted(unknown)}")
 
+    if story.get("source", "sentinel-2") not in ALLOWED_SOURCES:
+        raise StoryError(f"{story_id}: sorgente sconosciuta {story.get('source')!r}")
+
     event = date.fromisoformat(story["event_date"])
     before = parse_window(story["before"], story_id, "before")
     after = parse_window(story["after"], story_id, "after")
@@ -116,5 +123,8 @@ def story_summary(story: dict) -> dict:
         "latitude": story["latitude"],
         "longitude": story["longitude"],
         "event_date": story["event_date"].isoformat(),
+        # Testo della data quando l'evento dura anni (es. "2001–2010")
+        "event_label": story.get("event_label"),
+        "source": story.get("source", "sentinel-2"),
         "summary": story["summary"],
     }

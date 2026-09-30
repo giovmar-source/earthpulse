@@ -87,6 +87,10 @@ fun AnalysisScreen(
     var heatSideKm by rememberSaveable { mutableStateOf(HEAT_DEFAULT_SIDE_KM) }
     val heatState = rememberHeatState(place, heatSideKm)
 
+    // Archivio storico Landsat (dal 1984)
+    var archiveSideKm by rememberSaveable { mutableStateOf(ARCHIVE_DEFAULT_SIDE_KM) }
+    val archiveState = rememberArchiveState(place, archiveSideKm)
+
     // Parte all'apertura e a ogni "Riprova".
     LaunchedEffect(place, attempt) {
         state = AnalysisUiState.Loading
@@ -164,6 +168,10 @@ fun AnalysisScreen(
                     heatState, heatSideKm,
                     shareTitle = place.label ?: formatCoordinates(place)
                 ) { heatSideKm = it }
+                ArchiveSection(
+                    archiveState, archiveSideKm,
+                    shareTitle = place.label ?: formatCoordinates(place)
+                ) { archiveSideKm = it }
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = onMethodologyClick,

@@ -244,6 +244,7 @@ internal fun ImageryContent(
     baseScenes: ImageryScenes,
     baseAfter: SceneImages,
     showAnalysisArea: Boolean = true,
+    showDatePicker: Boolean = true,
     // Condivisione: titolo della scheda (null = nessun pulsante)
     shareTitle: String? = null,
     shareSubtitle: String = "Sentinel-2",
@@ -287,8 +288,10 @@ internal fun ImageryContent(
     }
     Spacer(Modifier.height(10.dp))
 
-    DatePicker(state, baseScenes)
-    Spacer(Modifier.height(10.dp))
+    if (showDatePicker) {
+        DatePicker(state, baseScenes)
+        Spacer(Modifier.height(10.dp))
+    }
 
     // Riquadro dell'area analizzata (1 km): solo per l'analisi di un luogo.
     val areaFraction =

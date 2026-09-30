@@ -197,6 +197,17 @@ fun MethodologyScreen(onBack: () -> Unit) {
             Bullet("Accanto al calore mostriamo i colori reali di Sentinel-2 (10 m) di una giornata limpida vicina, per riconoscere i luoghi.")
         }
 
+        MethodSection("Archivio dal 1984") {
+            Paragraph(
+                "La sezione \"Nel tempo\" usa l'archivio Landsat Collection 2 (USGS/NASA): " +
+                        "Landsat 5 TM (1984-2011), Landsat 7 ETM+, Landsat 8 e 9 OLI, con pixel di 30 m."
+            )
+            Bullet("Per ogni anno una giornata della stagione estiva (giugno-settembre; nell'emisfero sud dicembre-marzo) con meno del 20% di nuvole e almeno l'85% dell'area limpida.")
+            Bullet("Riflettanza della superficie con la stessa scala per tutti gli anni e tutti i sensori, quindi i colori sono confrontabili a colpo d'occhio.")
+            Bullet("Landsat 7 dal 2003 ha un guasto (SLC-off) che lascia strisce vuote: lo usiamo solo se quell'anno non c'è altro (di solito il 2012).")
+            Bullet("I sensori di epoche diverse hanno bande leggermente diverse: le piccole differenze di colore o di NDVI tra decenni non sono significative, i grandi cambiamenti sì.")
+        }
+
         MethodSection("7 · Limiti") {
             Bullet("L'NDVI non misura direttamente la salute della vegetazione: è legato alla sua risposta spettrale.")
             Bullet("Un'anomalia non dimostra da sola la causa: siccità, tagli, incendi, raccolti, ma anche differenze di osservazione possono produrla.")
@@ -210,7 +221,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
         MethodSection("Fonti e attribuzioni") {
             Bullet("Contiene dati Copernicus Sentinel modificati, elaborati da EarthPulse.")
             Bullet("Catalogo delle immagini: Earth Search (Element 84), dati Sentinel-2 su AWS Open Data.")
-            Bullet("Temperatura: Landsat 8-9 Collection 2 (USGS/NASA), tramite Microsoft Planetary Computer.")
+            Bullet("Temperatura e archivio storico: Landsat 4-9 Collection 2 (USGS/NASA), tramite Microsoft Planetary Computer.")
             Bullet("Luci notturne: NASA Black Marble VNP46A4 (Román et al.), distribuito da LAADS DAAC / NASA Earthdata.")
             Bullet("Mappa: OpenFreeMap e OpenMapTiles, dati © OpenStreetMap contributors (ODbL). Ricerca dei luoghi: Nominatim e Photon.")
         }

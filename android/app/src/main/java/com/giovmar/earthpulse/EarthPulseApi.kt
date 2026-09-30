@@ -182,6 +182,10 @@ data class StorySummary(
     val place: String,
     val country: String,
     val eventDate: String,
+    // Testo della data per eventi lunghi (es. "Dal 2001"); null = usa eventDate
+    val eventLabel: String? = null,
+    // "sentinel-2" oppure "landsat" (archivio storico)
+    val source: String = "sentinel-2",
     val summary: String
 )
 
@@ -248,6 +252,24 @@ data class HeatInfo(
     val temperatureLabels: List<String>,
     val waterColor: Color?
 )
+
+// Archivio storico Landsat (/api/v1/archive)
+
+data class ArchiveInfo(
+    val sideKm: Double,
+    val years: List<Int>,
+    val sensors: Map<Int, String>,
+    val defaultBefore: Int,
+    val defaultAfter: Int,
+    val imageTemplate: String,
+    val layers: List<ImageryLayerInfo>,
+    val caption: String,
+    val attribution: String
+) {
+    fun imageUrl(year: Int, kind: String) = imageTemplate
+        .replace("{year}", year.toString())
+        .replace("{kind}", kind)
+}
 
 /** Errore con un messaggio già comprensibile per l'utente. */
 class ApiException(message: String) : Exception(message)
@@ -374,6 +396,15 @@ object EarthPulseApi {
             BACKEND_BASE_URL, latitude, longitude, sideKm
         )
         return parseHeat(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
+    }
+
+    suspend fun fetchArchive(latitude: Double, longitude: Double, sideKm: Double): ArchiveInfo {
+        val url = String.format(
+            Locale.US,
+            "%s/api/v1/archive?lat=%.5f&lon=%.5f&side_km=%.1f",
+            BACKEND_BASE_URL, latitude, longitude, sideKm
+        )
+        return parseArchive(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
     }
 
     /** Scarica un'immagine PNG del backend (url relativo, es. "/api/v1/imagery/image?..."). */
@@ -617,6 +648,8 @@ private fun parseStorySummary(o: JSONObject) = StorySummary(
     place = o.optString("place"),
     country = o.optString("country"),
     eventDate = o.optString("event_date"),
+    eventLabel = o.optStringOrNull("event_label"),
+    source = o.optString("source", "sentinel-2"),
     summary = o.optString("summary")
 )
 
@@ -709,5 +742,23 @@ private fun parseHeat(root: JSONObject): HeatInfo {
         waterColor = legend?.optStringOrNull("water_color")?.let {
             runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull()
         }
+    )
+}
+
+private fun parseArchive(root: JSONObject): ArchiveInfo {
+    val yearsArray = root.optJSONArray("years") ?: JSONArray()
+    val years = (0 until yearsArray.length()).map { yearsArray.getInt(it) }
+    val sensorsObject = root.optJSONObject("sensors")
+    val sensors = years.associateWith { year -> sensorsObject?.optString(year.toString()) ?: "Landsat" }
+    return ArchiveInfo(
+        sideKm = root.optDouble("side_km", 6.0),
+        years = years,
+        sensors = sensors,
+        defaultBefore = root.optInt("default_before", years.firstOrNull() ?: 1984),
+        defaultAfter = root.optInt("default_after", years.lastOrNull() ?: 1984),
+        imageTemplate = root.getString("image_template"),
+        layers = parseLayers(root.optJSONArray("layers")),
+        caption = root.optString("caption"),
+        attribution = root.optString("attribution")
     )
 }

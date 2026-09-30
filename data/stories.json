@@ -218,6 +218,48 @@
       "diff_note": "Qui la mappa della variazione è poco utile: il cambiamento è la posizione della costa, visibile nei colori reali.",
       "before_item_id": "S2A_53SPB_20230410_0_L2A",
       "after_item_id": "S2A_53SPB_20240414_0_L2A"
+    },
+    {
+      "id": "dubai-1990-2025",
+      "category": "Città",
+      "title": "Dubai, il mare diventa città",
+      "place": "Palm Jumeirah e Dubai Marina, Dubai",
+      "country": "Emirati Arabi Uniti",
+      "latitude": 25.105,
+      "longitude": 55.135,
+      "side_km": 12,
+      "event_date": "2001-01-01",
+      "event_label": "Dal 2001",
+      "source": "landsat",
+      "summary": "Nel 1990 qui c'erano una costa diritta e il deserto. Dal 2001 in mare è stata costruita la Palm Jumeirah, un'isola artificiale a forma di palma; dal 2003 un canale scavato lungo la costa ha dato vita a Dubai Marina, un quartiere di grattacieli.",
+      "what_to_look": "Nei colori reali confronta la linea di costa: nel 1990 è diritta, oggi c'è la palma con il tronco, le fronde e l'anello che la protegge dal mare aperto. A sud-ovest della palma, lungo la costa, la griglia di strade e il canale di Dubai Marina. Nella vegetazione compaiono i prati e i giardini irrigati, assenti nel deserto del 1990.",
+      "caveat": "L'archivio Landsat ha pixel di 30 m: si vedono isole, canali e quartieri, non i singoli edifici. Le immagini del 1990 (Landsat 5 TM) e di oggi (Landsat 8-9 OLI) vengono da sensori diversi: sono rese confrontabili con la stessa scala, ma piccole differenze di tono non sono significative.",
+      "facts": [
+        "Palm Jumeirah: lavori iniziati nel 2001, isola completata tra il 2006 e il 2007",
+        "Per costruirla: 94 milioni di m³ di sabbia dal fondale e 5,5 milioni di m³ di roccia",
+        "Dubai Marina: avviata nel 2003, canale artificiale lungo circa 3 km di costa",
+        "Dubai Marina oggi: circa 70.000 abitanti (2024) su 4,9 km²"
+      ],
+      "sources": [
+        {
+          "title": "Palm Islands – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Palm_Islands"
+        },
+        {
+          "title": "Dubai Marina – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Dubai_Marina"
+        }
+      ],
+      "before": {
+        "start": "1990-06-01",
+        "end": "1990-09-30",
+        "target": "1990-07-15"
+      },
+      "after": {
+        "start": "2025-06-01",
+        "end": "2025-09-30",
+        "target": "2025-07-15"
+      }
     }
   ]
 }
