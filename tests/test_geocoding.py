@@ -111,6 +111,34 @@ class TestGeocoding(unittest.TestCase):
         urls = [call["url"] for call in session.calls]
         self.assertEqual(urls.count(geocoding.NOMINATIM_URL), 1)
 
+    def test_nominatim_prefers_italian_then_english_names(self):
+        payload = [dict(NOMINATIM_PAYLOAD[0], name="بغداد", display_name="Baghdad, Iraq",
+                        namedetails={"name": "بغداد", "name:en": "Baghdad"})]
+        session = FakeSession({geocoding.NOMINATIM_URL: (payload, 200)})
+        results = geocoding.search_places("Baghdad", session=session)
+
+        self.assertEqual(results[0]["name"], "Baghdad")
+        self.assertEqual(session.calls[0]["params"]["namedetails"], 1)
+        self.assertEqual(session.calls[0]["headers"]["Accept-Language"], "it,en;q=0.8")
+
+    def test_photon_falls_back_to_english_language(self):
+        class LangSession(FakeSession):
+            def get(self, url, params=None, headers=None, timeout=None):
+                self.calls.append({"url": url, "params": params, "headers": headers})
+                if url == geocoding.NOMINATIM_URL:
+                    return FakeResponse({}, 429)
+                if params.get("lang") == "it":
+                    return FakeResponse({"message": "language not supported"}, 400)
+                return FakeResponse(PHOTON_PAYLOAD, 200)
+
+        session = LangSession({})
+        results = geocoding.search_places("Salerno", session=session)
+
+        self.assertEqual(results[0]["name"], "Salerno")
+        photon_langs = [c["params"]["lang"] for c in session.calls
+                        if c["url"] == geocoding.PHOTON_URL]
+        self.assertEqual(photon_langs, ["it", "en"])
+
     def test_both_services_down(self):
         session = FakeSession({
             geocoding.NOMINATIM_URL: ({}, 500),

@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,7 +76,8 @@ fun AnalysisScreen(
     }
 
     // Le immagini "dall'alto" si caricano in parallelo all'analisi.
-    val imagery = rememberImageryState(place)
+    var imagerySideKm by rememberSaveable { mutableStateOf(IMAGERY_SIDE_KM) }
+    val imagery = rememberImageryState(place, imagerySideKm)
 
     // Parte all'apertura e a ogni "Riprova".
     LaunchedEffect(place, attempt) {
@@ -139,7 +141,12 @@ fun AnalysisScreen(
                 onBack = onBack
             )
             is AnalysisUiState.Success -> {
-                ResultContent(s.analysis, imagery)
+                ResultContent(
+                    analysis = s.analysis,
+                    imagery = imagery,
+                    imagerySideKm = imagerySideKm,
+                    onImagerySideChange = { imagerySideKm = it }
+                )
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = onMethodologyClick,
@@ -228,7 +235,12 @@ private fun ErrorContent(message: String, onRetry: () -> Unit, onBack: () -> Uni
 // ------------------------------------------------------------------
 
 @Composable
-private fun ResultContent(analysis: PlaceAnalysis, imagery: ImageryState) {
+private fun ResultContent(
+    analysis: PlaceAnalysis,
+    imagery: ImageryState,
+    imagerySideKm: Double,
+    onImagerySideChange: (Double) -> Unit
+) {
     HeroCard(analysis)
 
     if (analysis.messages.isNotEmpty()) {
@@ -253,7 +265,7 @@ private fun ResultContent(analysis: PlaceAnalysis, imagery: ImageryState) {
     }
 
     // ---------- immagini satellitari ----------
-    ImagerySection(imagery)
+    ImagerySection(imagery, imagerySideKm, onImagerySideChange)
 
     // ---------- confronto con gli anni precedenti ----------
     if (analysis.baseline.observations.isNotEmpty()) {

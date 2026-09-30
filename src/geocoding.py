@@ -12,6 +12,10 @@ Regole rispettate (policy d'uso dei servizi pubblici):
 - cache dei risultati;
 - nessun autocompletamento: l'app cerca solo quando l'utente conferma;
 - dopo un rifiuto di Nominatim, pausa di 10 minuti prima di riprovarlo.
+
+Lingua dei nomi: italiano, altrimenti inglese, altrimenti nome locale.
+Così i luoghi in Medio Oriente, Asia, ecc. non compaiono in caratteri
+non latini quando esiste una traduzione.
 """
 
 from __future__ import annotations
@@ -45,6 +49,11 @@ def normalize_query(query: str) -> str:
     return " ".join((query or "").split())
 
 
+def _accept_language(language: str) -> str:
+    """Es. "it" -> "it,en;q=0.8": se manca l'italiano, preferisci l'inglese."""
+    return language if language == "en" else f"{language},en;q=0.8"
+
+
 def _get(http, url, params, language):
     """GET con intervallo minimo di 1 s tra le richieste."""
     with _lock:
@@ -57,7 +66,7 @@ def _get(http, url, params, language):
                 params=params,
                 headers={
                     "User-Agent": USER_AGENT,
-                    "Accept-Language": language,
+                    "Accept-Language": _accept_language(language),
                 },
                 timeout=REQUEST_TIMEOUT,
             )
@@ -68,7 +77,7 @@ def _get(http, url, params, language):
 def _search_nominatim(http, text, limit, language) -> list:
     response = _get(
         http, NOMINATIM_URL,
-        {"q": text, "format": "jsonv2", "limit": limit},
+        {"q": text, "format": "jsonv2", "limit": limit, "namedetails": 1},
         language,
     )
     status = getattr(response, "status_code", 200)
@@ -79,8 +88,16 @@ def _search_nominatim(http, text, limit, language) -> list:
     results = []
     for place in response.json():
         display_name = place.get("display_name", "")
+        names = place.get("namedetails") or {}
+        # Nome nella lingua richiesta, poi inglese, poi quello di Nominatim.
+        name = (
+            names.get(f"name:{language}")
+            or names.get("name:en")
+            or place.get("name")
+            or display_name.split(",")[0]
+        )
         results.append({
-            "name": place.get("name") or display_name.split(",")[0],
+            "name": name,
             "display_name": display_name,
             "latitude": float(place["lat"]),
             "longitude": float(place["lon"]),
@@ -91,7 +108,15 @@ def _search_nominatim(http, text, limit, language) -> list:
 
 
 def _search_photon(http, text, limit, language) -> list:
-    response = _get(http, PHOTON_URL, {"q": text, "limit": limit}, language)
+    # Il server pubblico di Photon supporta poche lingue: se la lingua
+    # richiesta non è disponibile (errore 400) si usa l'inglese.
+    response = None
+    for lang in dict.fromkeys([language, "en"]):
+        response = _get(
+            http, PHOTON_URL, {"q": text, "limit": limit, "lang": lang}, language
+        )
+        if getattr(response, "status_code", 200) != 400:
+            break
     response.raise_for_status()
 
     results = []

@@ -217,11 +217,15 @@ object EarthPulseApi {
         }
     }
 
-    suspend fun fetchImageryScenes(latitude: Double, longitude: Double): ImageryScenes {
+    suspend fun fetchImageryScenes(
+        latitude: Double,
+        longitude: Double,
+        sideKm: Double = IMAGERY_SIDE_KM
+    ): ImageryScenes {
         val url = String.format(
             Locale.US,
             "%s/api/v1/imagery/scenes?lat=%.6f&lon=%.6f&side_km=%.1f",
-            BACKEND_BASE_URL, latitude, longitude, IMAGERY_SIDE_KM
+            BACKEND_BASE_URL, latitude, longitude, sideKm
         )
         return parseImageryScenes(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
     }

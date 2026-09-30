@@ -1,5 +1,11 @@
 package com.giovmar.earthpulse
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardActions
@@ -41,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,7 +58,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
@@ -133,6 +139,64 @@ fun MapScreen(
         }
     }
 
+    // ---- "La mia posizione" ----
+    val context = LocalContext.current
+    var locating by remember { mutableStateOf(false) }
+
+    fun goToMyLocation() {
+        if (locating) return
+        locating = true
+        scope.launch {
+            val location = try {
+                currentLocation(context)
+            } finally {
+                locating = false
+            }
+            if (location == null) {
+                Toast.makeText(
+                    context,
+                    "Posizione non disponibile: attiva la localizzazione e riprova.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@launch
+            }
+            val place = SelectedPlace(location.latitude, location.longitude, "La mia posizione")
+            currentOnPlaceSelected(place)
+            results = emptyList()
+            searchError = null
+            holder.map?.controller?.animateTo(
+                GeoPoint(place.latitude, place.longitude),
+                SELECTION_ZOOM,
+                900L
+            )
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants.values.any { it }) {
+            goToMyLocation()
+        } else {
+            Toast.makeText(
+                context,
+                "Senza il permesso di localizzazione puoi comunque toccare la mappa o cercare un luogo.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun onMyLocationClick() {
+        val permissions = arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        val granted = permissions.any {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) goToMyLocation() else permissionLauncher.launch(permissions)
+    }
+
     fun selectResult(result: PlaceSearchResult) {
         val place = SelectedPlace(result.latitude, result.longitude, result.name)
         currentOnPlaceSelected(place)
@@ -161,7 +225,9 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
                 MapView(context).apply {
-                    setTileSource(TileSourceFactory.MAPNIK)
+                    setTileSource(baseMapTileSource())
+                    // Tessere scalate alla densità dello schermo: etichette leggibili.
+                    setTilesScaledToDpi(true)
                     setMultiTouchControls(true)
                     zoomController.setVisibility(
                         CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT
@@ -292,8 +358,10 @@ fun MapScreen(
 
         Spacer(Modifier.height(10.dp))
 
-        // Campo di ricerca
+        // Campo di ricerca + pulsante "La mia posizione"
+        Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
+            modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(16.dp),
             color = Color.White,
             shadowElevation = 4.dp
@@ -331,6 +399,29 @@ fun MapScreen(
                     cursorColor = Green
                 )
             )
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        Surface(
+            onClick = { onMyLocationClick() },
+            modifier = Modifier.size(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            shadowElevation = 4.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (locating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = Green,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("📍", fontSize = 22.sp)
+                }
+            }
+        }
         }
 
         // Risultati o messaggio di errore
@@ -491,7 +582,7 @@ fun MapScreen(
 
                 // Attribuzione obbligatoria dei dati OpenStreetMap
                 Text(
-                    "Mappa © OpenStreetMap contributors",
+                    baseMapAttribution(),
                     fontSize = 10.sp,
                     color = Muted,
                     modifier = Modifier.padding(top = 4.dp)

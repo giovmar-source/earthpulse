@@ -77,12 +77,12 @@ class ImageryState {
  * così le immagini arrivano insieme (o prima) del risultato numerico.
  */
 @Composable
-fun rememberImageryState(place: SelectedPlace): ImageryState {
-    val state = remember(place) { ImageryState() }
+fun rememberImageryState(place: SelectedPlace, sideKm: Double = IMAGERY_SIDE_KM): ImageryState {
+    val state = remember(place, sideKm) { ImageryState() }
 
-    LaunchedEffect(place) {
+    LaunchedEffect(place, sideKm) {
         try {
-            state.scenes = EarthPulseApi.fetchImageryScenes(place.latitude, place.longitude)
+            state.scenes = EarthPulseApi.fetchImageryScenes(place.latitude, place.longitude, sideKm)
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -119,12 +119,47 @@ private fun rememberImage(state: ImageryState, url: String?): ImageBitmap? {
 // ------------------------------------------------------------------
 
 @Composable
-fun ImagerySection(state: ImageryState) {
+fun ImagerySection(
+    state: ImageryState,
+    sideKm: Double = IMAGERY_SIDE_KM,
+    onSideChange: ((Double) -> Unit)? = null
+) {
     Spacer(Modifier.height(24.dp))
-    Text("Dall'alto", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = DarkGreen)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "Dall'alto",
+            fontSize = 19.sp, fontWeight = FontWeight.Bold, color = DarkGreen,
+            modifier = Modifier.weight(1f)
+        )
+        // Dimensione dell'area mostrata
+        if (onSideChange != null) {
+            listOf(1.0, 2.0, 3.0).forEach { option ->
+                val selected = option == sideKm
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (selected) Green else Color.White,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .clickable { onSideChange(option) }
+                ) {
+                    Text(
+                        "${option.toInt()} km",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        color = if (selected) Color.White else DarkGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
     Text(
-        "Immagini Sentinel-2 di un'area di 3 × 3 km. Il riquadro tratteggiato " +
-                "è l'area di 1 km analizzata.",
+        if (sideKm <= 1.0)
+            "Immagini Sentinel-2 dell'area analizzata (1 × 1 km). Ogni pixel " +
+                    "è 10 m: l'immagine è ingrandita, non più dettagliata."
+        else
+            "Immagini Sentinel-2 di un'area di ${sideKm.toInt()} × ${sideKm.toInt()} km. " +
+                    "Il riquadro tratteggiato è l'area di 1 km analizzata.",
         fontSize = 12.sp, lineHeight = 17.sp, color = Muted
     )
     Spacer(Modifier.height(10.dp))
@@ -414,7 +449,8 @@ private fun ImageStatus(ready: Boolean, failure: String?) {
 /** Riquadro tratteggiato dell'area analizzata (1 km), al centro. */
 @Composable
 private fun AnalysisAreaOverlay(areaFraction: Float) {
-    if (areaFraction <= 0f) return
+    // Nessun riquadro se disattivato o se l'immagine coincide con l'area.
+    if (areaFraction <= 0f || areaFraction >= 0.99f) return
     Canvas(Modifier.fillMaxSize()) {
         val side = size.minDimension * areaFraction
         drawRect(
