@@ -1379,7 +1379,7 @@ def heat_context_scene(lat: float, lon: float, side_km: float, around: date):
         bbox = make_bbox(lat, lon, side_km)
         chosen, _, _ = find_clear_scene(
             bbox, around - timedelta(days=45), around + timedelta(days=45),
-            around, max_candidates=5, min_valid=90,
+            around, max_candidates=6, min_valid=95,
         )
         return describe_scene(chosen, lat, lon, side_km)
     except Exception:

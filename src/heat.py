@@ -241,6 +241,32 @@ def water_union(scenes: list) -> np.ndarray:
     return water
 
 
+PIER_WINDOW = 7            # finestra 7 x 7 pixel (~105 m) attorno a ogni punto
+PIER_WATER_SHARE = 0.5     # oltre metà acqua attorno = molo, diga o pontile
+
+
+def box_mean(mask: np.ndarray, size: int) -> np.ndarray:
+    """Media di una maschera su una finestra quadrata (bordi replicati)."""
+    pad = size // 2
+    padded = np.pad(mask.astype(np.float32), pad, mode="edge")
+    total = padded.cumsum(axis=0).cumsum(axis=1)
+    total = np.pad(total, ((1, 0), (1, 0)))
+    h, w = mask.shape
+    window = (total[size:size + h, size:size + w] - total[:h, size:size + w]
+              - total[size:size + h, :w] + total[:h, :w])
+    return window / (size * size)
+
+
+def mask_piers(water: np.ndarray) -> np.ndarray:
+    """
+    Aggiunge all'acqua moli, dighe e pontili: strisce di terra sottili
+    circondate dal mare. Il sensore termico misura a 100 m, quindi lì la
+    temperatura è mescolata con quella dell'acqua e risulterebbe falsamente
+    fresca. La costa normale (acqua solo da un lato) resta terraferma.
+    """
+    return water | (box_mean(water, PIER_WINDOW) > PIER_WATER_SHARE)
+
+
 def with_water(scene: HeatScene, water: np.ndarray) -> HeatScene:
     """Stessa giornata, con la maschera dell'acqua comune a tutte le giornate."""
     celsius = scene.celsius.copy()
@@ -274,7 +300,7 @@ def choose_scenes(items, grid: Grid, max_scenes: int = MAX_SCENES,
             break
     chosen.sort(key=lambda s: s.date, reverse=True)
     if chosen:
-        water = water_union(chosen)
+        water = mask_piers(water_union(chosen))
         chosen = [with_water(scene, water) for scene in chosen]
     return chosen
 

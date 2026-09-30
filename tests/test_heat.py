@@ -119,3 +119,23 @@ def test_heat_endpoints_with_fake_data(monkeypatch):
 
     png = main.get_heat_image(lat=40.678, lon=14.768, side_km=8, kind="temperature")
     assert png.body[:4] == b"\x89PNG"
+
+
+def test_mask_piers_keeps_coastline_but_removes_jetty():
+    water = np.zeros((30, 30), bool)
+    water[15:, :] = True                 # mare nella metà bassa
+    water[5:15, 20:] = True              # un golfo a destra
+    water[20:29, 10] = False             # molo largo 1 pixel nel mare
+    masked = heat.mask_piers(water)
+    assert masked[20:29, 10].all()       # il molo diventa acqua
+    assert not masked[14, 5]             # la riva (acqua da un solo lato) resta terra
+    assert not masked[5, 5]              # l'entroterra resta terra
+
+
+def test_box_mean_matches_bruteforce():
+    rng = np.random.default_rng(3)
+    mask = rng.random((12, 9)) > 0.5
+    fast = heat.box_mean(mask, 3)
+    padded = np.pad(mask.astype(float), 1, mode="edge")
+    slow = np.array([[padded[r:r + 3, c:c + 3].mean() for c in range(9)] for r in range(12)])
+    np.testing.assert_allclose(fast, slow, atol=1e-6)
