@@ -299,8 +299,44 @@ def ndvi_on_grid(item, grid: Grid):
     return compute_ndvi_grid(red, nir, scl, offset=reflectance_offset(item))
 
 
-def render_rgb_png(item, grid: Grid) -> bytes:
+def harmonize_rgb(source: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """
+    Armonizzazione radiometrica relativa (solo per la visualizzazione).
+
+    Adatta i colori di "source" a quelli di "reference" banda per banda,
+    allineando i percentili 2 e 98 calcolati sui pixel con dati in
+    entrambe le immagini. Riduce le differenze dovute a illuminazione,
+    foschia e stagione; i cambiamenti reali, che riguardano solo una
+    parte dei pixel, restano visibili.
+
+    source, reference: array (3, righe, colonne) uint8 sulla stessa griglia.
+    """
+    both = np.all(source > 0, axis=0) & np.all(reference > 0, axis=0)
+    if both.sum() < 100:
+        return source
+
+    result = source.astype(np.float32)
+    for band in range(3):
+        s_low, s_high = np.percentile(source[band][both], [2, 98])
+        r_low, r_high = np.percentile(reference[band][both], [2, 98])
+        if s_high - s_low < 1:
+            continue
+        gain = (r_high - r_low) / (s_high - s_low)
+        result[band] = (result[band] - s_low) * gain + r_low
+
+    result = np.clip(result, 1, 255)
+    result[:, ~np.any(source > 0, axis=0)] = 0     # nessun dato resta nero
+    return result.astype(np.uint8)
+
+
+def render_rgb_png(item, grid: Grid, reference_item=None) -> bytes:
+    """Colori reali; con reference_item i colori vengono armonizzati a quella data."""
     rgb = read_on_grid(item.assets["visual"].href, grid, indexes=[1, 2, 3])
+    if reference_item is not None:
+        reference = read_on_grid(
+            reference_item.assets["visual"].href, grid, indexes=[1, 2, 3]
+        )
+        rgb = harmonize_rgb(rgb, reference)
     return to_png(stretch_rgb(rgb))
 
 
@@ -326,7 +362,8 @@ def render_diff_png(after_item, before_item, grid: Grid) -> bytes:
 
 def render_png(item, grid: Grid, kind: str, compare_item=None) -> bytes:
     if kind == "rgb":
-        return render_rgb_png(item, grid)
+        # compare_item, se presente, è la data a cui armonizzare i colori.
+        return render_rgb_png(item, grid, reference_item=compare_item)
     if kind == "ndvi":
         return render_ndvi_png(item, grid)
     if kind == "diff":

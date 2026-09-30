@@ -149,7 +149,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
                         "senza nuvole (almeno 95% di pixel validi): la più recente e " +
                         "quella più vicina alla stessa data di un anno prima."
             )
-            Bullet("Colori reali: immagine True Color di Sentinel-2 (B04, B03, B02), con lo stesso contrasto per tutte le date.")
+            Bullet("Colori reali: immagine True Color di Sentinel-2 (B04, B03, B02), con lo stesso contrasto per tutte le date. I colori della data precedente sono armonizzati alla più recente (percentili 2–98 di ogni banda) per compensare luce e foschia: è solo una scelta di visualizzazione.")
             Bullet("NDVI: scala di colori fissa, quindi due date sono confrontabili a colpo d'occhio.")
             Bullet("Variazione: NDVI dopo meno NDVI prima, solo dove entrambe le immagini sono valide.")
             Bullet("Le due date sono ricampionate sulla stessa griglia di 10 m, così coincidono pixel per pixel.")

@@ -300,7 +300,9 @@ internal fun ImageryContent(
         when (layer) {
             ImageryLayer.RGB ->
                 "Come l'occhio vedrebbe l'area dallo spazio (bande B04, B03, B02). " +
-                        "Stesso contrasto per entrambe le date."
+                        "I colori della data precedente sono armonizzati a quelli della " +
+                        "più recente (luce, foschia): solo per la visualizzazione, " +
+                        "NDVI e variazione usano i dati originali."
             ImageryLayer.NDVI ->
                 "Indice di vegetazione pixel per pixel (10 m). In grigio i pixel " +
                         "esclusi: nuvole, ombre, neve o dati mancanti."

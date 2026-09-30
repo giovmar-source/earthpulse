@@ -858,6 +858,18 @@ def add_diff_url(after_info, before_info, lat: float, lon: float, side_km: float
     })
     after_info["images"]["diff"] = f"/api/v1/imagery/image?{diff_params}&kind=diff"
 
+    # Colori reali della data precedente armonizzati alla più recente
+    # (solo visualizzazione: NDVI e variazione usano i dati originali).
+    rgb_params = urlencode({
+        "item_id": before_info["item_id"],
+        "compare_id": after_info["item_id"],
+        "lat": lat,
+        "lon": lon,
+        "side_km": side_km,
+    })
+    before_info["images"]["rgb"] = f"/api/v1/imagery/image?{rgb_params}&kind=rgb"
+    before_info["rgb_harmonized_to"] = after_info["item_id"]
+
 
 def imagery_legend() -> dict:
     return {
@@ -983,7 +995,7 @@ def get_imagery_image(
             detail="kind=diff richiede compare_id (scena precedente).",
         )
 
-    key = (item_id, compare_id if kind == "diff" else None,
+    key = (item_id, compare_id if kind in ("diff", "rgb") else None,
            round(lat, 5), round(lon, 5), round(side_km, 3), kind)
     png = _PNG_CACHE.get(key)
 
@@ -1008,7 +1020,9 @@ def get_imagery_image(
             return found
 
         item = load(item_id)
-        compare_item = load(compare_id) if kind == "diff" else None
+        compare_item = (
+            load(compare_id) if kind in ("diff", "rgb") and compare_id else None
+        )
 
         try:
             png = render_png(

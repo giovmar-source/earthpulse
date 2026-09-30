@@ -209,6 +209,28 @@ class TestImageHelpers(unittest.TestCase):
         self.assertEqual(out.shape, (20, 20, 3))
         self.assertEqual(tuple(out[15, 5]), (0, 0, 0))
 
+    def test_harmonize_rgb_matches_reference_levels(self):
+        from src.imagery import harmonize_rgb
+        rng = np.random.default_rng(0)
+        reference = rng.integers(30, 120, size=(3, 50, 50)).astype(np.uint8)
+        # Stessa scena ma più chiara e "velata" (foschia): +40 e contrasto ridotto.
+        source = (reference.astype(np.float32) * 0.7 + 40).astype(np.uint8)
+        # Un cambiamento reale in un angolo: deve restare diverso.
+        source[:, :5, :5] = 250
+
+        out = harmonize_rgb(source, reference)
+
+        centre = (slice(None), slice(10, 50), slice(10, 50))
+        self.assertLess(abs(out[centre].mean() - reference[centre].mean()), 3)
+        self.assertGreater(out[:, :5, :5].mean(), reference[:, :5, :5].mean() + 60)
+
+    def test_harmonize_keeps_nodata(self):
+        from src.imagery import harmonize_rgb
+        source = np.full((3, 20, 20), 100, dtype=np.uint8)
+        source[:, 0, 0] = 0
+        reference = np.full((3, 20, 20), 80, dtype=np.uint8)
+        self.assertEqual(tuple(harmonize_rgb(source, reference)[:, 0, 0]), (0, 0, 0))
+
     def test_choose_clear_scene(self):
         rows = [("a", 80.0, None), ("b", 97.0, None), ("c", None, "err")]
         self.assertEqual(choose_clear_scene(rows), ("b", 97.0))
@@ -254,6 +276,8 @@ class TestImageryEndpoints(unittest.TestCase):
         self.assertEqual(result["before"]["date"], "2024-07-15")
         self.assertIn("kind=ndvi", result["after"]["images"]["ndvi"])
         self.assertIn("compare_id=S2_BEFORE_20240715", result["after"]["images"]["diff"])
+        # Colori del "prima" armonizzati al "dopo"
+        self.assertIn("compare_id=S2_AFTER_20250717", result["before"]["images"]["rgb"])
         self.assertIn("2024", result["attribution"])
 
         # L'item è in cache: l'immagine non richiede il catalogo STAC.
@@ -263,6 +287,12 @@ class TestImageryEndpoints(unittest.TestCase):
         )
         self.assertEqual(response.media_type, "image/png")
         self.assertTrue(response.body.startswith(b"\x89PNG"))
+
+        harmonized = api.get_imagery_image(
+            item_id="S2_BEFORE_20240715", compare_id="S2_AFTER_20250717",
+            lat=LAT, lon=LON, side_km=3.0, kind="rgb",
+        )
+        self.assertTrue(harmonized.body.startswith(b"\x89PNG"))
 
         diff = api.get_imagery_image(
             item_id="S2_AFTER_20250717", compare_id="S2_BEFORE_20240715",
