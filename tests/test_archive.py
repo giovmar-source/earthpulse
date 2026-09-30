@@ -121,4 +121,15 @@ def test_white_point_adapts_only_for_bright_scenes():
     sand = fake_scene(np.full((20, 20), 0.42), np.full((20, 20), 0.45))
     white = archive.white_point(sand)
     assert archive.RGB_WHITE < white <= archive.MAX_WHITE
-    assert abs(white - 0.42) < 1e-3
+    assert abs(white - min(archive.MAX_WHITE, 1.2 * 0.42)) < 1e-3
+
+
+def test_fill_gaps_matches_brightness_of_other_day():
+    rng = np.random.default_rng(5)
+    red = rng.uniform(0.05, 0.3, (40, 40)).astype(np.float32)
+    stripes = np.ones((40, 40), bool)
+    stripes[::4, :] = False
+    a = fake_scene(red, red * 2, valid=stripes)
+    b = fake_scene(red * 1.2 + 0.03, red * 2, valid=np.ones((40, 40), bool))   # giornata più chiara
+    merged = archive.fill_gaps(a, b)
+    np.testing.assert_allclose(merged.red[0], red[0], atol=1e-4)   # stessa luminosità
