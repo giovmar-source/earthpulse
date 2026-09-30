@@ -4,6 +4,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,9 +49,12 @@ class ArchiveState {
 }
 
 @Composable
-fun rememberArchiveState(place: SelectedPlace, sideKm: Double): ArchiveState {
+fun rememberArchiveState(place: SelectedPlace, sideKm: Double, active: Boolean = true): ArchiveState {
     val state = remember(place, sideKm) { ArchiveState() }
-    LaunchedEffect(place, sideKm) {
+    LaunchedEffect(place, sideKm, active) {
+        // Si carica solo quando l'utente apre la sezione (meno carico sul server).
+        if (!active) return@LaunchedEffect
+        state.loading = true
         try {
             val info = EarthPulseApi.fetchArchive(place.latitude, place.longitude, sideKm)
             state.beforeYear = info.defaultBefore
@@ -95,6 +99,8 @@ fun ArchiveSection(
     state: ArchiveState,
     sideKm: Double,
     shareTitle: String? = null,
+    active: Boolean = true,
+    onActivate: () -> Unit = {},
     onSideChange: (Double) -> Unit
 ) {
     Spacer(Modifier.height(24.dp))
@@ -122,6 +128,14 @@ fun ArchiveSection(
 
     val info = state.info
     when {
+        !active -> androidx.compose.material3.OutlinedButton(
+            onClick = onActivate,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Mostra com'era dal 1984", color = Green)
+        }
+
         state.loading -> InfoBox {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(

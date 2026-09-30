@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,9 +55,12 @@ class NightLightsState {
 
 /** Avvia subito la richiesta degli anni disponibili (in parallelo all'analisi). */
 @Composable
-fun rememberNightLightsState(place: SelectedPlace, sideKm: Double): NightLightsState {
+fun rememberNightLightsState(place: SelectedPlace, sideKm: Double, active: Boolean = true): NightLightsState {
     val state = remember(place, sideKm) { NightLightsState() }
-    LaunchedEffect(place, sideKm) {
+    LaunchedEffect(place, sideKm, active) {
+        // Si carica solo quando l'utente apre la sezione (meno carico sul server).
+        if (!active) return@LaunchedEffect
+        state.loading = true
         try {
             val info = EarthPulseApi.fetchNightLights(place.latitude, place.longitude, sideKm)
             state.beforeYear = info.defaultBefore
@@ -101,6 +105,8 @@ fun NightLightsSection(
     state: NightLightsState,
     sideKm: Double,
     shareTitle: String? = null,
+    active: Boolean = true,
+    onActivate: () -> Unit = {},
     onSideChange: (Double) -> Unit
 ) {
     Spacer(Modifier.height(24.dp))
@@ -128,6 +134,14 @@ fun NightLightsSection(
 
     val info = state.info
     when {
+        !active -> androidx.compose.material3.OutlinedButton(
+            onClick = onActivate,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Mostra le luci notturne (2012 → oggi)", color = Green)
+        }
+
         state.loading -> InfoBox {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(

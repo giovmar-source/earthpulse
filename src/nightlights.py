@@ -591,6 +591,12 @@ def night_scene_for_area(lat: float, lon: float, side_km: float, year: int,
             _array_cache.move_to_end(key)
             return _array_cache[key]
 
+    from src.limits import heavy_task
+    with heavy_task():
+        return _read_night_scene(window, key, year, session, stats)
+
+
+def _read_night_scene(window, key, year, session, stats) -> NightScene:
     session = session or make_session()
     radiance = np.full(window.shape, np.nan, dtype=np.float32)
     # Tile mancanti nell'archivio = solo oceano: li trattiamo come mare.

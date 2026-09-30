@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -50,9 +51,12 @@ class HeatState {
 
 /** Avvia subito la ricerca delle giornate estive (in parallelo all'analisi). */
 @Composable
-fun rememberHeatState(place: SelectedPlace, sideKm: Double): HeatState {
+fun rememberHeatState(place: SelectedPlace, sideKm: Double, active: Boolean = true): HeatState {
     val state = remember(place, sideKm) { HeatState() }
-    LaunchedEffect(place, sideKm) {
+    LaunchedEffect(place, sideKm, active) {
+        // Si carica solo quando l'utente apre la sezione (meno carico sul server).
+        if (!active) return@LaunchedEffect
+        state.loading = true
         try {
             state.info = EarthPulseApi.fetchHeat(place.latitude, place.longitude, sideKm)
         } catch (e: CancellationException) {
@@ -94,6 +98,8 @@ fun HeatSection(
     state: HeatState,
     sideKm: Double,
     shareTitle: String? = null,
+    active: Boolean = true,
+    onActivate: () -> Unit = {},
     onSideChange: (Double) -> Unit
 ) {
     Spacer(Modifier.height(24.dp))
@@ -121,6 +127,14 @@ fun HeatSection(
 
     val info = state.info
     when {
+        !active -> androidx.compose.material3.OutlinedButton(
+            onClick = onActivate,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Mostra le isole di calore", color = Green)
+        }
+
         state.loading -> InfoBox {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(

@@ -376,7 +376,7 @@ class HeatResult:
 
 _result_cache: dict = {}
 _result_lock = threading.Lock()
-RESULT_CACHE_SIZE = 12
+RESULT_CACHE_SIZE = 4
 
 
 def heat_for_area(lat: float, lon: float, side_km: float) -> HeatResult:
@@ -389,7 +389,9 @@ def heat_for_area(lat: float, lon: float, side_km: float) -> HeatResult:
     if not items:
         raise HeatUnavailable("Nessuna scena Landsat estiva senza nuvole su quest'area.")
     grid = Grid(lat, lon, side_km, resolution=HEAT_RESOLUTION_M)
-    scenes = choose_scenes(items, grid)
+    from src.limits import heavy_task
+    with heavy_task():
+        scenes = choose_scenes(items, grid)
     if not scenes:
         raise HeatUnavailable("Nessuna giornata estiva abbastanza limpida su quest'area.")
 

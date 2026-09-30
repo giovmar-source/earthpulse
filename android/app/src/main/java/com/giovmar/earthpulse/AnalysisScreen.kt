@@ -80,16 +80,21 @@ fun AnalysisScreen(
     val imagery = rememberImageryState(place, imagerySideKm)
 
     // Anche le luci notturne partono subito, in parallelo.
+    // Le sezioni pesanti si caricano solo quando l'utente le apre.
+    var nightActive by rememberSaveable(place) { mutableStateOf(false) }
+    var heatActive by rememberSaveable(place) { mutableStateOf(false) }
+    var archiveActive by rememberSaveable(place) { mutableStateOf(false) }
+
     var nightSideKm by rememberSaveable { mutableStateOf(NIGHT_DEFAULT_SIDE_KM) }
-    val nightLights = rememberNightLightsState(place, nightSideKm)
+    val nightLights = rememberNightLightsState(place, nightSideKm, nightActive)
 
     // Isole di calore (Landsat), anche queste in parallelo.
     var heatSideKm by rememberSaveable { mutableStateOf(HEAT_DEFAULT_SIDE_KM) }
-    val heatState = rememberHeatState(place, heatSideKm)
+    val heatState = rememberHeatState(place, heatSideKm, heatActive)
 
     // Archivio storico Landsat (dal 1984)
     var archiveSideKm by rememberSaveable { mutableStateOf(ARCHIVE_DEFAULT_SIDE_KM) }
-    val archiveState = rememberArchiveState(place, archiveSideKm)
+    val archiveState = rememberArchiveState(place, archiveSideKm, archiveActive)
 
     // Parte all'apertura e a ogni "Riprova".
     LaunchedEffect(place, attempt) {
@@ -162,15 +167,21 @@ fun AnalysisScreen(
                 )
                 NightLightsSection(
                     nightLights, nightSideKm,
-                    shareTitle = place.label ?: formatCoordinates(place)
+                    shareTitle = place.label ?: formatCoordinates(place),
+                    active = nightActive,
+                    onActivate = { nightActive = true }
                 ) { nightSideKm = it }
                 HeatSection(
                     heatState, heatSideKm,
-                    shareTitle = place.label ?: formatCoordinates(place)
+                    shareTitle = place.label ?: formatCoordinates(place),
+                    active = heatActive,
+                    onActivate = { heatActive = true }
                 ) { heatSideKm = it }
                 ArchiveSection(
                     archiveState, archiveSideKm,
-                    shareTitle = place.label ?: formatCoordinates(place)
+                    shareTitle = place.label ?: formatCoordinates(place),
+                    active = archiveActive,
+                    onActivate = { archiveActive = true }
                 ) { archiveSideKm = it }
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(

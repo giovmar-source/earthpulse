@@ -32,6 +32,7 @@ from src.imagery import (
     NDVI_COLOR_STOPS, Grid, colorize, read_on_grid, to_png,
 )
 from src.indices import _layer
+from src.limits import heavy_task
 
 
 FIRST_YEAR = 1984
@@ -42,6 +43,9 @@ L7_SLC_OFF = date(2003, 5, 31)
 MAX_CLOUD = 20.0
 MIN_VALID = 85.0
 CANDIDATES_PER_YEAR = 4
+# Anni decodificati tenuti in memoria (a 12 km ~12 MB ciascuno): pochi, per
+# restare nei 512 MB del server gratuito. Le immagini PNG restano in cache a parte.
+SCENE_CACHE_SIZE = 6
 
 # Colori reali: riflettanza 0 -> nero, RGB_WHITE -> bianco (uguale per tutti gli anni)
 RGB_WHITE = 0.25
@@ -188,12 +192,14 @@ def read_archive_scene(item, grid: Grid) -> ArchiveScene:
     valid = ~near_gap & ((qa & QA_INVALID) == 0) & np.isfinite(red) & np.isfinite(nir)
     water = (qa & QA_WATER) != 0
     pct = 100.0 * float(valid.mean()) if valid.size else 0.0
+    rgb = np.stack([red, green, blue])
+    del green, blue
     return ArchiveScene(
         item_id=item.id,
         date=item.datetime.date().isoformat(),
         platform=item.properties.get("platform", ""),
-        rgb=np.stack([red, green, blue]),
-        red=red, nir=nir, valid=valid, water=water,
+        rgb=rgb,
+        red=rgb[0], nir=nir, valid=valid, water=water,
         valid_pct=round(pct, 1),
     )
 
@@ -207,12 +213,25 @@ def fill_gaps(base: ArchiveScene, other: ArchiveScene) -> ArchiveScene:
     take = ~base.valid & other.valid
     if not take.any():
         return base
+    both = base.valid & other.valid
+
+    def matched(source: np.ndarray, reference: np.ndarray) -> np.ndarray:
+        """Porta i valori dell'altra giornata al livello della prima (media e contrasto)."""
+        if both.sum() < 200:
+            return source
+        s, r = source[both], reference[both]
+        s_std = float(np.std(s))
+        gain = float(np.std(r)) / s_std if s_std > 1e-6 else 1.0
+        gain = min(max(gain, 0.5), 2.0)
+        return (source - float(np.mean(s))) * gain + float(np.mean(r))
+
     rgb = base.rgb.copy()
-    rgb[:, take] = other.rgb[:, take]
+    for band in range(3):
+        rgb[band, take] = matched(other.rgb[band], base.rgb[band])[take]
     red = base.red.copy()
-    red[take] = other.red[take]
+    red[take] = matched(other.red, base.red)[take]
     nir = base.nir.copy()
-    nir[take] = other.nir[take]
+    nir[take] = matched(other.nir, base.nir)[take]
     valid = base.valid | take
     water = base.water.copy()
     water[take] = other.water[take]
@@ -262,12 +281,17 @@ def white_point(scene: ArchiveScene) -> float:
     brightest = brightest[np.isfinite(brightest)]
     if brightest.size < 100 or float(np.mean(brightest >= RGB_WHITE)) <= SATURATION_LIMIT:
         return RGB_WHITE
-    return float(min(MAX_WHITE, max(RGB_WHITE, np.percentile(brightest, 99))))
+    # Margine del 20% sopra il 99° percentile: la sabbia resta color sabbia,
+    # senza schiacciarsi verso il bianco-giallo.
+    return float(min(MAX_WHITE, max(RGB_WHITE, 1.2 * np.percentile(brightest, 99))))
 
 
 def render_rgb(scene: ArchiveScene, white: float = RGB_WHITE) -> bytes:
     """Colori reali con la stessa scala per tutti gli anni e i sensori."""
-    rgb = np.clip(np.nan_to_num(scene.rgb, nan=0.0) / white, 0, 1) ** RGB_GAMMA
+    # Nelle scene chiare (bianco adattato) niente schiarimento dei mezzitoni:
+    # renderebbe la sabbia ancora più pallida.
+    gamma = RGB_GAMMA if white <= RGB_WHITE else 1.0
+    rgb = np.clip(np.nan_to_num(scene.rgb, nan=0.0) / white, 0, 1) ** gamma
     image = np.transpose(rgb * 255, (1, 2, 0)).astype(np.uint8)
     no_data = ~np.isfinite(scene.rgb).all(axis=0) | ~scene.valid & (np.nan_to_num(scene.rgb).sum(axis=0) == 0)
     cloudy = ~scene.valid & ~no_data
@@ -304,11 +328,12 @@ def scene_for_year(lat: float, lon: float, side_km: float, year: int) -> Archive
     if not candidates:
         raise ArchiveUnavailable(f"Nessuna immagine Landsat limpida per il {year}.")
     grid = Grid(lat, lon, side_km)
-    scene = best_scene_for_year(candidates, grid)
+    with heavy_task():
+        scene = best_scene_for_year(candidates, grid)
     if scene is None:
         raise ArchiveUnavailable(f"Immagini del {year} non leggibili.")
     with _scene_lock:
-        if len(_scene_cache) > 40:
+        if len(_scene_cache) >= SCENE_CACHE_SIZE:
             _scene_cache.clear()
         _scene_cache[key] = scene
     return scene
