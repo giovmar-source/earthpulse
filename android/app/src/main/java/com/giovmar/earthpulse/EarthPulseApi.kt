@@ -226,6 +226,29 @@ data class NightLightsComparison(
     val litAfter: Double?
 )
 
+// Isole di calore (/api/v1/heat)
+
+data class HeatDay(val date: String, val landMedianC: Double?)
+
+data class HeatInfo(
+    val sideKm: Double,
+    val latestDate: String,
+    val days: List<HeatDay>,
+    val anomalyUrl: String,
+    val temperatureUrl: String,
+    val rgbUrl: String?,
+    val rgbDate: String?,
+    val message: String?,
+    val caption: String,
+    val caveat: String,
+    val attribution: String,
+    val anomalyStops: List<ColorStop>,
+    val anomalyLabels: List<String>,
+    val temperatureStops: List<ColorStop>,
+    val temperatureLabels: List<String>,
+    val waterColor: Color?
+)
+
 /** Errore con un messaggio già comprensibile per l'utente. */
 class ApiException(message: String) : Exception(message)
 
@@ -342,6 +365,15 @@ object EarthPulseApi {
             litBefore = root.optJSONObject("before")?.optDoubleOrNull("lit_percentage"),
             litAfter = root.optJSONObject("after")?.optDoubleOrNull("lit_percentage")
         )
+    }
+
+    suspend fun fetchHeat(latitude: Double, longitude: Double, sideKm: Double): HeatInfo {
+        val url = String.format(
+            Locale.US,
+            "%s/api/v1/heat?lat=%.5f&lon=%.5f&side_km=%.1f",
+            BACKEND_BASE_URL, latitude, longitude, sideKm
+        )
+        return parseHeat(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
     }
 
     /** Scarica un'immagine PNG del backend (url relativo, es. "/api/v1/imagery/image?..."). */
@@ -640,5 +672,42 @@ private fun parseNightLights(root: JSONObject): NightLightsInfo {
         },
         caption = root.optString("caption"),
         attribution = root.optString("attribution")
+    )
+}
+
+private fun JSONObject.optStringOrNull(key: String): String? =
+    if (!has(key) || isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
+
+private fun JSONArray?.strings(): List<String> =
+    if (this == null) emptyList() else (0 until length()).map { getString(it) }
+
+private fun parseHeat(root: JSONObject): HeatInfo {
+    val images = root.getJSONObject("images")
+    val legend = root.optJSONObject("legend")
+    val anomaly = legend?.optJSONObject("anomaly")
+    val temperature = legend?.optJSONObject("temperature")
+    val daysArray = root.optJSONArray("days") ?: JSONArray()
+    return HeatInfo(
+        sideKm = root.optDouble("side_km", 8.0),
+        latestDate = root.optString("latest_date"),
+        days = (0 until daysArray.length()).map { i ->
+            val d = daysArray.getJSONObject(i)
+            HeatDay(d.optString("date"), d.optDoubleOrNull("land_median_c"))
+        },
+        anomalyUrl = images.getString("anomaly"),
+        temperatureUrl = images.getString("temperature"),
+        rgbUrl = images.optStringOrNull("rgb"),
+        rgbDate = root.optStringOrNull("rgb_date"),
+        message = root.optStringOrNull("message"),
+        caption = root.optString("caption"),
+        caveat = root.optString("caveat"),
+        attribution = root.optString("attribution"),
+        anomalyStops = parseColorStops(anomaly?.optJSONArray("color_stops")),
+        anomalyLabels = anomaly?.optJSONArray("labels").strings(),
+        temperatureStops = parseColorStops(temperature?.optJSONArray("color_stops")),
+        temperatureLabels = temperature?.optJSONArray("labels").strings(),
+        waterColor = legend?.optStringOrNull("water_color")?.let {
+            runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull()
+        }
     )
 }

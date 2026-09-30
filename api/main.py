@@ -20,6 +20,7 @@ from src.analysis import (
 )
 from src.geocoding import GeocodingUnavailable, search_places
 from src import nightlights
+from src import heat
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
@@ -74,7 +75,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.7.0",
+    version="0.8.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -1353,6 +1354,123 @@ def compare_nightlights(
             "un calo non significa sempre meno illuminazione."
         ),
     }
+
+
+# ============================================================
+# ENDPOINT: ISOLE DI CALORE (Landsat 8-9, temperatura superficie)
+# ============================================================
+
+_HEAT_PNG_CACHE: dict = {}
+MAX_HEAT_PNG_CACHE = 30
+
+
+def heat_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, heat.HeatUnavailable):
+        return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(
+        status_code=502,
+        detail=f"Errore nella lettura dei dati Landsat: {str(exc)}",
+    )
+
+
+def heat_context_scene(lat: float, lon: float, side_km: float, around: date):
+    """Scena Sentinel-2 limpida vicina alla giornata Landsat (colori reali, 10 m)."""
+    try:
+        bbox = make_bbox(lat, lon, side_km)
+        chosen, _, _ = find_clear_scene(
+            bbox, around - timedelta(days=45), around + timedelta(days=45),
+            around, max_candidates=5, min_valid=90,
+        )
+        return describe_scene(chosen, lat, lon, side_km)
+    except Exception:
+        return None     # il contesto è un di più: senza, la sezione funziona
+
+
+@app.get("/api/v1/heat")
+def get_heat(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(heat.DEFAULT_SIDE_KM, ge=2, le=MAX_STORY_SIDE_KM),
+):
+    """Isole di calore: giornate estive usate, immagini e numeri principali."""
+    try:
+        result = heat.heat_for_area(lat, lon, side_km)
+    except Exception as exc:
+        raise heat_error(exc) from exc
+
+    latest = result.latest
+    query = urlencode({"lat": round(lat, 5), "lon": round(lon, 5),
+                       "side_km": round(side_km, 1)})
+    context = heat_context_scene(lat, lon, side_km, date.fromisoformat(latest.date))
+
+    days = []
+    for scene in result.scenes:
+        _, median = heat.anomaly(scene)
+        days.append({"date": scene.date, "platform": scene.platform,
+                     "land_median_c": round(median, 1)})
+
+    summary = heat.heat_summary(result.typical, result.water)
+    hot = summary["hot_share"]
+    p95 = summary["p95"]
+    message = (
+        f"Nelle giornate estive limpide il {hot:.0f}% della terraferma è almeno "
+        f"3 °C più caldo della media dell'area; le zone più calde arrivano "
+        f"a circa +{p95:.0f} °C."
+        if hot is not None and p95 is not None else None
+    )
+
+    return {
+        "side_km": side_km,
+        "latest_date": latest.date,
+        "days": days,
+        "images": {
+            "anomaly": f"/api/v1/heat/image?{query}&kind=anomaly",
+            "temperature": f"/api/v1/heat/image?{query}&kind=temperature",
+            "rgb": context["images"]["rgb"] if context else None,
+        },
+        "rgb_date": context["date"] if context else None,
+        "summary": summary,
+        "message": message,
+        "legend": heat.legend(),
+        "caption": (
+            "Temperatura delle superfici (tetti, asfalto, prati) verso le 10:30 "
+            "del mattino, dal sensore termico di Landsat: misura a 100 m, "
+            "distribuita a 30 m. L'anomalia è la differenza dalla mediana della "
+            "terraferma dell'area, calcolata su più giornate estive limpide."
+        ),
+        "caveat": (
+            "È la temperatura delle superfici, non dell'aria: di notte l'isola di "
+            "calore dell'aria può essere diversa. Il mare e i laghi sono esclusi."
+        ),
+        "attribution": heat.ATTRIBUTION + (
+            f" · Colori reali: {imagery_attribution(context)}" if context else ""
+        ),
+    }
+
+
+@app.get("/api/v1/heat/image")
+def get_heat_image(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(heat.DEFAULT_SIDE_KM, ge=2, le=MAX_STORY_SIDE_KM),
+    kind: str = Query("anomaly", pattern=r"^(anomaly|temperature)$"),
+):
+    key = (round(lat, 5), round(lon, 5), round(side_km, 1), kind)
+    png = _HEAT_PNG_CACHE.get(key)
+    if png is None:
+        try:
+            result = heat.heat_for_area(lat, lon, side_km)
+            if kind == "anomaly":
+                png = heat.render_anomaly_png(result.typical, result.water)
+            else:
+                png = heat.render_temperature_png(result.latest)
+        except Exception as exc:
+            raise heat_error(exc) from exc
+        if len(_HEAT_PNG_CACHE) >= MAX_HEAT_PNG_CACHE:
+            _HEAT_PNG_CACHE.clear()
+        _HEAT_PNG_CACHE[key] = png
+    return Response(content=png, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ============================================================

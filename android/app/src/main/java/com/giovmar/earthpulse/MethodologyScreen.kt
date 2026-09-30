@@ -184,6 +184,19 @@ fun MethodologyScreen(onBack: () -> Unit) {
             Bullet("La variazione percentuale somma la luce di tutta la terraferma dell'area. I LED bianchi sono visti meno da VIIRS: un calo può anche indicare un cambio di lampioni.")
         }
 
+        MethodSection("Isole di calore") {
+            Paragraph(
+                "La temperatura delle superfici viene dal sensore termico di Landsat 8 e 9 " +
+                        "(USGS/NASA, Collection 2 Level-2): misura a 100 m, distribuita a 30 m. " +
+                        "I satelliti passano verso le 10:30 del mattino."
+            )
+            Bullet("Usiamo fino a 4 giornate estive (giugno-agosto, ultimi 3 anni) con almeno l'80% della terraferma senza nuvole.")
+            Bullet("Anomalia: per ogni giornata la differenza di ogni punto dalla mediana della terraferma dell'area; poi la mediana tra le giornate. Così conta dove fa più caldo, non quanto era calda quella singola giornata.")
+            Bullet("Mare, laghi e fiumi sono esclusi (maschera dell'acqua di Landsat, unita tra tutte le giornate).")
+            Bullet("È la temperatura delle superfici, non dell'aria: asfalto e tetti al sole possono superare i 50 °C mentre l'aria è a 32 °C.")
+            Bullet("Accanto al calore mostriamo i colori reali di Sentinel-2 (10 m) di una giornata limpida vicina, per riconoscere i luoghi.")
+        }
+
         MethodSection("7 · Limiti") {
             Bullet("L'NDVI non misura direttamente la salute della vegetazione: è legato alla sua risposta spettrale.")
             Bullet("Un'anomalia non dimostra da sola la causa: siccità, tagli, incendi, raccolti, ma anche differenze di osservazione possono produrla.")
@@ -197,6 +210,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
         MethodSection("Fonti e attribuzioni") {
             Bullet("Contiene dati Copernicus Sentinel modificati, elaborati da EarthPulse.")
             Bullet("Catalogo delle immagini: Earth Search (Element 84), dati Sentinel-2 su AWS Open Data.")
+            Bullet("Temperatura: Landsat 8-9 Collection 2 (USGS/NASA), tramite Microsoft Planetary Computer.")
             Bullet("Luci notturne: NASA Black Marble VNP46A4 (Román et al.), distribuito da LAADS DAAC / NASA Earthdata.")
             Bullet("Mappa: OpenFreeMap e OpenMapTiles, dati © OpenStreetMap contributors (ODbL). Ricerca dei luoghi: Nominatim e Photon.")
         }

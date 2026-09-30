@@ -663,7 +663,7 @@ internal fun BeforeAfterSlider(
 }
 
 @Composable
-private fun SingleImage(
+internal fun SingleImage(
     image: ImageBitmap?,
     label: String,
     areaFraction: Float,
