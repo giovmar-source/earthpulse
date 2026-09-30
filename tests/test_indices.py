@@ -61,6 +61,24 @@ class TestIndices(unittest.TestCase):
         share = dnbr_severity_share(dnbr, valid)
         self.assertGreater(share["alta"], 95)
 
+    def test_water_is_excluded_from_land_indices(self):
+        lake = SyntheticScene(self.tmp / "lake", water_patch=True)
+        grid = self.grid
+        # Il centro della griglia (150,150) è dentro il lago sintetico.
+        ndmi, valid = index_on_grid(lake.item(), grid, "ndmi")
+        self.assertFalse(valid[150, 150])        # acqua: esclusa
+        self.assertTrue(valid[60, 250])          # terraferma: valida
+
+        # L'NDWI invece vale sull'acqua (ed è positivo).
+        ndwi, valid_w = index_on_grid(lake.item(), grid, "ndwi")
+        self.assertTrue(valid_w[150, 150])
+        self.assertGreater(float(ndwi[150, 150]), 0)
+
+        from src.indices import WATER_COLOR, render_index_png
+        png = render_index_png(lake.item(), grid, "ndmi")
+        image = np.array(Image.open(io.BytesIO(png)).convert("RGB"))
+        self.assertEqual(tuple(image[150, 150]), WATER_COLOR)
+
     def test_layers_metadata(self):
         for key in DEFAULT_LAYERS + ["dnbr"]:
             with self.subTest(layer=key):

@@ -54,7 +54,8 @@ class SyntheticScene:
 
     def __init__(self, folder: Path, crs: str = "EPSG:32633",
                  nir_value: int = 3000, dn_offset: int = 0,
-                 swir16_value: int = 1500, swir22_value: int = 800):
+                 swir16_value: int = 1500, swir22_value: int = 800,
+                 water_patch: bool = False):
         folder.mkdir(parents=True, exist_ok=True)
         (x,), (y,) = transform("EPSG:4326", crs, [LON], [LAT])
         half = 3000
@@ -73,6 +74,14 @@ class SyntheticScene:
         scl[75:95, 75:95] = 9
 
         green = np.full((n10, n10), 800 + dn_offset, dtype=np.uint16)
+
+        if water_patch:
+            # Lago di 400 × 400 m al centro dell'area: verde > NIR, NIR basso.
+            # (Nel test la SCL resta "vegetazione": l'acqua va riconosciuta
+            # dall'NDWI, come per i laghi torbidi.)
+            nir[280:320, 280:320] = 150 + dn_offset
+            red[280:320, 280:320] = 300 + dn_offset
+            green[280:320, 280:320] = 600 + dn_offset
         swir16 = np.full((n20, n20), swir16_value + dn_offset, dtype=np.uint16)
         swir22 = np.full((n20, n20), swir22_value + dn_offset, dtype=np.uint16)
 
