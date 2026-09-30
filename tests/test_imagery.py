@@ -251,6 +251,8 @@ class TestImageHelpers(unittest.TestCase):
         green = rng.integers(20, 110, size=(3, 40, 40)).astype(np.uint8)
         green[:, 0, :20] = 250          # pochi tetti chiari: non contano
         self.assertEqual(rgb_white_point(green), RGB_HIGH)
+        from src.imagery import RGB_GAMMA, RGB_LOW, rgb_levels
+        self.assertEqual(rgb_levels(green), (RGB_LOW, RGB_HIGH, RGB_GAMMA))
 
     def test_desert_is_not_burned_white(self):
         from src.imagery import RGB_HIGH, rgb_white_point
@@ -260,9 +262,14 @@ class TestImageHelpers(unittest.TestCase):
             rng.integers(150, 190, size=(40, 40)),   # G
             rng.integers(110, 150, size=(40, 40)),   # B
         ]).astype(np.uint8)
+        from src.imagery import rgb_levels
         high = rgb_white_point(sand)
         self.assertGreater(high, RGB_HIGH)
-        out = stretch_rgb(sand, high)
+        levels = rgb_levels(sand)
+        self.assertGreater(levels[0], 0)            # nero alzato: meno slavato
+        out = stretch_rgb(sand, levels)
+        # Contrasto: la sabbia usa gran parte della scala, non solo la parte alta.
+        self.assertGreater(out[..., 0].astype(int).max() - out[..., 2].astype(int).min(), 150)
         # Con il bianco fisso quasi tutto sarebbe (255, 255, x); ora no.
         self.assertLess(np.mean(out[..., 1] == 255), 0.05)
         self.assertGreater(out[..., 0].mean(), out[..., 2].mean() + 30)   # resta color sabbia
