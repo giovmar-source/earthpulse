@@ -19,6 +19,7 @@ from src.analysis import (
     seasonal_windows,
 )
 from src.geocoding import GeocodingUnavailable, search_places
+from src import nightlights
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
@@ -73,7 +74,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.6.0",
+    version="0.7.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -1205,6 +1206,153 @@ def get_imagery_image(
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=604800"},
     )
+
+
+# ============================================================
+# ENDPOINT: LUCI NOTTURNE (NASA Black Marble VNP46A4)
+# ============================================================
+
+_NIGHT_PNG_CACHE: dict = {}
+MAX_NIGHT_PNG_CACHE = 40
+
+NIGHT_SIDE_QUERY = dict(ge=nightlights.MIN_SIDE_KM, le=nightlights.MAX_SIDE_KM)
+
+
+def night_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, nightlights.NightLightsUnavailable):
+        return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(
+        status_code=502,
+        detail=f"Errore nella lettura delle luci notturne: {str(exc)}",
+    )
+
+
+def night_query(lat: float, lon: float, side_km: float) -> str:
+    return urlencode({"lat": round(lat, 5), "lon": round(lon, 5),
+                      "side_km": round(side_km, 1)})
+
+
+@app.get("/api/v1/nightlights")
+def get_nightlights(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(nightlights.DEFAULT_SIDE_KM, **NIGHT_SIDE_QUERY),
+):
+    """Anni disponibili e indirizzi delle immagini delle luci notturne."""
+    if not nightlights.has_credentials():
+        raise HTTPException(
+            status_code=503,
+            detail="Luci notturne non ancora attive su questo server "
+                   "(manca la configurazione NASA Earthdata).",
+        )
+    try:
+        years = nightlights.available_years(lat, lon)
+    except Exception as exc:
+        raise night_error(exc) from exc
+    if not years:
+        raise HTTPException(
+            status_code=404,
+            detail="Nessun dato di luci notturne per quest'area.",
+        )
+
+    query = night_query(lat, lon, side_km)
+    return {
+        "product": "NASA Black Marble VNP46A4 (VIIRS, Suomi NPP), collezione 2",
+        "variable": nightlights.VARIABLE,
+        "side_km": side_km,
+        "years": years,
+        "default_before": years[0],
+        "default_after": years[-1],
+        "image_template": f"/api/v1/nightlights/image?{query}&year={{year}}",
+        "compare_template": (f"/api/v1/nightlights/compare?{query}"
+                             "&before={before}&after={after}"),
+        "legend": nightlights.legend(),
+        "caption": (
+            "Media annuale della luce emessa di notte, vista quasi dalla "
+            "verticale e senza neve. Ogni pixel è circa 500 m: più è chiaro, "
+            "più luce artificiale. Il mare è in blu scuro uniforme."
+        ),
+        "attribution": nightlights.ATTRIBUTION,
+    }
+
+
+@app.get("/api/v1/nightlights/image")
+def get_nightlights_image(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(nightlights.DEFAULT_SIDE_KM, **NIGHT_SIDE_QUERY),
+    year: int = Query(..., ge=nightlights.FIRST_YEAR, le=2100),
+):
+    """PNG delle luci notturne di un anno sull'area."""
+    key = (round(lat, 5), round(lon, 5), round(side_km, 1), year)
+    png = _NIGHT_PNG_CACHE.get(key)
+    if png is None:
+        try:
+            scene = nightlights.night_scene_for_area(lat, lon, side_km, year)
+            png = nightlights.render_radiance_png(scene)
+        except Exception as exc:
+            raise night_error(exc) from exc
+        if len(_NIGHT_PNG_CACHE) >= MAX_NIGHT_PNG_CACHE:
+            _NIGHT_PNG_CACHE.clear()
+        _NIGHT_PNG_CACHE[key] = png
+
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+def describe_light_change(before_year: int, after_year: int,
+                          change: float | None) -> str:
+    if change is None:
+        return "Variazione non calcolabile (dati insufficienti)."
+    if abs(change) < 5:
+        return (f"Tra il {before_year} e il {after_year} la luce totale "
+                f"è quasi invariata ({change:+.0f}%).")
+    verb = "aumentata" if change > 0 else "diminuita"
+    return (f"Tra il {before_year} e il {after_year} la luce totale "
+            f"sulla terraferma è {verb} del {abs(change):.0f}%.")
+
+
+@app.get("/api/v1/nightlights/compare")
+def compare_nightlights(
+    lat: float = Query(..., ge=-75, le=75),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(nightlights.DEFAULT_SIDE_KM, **NIGHT_SIDE_QUERY),
+    before: int = Query(..., ge=nightlights.FIRST_YEAR, le=2100),
+    after: int = Query(..., ge=nightlights.FIRST_YEAR, le=2100),
+):
+    """Numeri di confronto tra due anni (usa i dati già letti per le immagini)."""
+    try:
+        summaries = {
+            year: nightlights.light_summary(
+                nightlights.night_scene_for_area(lat, lon, side_km, year))
+            for year in (before, after)
+        }
+    except Exception as exc:
+        raise night_error(exc) from exc
+
+    change = nightlights.percent_change(
+        summaries[before]["total_radiance"], summaries[after]["total_radiance"])
+    lit_before = summaries[before]["lit_percentage"]
+    lit_after = summaries[after]["lit_percentage"]
+    return {
+        "side_km": side_km,
+        "before": {"year": before, **summaries[before]},
+        "after": {"year": after, **summaries[after]},
+        "total_change_percent": change,
+        "lit_change_points": (
+            round(lit_after - lit_before, 1)
+            if lit_before is not None and lit_after is not None else None
+        ),
+        "message": describe_light_change(before, after, change),
+        "caveat": (
+            "Variazioni piccole (pochi %) possono dipendere dal sensore o "
+            "dall'atmosfera. Lampioni LED bianchi appaiono più deboli a VIIRS: "
+            "un calo non significa sempre meno illuminazione."
+        ),
+    }
 
 
 # ============================================================

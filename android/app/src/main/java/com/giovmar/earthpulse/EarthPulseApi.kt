@@ -197,6 +197,35 @@ data class StoryDetail(
     val scenes: ImageryScenes
 )
 
+// Luci notturne (/api/v1/nightlights)
+
+data class NightLightsInfo(
+    val sideKm: Double,
+    val years: List<Int>,
+    val defaultBefore: Int,
+    val defaultAfter: Int,
+    val imageTemplate: String,
+    val compareTemplate: String,
+    val stops: List<ColorStop>,
+    val legendLabels: List<String>,
+    val seaColor: Color?,
+    val caption: String,
+    val attribution: String
+) {
+    fun imageUrl(year: Int) = imageTemplate.replace("{year}", year.toString())
+    fun compareUrl(before: Int, after: Int) = compareTemplate
+        .replace("{before}", before.toString())
+        .replace("{after}", after.toString())
+}
+
+data class NightLightsComparison(
+    val message: String,
+    val caveat: String,
+    val totalChangePercent: Double?,
+    val litBefore: Double?,
+    val litAfter: Double?
+)
+
 /** Errore con un messaggio già comprensibile per l'utente. */
 class ApiException(message: String) : Exception(message)
 
@@ -289,6 +318,30 @@ object EarthPulseApi {
             getJson("$BACKEND_BASE_URL/api/v1/stories/$encoded", STORY_READ_TIMEOUT_MS)
         )
         return parseStoryDetail(root)
+    }
+
+    suspend fun fetchNightLights(
+        latitude: Double,
+        longitude: Double,
+        sideKm: Double
+    ): NightLightsInfo {
+        val url = String.format(
+            Locale.US,
+            "%s/api/v1/nightlights?lat=%.5f&lon=%.5f&side_km=%.1f",
+            BACKEND_BASE_URL, latitude, longitude, sideKm
+        )
+        return parseNightLights(JSONObject(getJson(url, IMAGERY_READ_TIMEOUT_MS)))
+    }
+
+    suspend fun fetchNightLightsComparison(relativeUrl: String): NightLightsComparison {
+        val root = JSONObject(getJson(BACKEND_BASE_URL + relativeUrl, IMAGERY_READ_TIMEOUT_MS))
+        return NightLightsComparison(
+            message = root.optString("message"),
+            caveat = root.optString("caveat"),
+            totalChangePercent = root.optDoubleOrNull("total_change_percent"),
+            litBefore = root.optJSONObject("before")?.optDoubleOrNull("lit_percentage"),
+            litAfter = root.optJSONObject("after")?.optDoubleOrNull("lit_percentage")
+        )
     }
 
     /** Scarica un'immagine PNG del backend (url relativo, es. "/api/v1/imagery/image?..."). */
@@ -565,5 +618,27 @@ private fun parseStoryDetail(root: JSONObject): StoryDetail {
             diffStops = parseColorStops(legend.optJSONArray("diff_color_stops")),
             layers = parseLayers(root.optJSONArray("layers"))
         )
+    )
+}
+
+private fun parseNightLights(root: JSONObject): NightLightsInfo {
+    val yearsArray = root.optJSONArray("years") ?: JSONArray()
+    val years = (0 until yearsArray.length()).map { yearsArray.getInt(it) }
+    val legend = root.optJSONObject("legend")
+    val labelsArray = legend?.optJSONArray("labels") ?: JSONArray()
+    return NightLightsInfo(
+        sideKm = root.optDouble("side_km", 60.0),
+        years = years,
+        defaultBefore = root.optInt("default_before", years.firstOrNull() ?: 2012),
+        defaultAfter = root.optInt("default_after", years.lastOrNull() ?: 2012),
+        imageTemplate = root.getString("image_template"),
+        compareTemplate = root.getString("compare_template"),
+        stops = parseColorStops(legend?.optJSONArray("color_stops")),
+        legendLabels = (0 until labelsArray.length()).map { labelsArray.getString(it) },
+        seaColor = legend?.optString("sea_color")?.takeIf { it.isNotBlank() }?.let {
+            runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull()
+        },
+        caption = root.optString("caption"),
+        attribution = root.optString("attribution")
     )
 }

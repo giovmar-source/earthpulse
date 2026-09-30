@@ -171,6 +171,19 @@ fun MethodologyScreen(onBack: () -> Unit) {
             Bullet("Le due date sono ricampionate sulla stessa griglia di 10 m, così coincidono pixel per pixel.")
         }
 
+        MethodSection("Luci notturne") {
+            Paragraph(
+                "Il sensore VIIRS (satellite Suomi NPP) misura la luce emessa di notte. " +
+                        "NASA Black Marble (prodotto VNP46A4) ne ricava una media annuale, " +
+                        "dal 2012, corretta per luce lunare, nuvole e atmosfera."
+            )
+            Bullet("Usiamo il composito \"quasi verticale, senza neve\": la vista più adatta a confrontare anni diversi.")
+            Bullet("Pixel di 15 secondi d'arco (circa 500 m): per questo l'area è di 30–120 km, non di 1–3 km.")
+            Bullet("Scala logaritmica: ogni passo di colore vale circa il triplo di luce, così si vedono sia i paesi sia i centri città.")
+            Bullet("Il mare (maschera terra/mare del prodotto) è in blu uniforme; restano visibili solo porti e navi molto illuminati.")
+            Bullet("La variazione percentuale somma la luce di tutta la terraferma dell'area. I LED bianchi sono visti meno da VIIRS: un calo può anche indicare un cambio di lampioni.")
+        }
+
         MethodSection("7 · Limiti") {
             Bullet("L'NDVI non misura direttamente la salute della vegetazione: è legato alla sua risposta spettrale.")
             Bullet("Un'anomalia non dimostra da sola la causa: siccità, tagli, incendi, raccolti, ma anche differenze di osservazione possono produrla.")
@@ -184,6 +197,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
         MethodSection("Fonti e attribuzioni") {
             Bullet("Contiene dati Copernicus Sentinel modificati, elaborati da EarthPulse.")
             Bullet("Catalogo delle immagini: Earth Search (Element 84), dati Sentinel-2 su AWS Open Data.")
+            Bullet("Luci notturne: NASA Black Marble VNP46A4 (Román et al.), distribuito da LAADS DAAC / NASA Earthdata.")
             Bullet("Mappa: OpenFreeMap e OpenMapTiles, dati © OpenStreetMap contributors (ODbL). Ricerca dei luoghi: Nominatim e Photon.")
         }
 

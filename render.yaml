@@ -14,3 +14,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      # Token NASA Earthdata per le luci notturne: il valore si inserisce
+      # solo nel pannello di Render (Environment), mai nel repository.
+      - key: EARTHDATA_TOKEN
+        sync: false

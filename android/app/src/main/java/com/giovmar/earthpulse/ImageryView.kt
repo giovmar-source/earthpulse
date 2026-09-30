@@ -550,7 +550,7 @@ private fun DateChips(
 
 /** Due immagini sovrapposte: a sinistra della linea "prima", a destra "dopo". */
 @Composable
-private fun BeforeAfterSlider(
+internal fun BeforeAfterSlider(
     before: ImageBitmap?,
     after: ImageBitmap?,
     beforeLabel: String,
@@ -698,11 +698,13 @@ private fun CornerLabel(text: String, modifier: Modifier) {
 }
 
 @Composable
-private fun GradientLegend(
+internal fun GradientLegend(
     stops: List<ColorStop>,
     leftLabel: String,
     centerLabel: String,
-    rightLabel: String
+    rightLabel: String,
+    invalidLabel: String? = "Non valido (nuvole, ombre, dati mancanti)",
+    invalidColor: Color = Color(0xFFB4B4B4)
 ) {
     if (stops.size < 2) return
     val min = stops.first().value
@@ -725,20 +727,22 @@ private fun GradientLegend(
             Text(centerLabel, fontSize = 11.sp, color = Muted)
             Text(rightLabel, fontSize = 11.sp, color = Muted)
         }
-        Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 4.dp)) {
-            Box(
-                Modifier
-                    .size(10.dp)
-                    .background(Color(0xFFB4B4B4), RoundedCornerShape(2.dp))
-            )
-            Text("  Non valido (nuvole, ombre, dati mancanti)", fontSize = 11.sp, color = Muted)
+        if (invalidLabel != null) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp)) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .background(invalidColor, RoundedCornerShape(2.dp))
+                )
+                Text("  $invalidLabel", fontSize = 11.sp, color = Muted)
+            }
         }
     }
 }
 
 @Composable
-private fun InfoBox(content: @Composable () -> Unit) {
+internal fun InfoBox(content: @Composable () -> Unit) {
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)

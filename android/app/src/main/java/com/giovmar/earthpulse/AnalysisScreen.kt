@@ -79,6 +79,10 @@ fun AnalysisScreen(
     var imagerySideKm by rememberSaveable { mutableStateOf(IMAGERY_SIDE_KM) }
     val imagery = rememberImageryState(place, imagerySideKm)
 
+    // Anche le luci notturne partono subito, in parallelo.
+    var nightSideKm by rememberSaveable { mutableStateOf(NIGHT_DEFAULT_SIDE_KM) }
+    val nightLights = rememberNightLightsState(place, nightSideKm)
+
     // Parte all'apertura e a ogni "Riprova".
     LaunchedEffect(place, attempt) {
         state = AnalysisUiState.Loading
@@ -147,6 +151,7 @@ fun AnalysisScreen(
                     imagerySideKm = imagerySideKm,
                     onImagerySideChange = { imagerySideKm = it }
                 )
+                NightLightsSection(nightLights, nightSideKm) { nightSideKm = it }
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = onMethodologyClick,
