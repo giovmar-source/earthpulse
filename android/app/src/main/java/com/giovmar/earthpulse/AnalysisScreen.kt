@@ -146,12 +146,16 @@ fun AnalysisScreen(
             )
             is AnalysisUiState.Success -> {
                 ResultContent(
+                    placeTitle = place.label ?: formatCoordinates(place),
                     analysis = s.analysis,
                     imagery = imagery,
                     imagerySideKm = imagerySideKm,
                     onImagerySideChange = { imagerySideKm = it }
                 )
-                NightLightsSection(nightLights, nightSideKm) { nightSideKm = it }
+                NightLightsSection(
+                    nightLights, nightSideKm,
+                    shareTitle = place.label ?: formatCoordinates(place)
+                ) { nightSideKm = it }
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = onMethodologyClick,
@@ -241,6 +245,7 @@ private fun ErrorContent(message: String, onRetry: () -> Unit, onBack: () -> Uni
 
 @Composable
 private fun ResultContent(
+    placeTitle: String,
     analysis: PlaceAnalysis,
     imagery: ImageryState,
     imagerySideKm: Double,
@@ -270,7 +275,7 @@ private fun ResultContent(
     }
 
     // ---------- immagini satellitari ----------
-    ImagerySection(imagery, imagerySideKm, onImagerySideChange)
+    ImagerySection(imagery, imagerySideKm, onImagerySideChange, shareTitle = placeTitle)
 
     // ---------- confronto con gli anni precedenti ----------
     if (analysis.baseline.observations.isNotEmpty()) {

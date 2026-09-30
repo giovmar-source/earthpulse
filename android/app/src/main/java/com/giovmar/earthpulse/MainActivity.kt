@@ -118,7 +118,7 @@ private fun JSONObject.optNullableDouble(key: String): Double? {
     return optDouble(key).takeIf { it.isFinite() }
 }
 
-enum class Screen { MAP, ANALYSIS, STORIES, STORY, EXAMPLES, FOREST_DEMO, METHODOLOGY }
+enum class Screen { MAP, ANALYSIS, STORIES, STORY, EXAMPLES, FOREST_DEMO, METHODOLOGY, SATELLITE }
 
 @Composable
 fun EarthPulseApp() {
@@ -184,8 +184,11 @@ fun EarthPulseApp() {
                 },
                 onAnalyzeClick = { screen = Screen.ANALYSIS },
                 onExamplesClick = { screen = Screen.STORIES },
-                onMethodologyClick = { openMethodology() }
+                onMethodologyClick = { openMethodology() },
+                onSatelliteClick = { screen = Screen.SATELLITE }
             )
+        } else if (screen == Screen.SATELLITE) {
+            SatelliteScreen(onBack = { screen = Screen.MAP })
         } else if (screen == Screen.ANALYSIS && selectedPlace != null) {
             AnalysisScreen(
                 place = selectedPlace,

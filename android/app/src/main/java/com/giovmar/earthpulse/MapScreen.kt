@@ -100,7 +100,8 @@ fun MapScreen(
     onPlaceSelected: (SelectedPlace) -> Unit,
     onAnalyzeClick: () -> Unit,
     onExamplesClick: () -> Unit,
-    onMethodologyClick: () -> Unit
+    onMethodologyClick: () -> Unit,
+    onSatelliteClick: () -> Unit = {}
 ) {
     val currentOnPlaceSelected by rememberUpdatedState(onPlaceSelected)
     val currentSelectedPlace by rememberUpdatedState(selectedPlace)
@@ -332,6 +333,22 @@ fun MapScreen(
 
             Spacer(Modifier.weight(1f))
 
+            // Com'è fatto il satellite (vista esplosa)
+            Surface(
+                onClick = onSatelliteClick,
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                shadowElevation = 4.dp
+            ) {
+                Text(
+                    "🛰",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                    fontSize = 18.sp
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
             Surface(
                 onClick = onMethodologyClick,
                 shape = RoundedCornerShape(16.dp),
@@ -340,7 +357,7 @@ fun MapScreen(
             ) {
                 Text(
                     "Metodo",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 12.dp),
                     color = Green,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -356,7 +373,7 @@ fun MapScreen(
             ) {
                 Text(
                     "Storie",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 12.dp),
                     color = Green,
                     fontWeight = FontWeight.SemiBold
                 )

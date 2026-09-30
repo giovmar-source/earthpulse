@@ -100,6 +100,7 @@ private fun rememberNightImage(state: NightLightsState, url: String?): ImageBitm
 fun NightLightsSection(
     state: NightLightsState,
     sideKm: Double,
+    shareTitle: String? = null,
     onSideChange: (Double) -> Unit
 ) {
     Spacer(Modifier.height(24.dp))
@@ -145,12 +146,12 @@ fun NightLightsSection(
             Text("Nessun dato di luci notturne per quest'area.", fontSize = 13.sp, color = Muted)
         }
 
-        else -> NightLightsContent(state, info)
+        else -> NightLightsContent(state, info, shareTitle)
     }
 }
 
 @Composable
-private fun NightLightsContent(state: NightLightsState, info: NightLightsInfo) {
+private fun NightLightsContent(state: NightLightsState, info: NightLightsInfo, shareTitle: String?) {
     val before = state.beforeYear ?: info.defaultBefore
     val after = state.afterYear ?: info.defaultAfter
 
@@ -213,6 +214,24 @@ private fun NightLightsContent(state: NightLightsState, info: NightLightsInfo) {
                 Text(comparison.caveat, fontSize = 11.sp, lineHeight = 15.sp, color = Muted,
                     modifier = Modifier.padding(top = 6.dp))
             }
+        }
+    }
+
+    if (shareTitle != null && beforeImage != null && afterImage != null) {
+        ShareButton {
+            ShareContent(
+                title = shareTitle,
+                subtitle = "Area ${info.sideKm.toInt()} × ${info.sideKm.toInt()} km",
+                layerLabel = "Luci notturne",
+                before = beforeImage,
+                beforeLabel = "Prima · $before",
+                after = afterImage,
+                afterLabel = "Dopo · $after",
+                highlight = state.comparison?.message,
+                stops = info.stops,
+                legendLabels = info.legendLabels,
+                attribution = info.attribution
+            )
         }
     }
 

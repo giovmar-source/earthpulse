@@ -159,7 +159,8 @@ private fun rememberImage(state: ImageryState, url: String?): ImageBitmap? {
 fun ImagerySection(
     state: ImageryState,
     sideKm: Double = IMAGERY_SIDE_KM,
-    onSideChange: ((Double) -> Unit)? = null
+    onSideChange: ((Double) -> Unit)? = null,
+    shareTitle: String? = null
 ) {
     Spacer(Modifier.height(24.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -229,7 +230,11 @@ fun ImagerySection(
             )
         }
 
-        else -> ImageryContent(state, scenes, after)
+        else -> ImageryContent(
+            state, scenes, after,
+            shareTitle = shareTitle,
+            shareSubtitle = "Sentinel-2 · area ${sideKm.toInt()} × ${sideKm.toInt()} km"
+        )
     }
 }
 
@@ -238,7 +243,11 @@ internal fun ImageryContent(
     state: ImageryState,
     baseScenes: ImageryScenes,
     baseAfter: SceneImages,
-    showAnalysisArea: Boolean = true
+    showAnalysisArea: Boolean = true,
+    // Condivisione: titolo della scheda (null = nessun pulsante)
+    shareTitle: String? = null,
+    shareSubtitle: String = "Sentinel-2",
+    shareHighlight: String? = null
 ) {
     // Date scelte sulla linea del tempo (se presenti).
     val scenes = state.effectiveScenes(baseScenes)
@@ -306,16 +315,49 @@ internal fun ImageryContent(
             fontSize = 12.sp, color = Muted,
             modifier = Modifier.padding(top = 6.dp)
         )
+        if (shareTitle != null && beforeImage != null && afterImage != null) {
+            ShareButton {
+                ShareContent(
+                    title = shareTitle,
+                    subtitle = shareSubtitle,
+                    layerLabel = layer.label,
+                    before = beforeImage,
+                    beforeLabel = beforeLabel,
+                    after = afterImage,
+                    afterLabel = afterLabel,
+                    highlight = shareHighlight,
+                    stops = layer.stops,
+                    legendLabels = layer.legendLabels,
+                    attribution = scenes.attribution
+                )
+            }
+        }
     } else {
         val label = if (layer.mode == "single" && before != null)
             "${formatDate(before.date)} → ${formatDate(after.date)}"
         else afterLabel
+        val singleImage = rememberImage(state, afterUrl)
         SingleImage(
-            rememberImage(state, afterUrl),
+            singleImage,
             label,
             areaFraction,
             afterUrl?.let { state.failures[it] }
         )
+        if (shareTitle != null && singleImage != null) {
+            ShareButton {
+                ShareContent(
+                    title = shareTitle,
+                    subtitle = shareSubtitle,
+                    layerLabel = layer.label,
+                    after = singleImage,
+                    afterLabel = label,
+                    highlight = shareHighlight,
+                    stops = layer.stops,
+                    legendLabels = layer.legendLabels,
+                    attribution = scenes.attribution
+                )
+            }
+        }
     }
 
     if (layer.stops.size >= 2) {

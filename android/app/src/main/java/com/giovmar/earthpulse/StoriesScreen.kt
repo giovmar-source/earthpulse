@@ -303,7 +303,12 @@ private fun StoryContent(story: StoryDetail, imagery: ImageryState) {
     val scenes = story.scenes
     val after = scenes.after
     if (after != null) {
-        ImageryContent(imagery, scenes, after, showAnalysisArea = false)
+        ImageryContent(
+            imagery, scenes, after, showAnalysisArea = false,
+            shareTitle = s.title,
+            shareSubtitle = "${s.place} · ${s.country}",
+            shareHighlight = s.summary
+        )
     } else {
         Text(
             scenes.messages.joinToString("\n").ifBlank { "Immagini non disponibili." },
