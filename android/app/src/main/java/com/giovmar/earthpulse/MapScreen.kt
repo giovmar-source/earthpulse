@@ -580,7 +580,7 @@ fun MapScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Green)
                     ) {
                         Text(
-                            "Analizza vegetazione (NDVI)",
+                            "Analizza questo luogo",
                             modifier = Modifier.padding(vertical = 4.dp),
                             fontWeight = FontWeight.SemiBold
                         )

@@ -162,6 +162,21 @@ class TestRendering(unittest.TestCase):
         self.assertAlmostEqual(float(np.nanmedian(ndvi_new)),
                                float(np.nanmedian(ndvi_ref)), places=4)
 
+    def test_catalog_flag_ignored_when_data_has_no_offset(self):
+        # Caso reale (Pergusa 2022): baseline 04.00, catalogo "offset non
+        # applicato", ma i valori non contengono lo scostamento.
+        item = self.scene.item(properties={
+            "s2:processing_baseline": "04.00",
+            "earthsearch:boa_offset_applied": False,
+        })
+        from src.imagery import ndvi_on_grid
+        ndvi_ref, valid_ref = ndvi_on_grid(self.scene.item(), self.grid)
+        ndvi_new, valid_new = ndvi_on_grid(item, self.grid)
+
+        self.assertAlmostEqual(float(np.nanmedian(ndvi_new)),
+                               float(np.nanmedian(ndvi_ref)), places=4)
+        self.assertEqual(int(valid_new.sum()), int(valid_ref.sum()))
+
     def test_scl_valid_percentage_sees_cloud(self):
         pct = scl_valid_percentage(self.scene.item(), self.bbox)
         # nuvola ≈ 400×400 m su 3×3 km ≈ 1.8% dell'area
@@ -170,6 +185,18 @@ class TestRendering(unittest.TestCase):
 
 
 class TestImageHelpers(unittest.TestCase):
+
+    def test_effective_offset_uses_dark_pixels(self):
+        from src.ndvi import effective_offset
+        item = SimpleNamespace(properties={"s2:processing_baseline": "04.00"})
+        dark_water = np.full((20, 20), 150.0)          # impossibile con lo scostamento
+        with_offset = np.full((20, 20), 1150.0)        # acqua + 1000
+        self.assertEqual(effective_offset(item, dark_water), 0)
+        self.assertEqual(effective_offset(item, with_offset), 1000)
+        # Catalogo: offset già applicato -> mai sottrarre
+        applied = SimpleNamespace(properties={"s2:processing_baseline": "05.10",
+                                              "earthsearch:boa_offset_applied": True})
+        self.assertEqual(effective_offset(applied, with_offset), 0)
 
     def test_reflectance_offset_rules(self):
         from src.ndvi import reflectance_offset

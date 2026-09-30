@@ -59,6 +59,41 @@ def reflectance_offset(item) -> float:
     return 0.0
 
 
+# Con lo scostamento presente, anche i pixel più scuri (acqua, ombre)
+# valgono circa 1000 DN o più. Se il 1° percentile di una banda è sotto
+# questa soglia, la scena NON contiene lo scostamento.
+DARK_PIXEL_THRESHOLD_DN = 900.0
+
+
+def effective_offset(item, *bands) -> float:
+    """
+    Scostamento da sottrarre, verificato sui dati.
+
+    Il catalogo non è sempre affidabile: su Earth Search alcune scene del
+    2022 risultano "offset non applicato" ma i loro valori non contengono
+    lo scostamento (verificato: pixel scuri fino a 1-200 DN, mediane uguali
+    a quelle del 2024). Sottrarre 1000 in quel caso azzera l'acqua e altera
+    tutti gli indici. Quindi:
+    - se il catalogo non indica uno scostamento possibile: 0;
+    - altrimenti lo si sottrae solo se i pixel più scuri di tutte le bande
+      stanno sopra la soglia (lo scostamento è davvero nei dati).
+    """
+    candidate = reflectance_offset(item)
+    if not candidate:
+        return 0.0
+
+    lows = []
+    for band in bands:
+        values = np.asarray(band, dtype=np.float32)
+        values = values[np.isfinite(values) & (values > 0)]
+        if values.size >= 50:
+            lows.append(float(np.percentile(values, 1)))
+
+    if not lows:
+        return candidate      # dati insufficienti: si segue il catalogo
+    return candidate if min(lows) >= DARK_PIXEL_THRESHOLD_DN else 0.0
+
+
 def calculate_ndvi_for_item(item, bbox_wgs84):
     """
     Calcola statistiche NDVI per un item Sentinel-2
@@ -126,8 +161,8 @@ def calculate_ndvi_for_item(item, bbox_wgs84):
         red = red_band.filled(np.nan)
         nir = nir_band.filled(np.nan)
 
-        # Armonizzazione radiometrica (baseline >= 04.00, vedi sopra).
-        offset = reflectance_offset(item)
+        # Armonizzazione radiometrica (baseline >= 04.00), verificata sui dati.
+        offset = effective_offset(item, red, nir)
         if offset:
             red = np.clip(red - offset, 0, None)
             nir = np.clip(nir - offset, 0, None)

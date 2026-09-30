@@ -20,6 +20,7 @@ from __future__ import annotations
 import io
 import math
 import os
+import time
 
 os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
 os.environ.setdefault("GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "YES")
@@ -36,12 +37,13 @@ import rasterio
 from PIL import Image
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
+from rasterio.errors import RasterioIOError
 from rasterio.transform import from_origin
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import transform, transform_bounds
 from rasterio.windows import Window
 
-from src.ndvi import INVALID_SCL_CLASSES, reflectance_offset
+from src.ndvi import INVALID_SCL_CLASSES, effective_offset
 
 
 # Scala dei colori NDVI: (valore, colore RGB). Tra due valori il colore
@@ -79,6 +81,9 @@ TARGET_RESOLUTION_M = 10.0
 # Lato massimo delle immagini in pixel: per aree grandi (storie fino a
 # 12 km) la risoluzione si riduce (es. 15 m), per immagini più leggere.
 MAX_IMAGE_PIXELS = 800
+
+# Tentativi per ogni lettura remota di una banda.
+READ_ATTEMPTS = 3
 
 
 def color_stops_hex(stops=None) -> list:
@@ -118,16 +123,24 @@ def read_on_grid(href: str, grid: Grid, indexes=1,
     WarpedVRT legge solo i blocchi necessari del file remoto.
     Le zone fuori dalla scena valgono 0 (= nessun dato).
     """
-    with rasterio.open(href) as src:
-        with WarpedVRT(
-            src,
-            crs=grid.crs,
-            transform=grid.transform,
-            width=grid.width,
-            height=grid.height,
-            resampling=resampling,
-        ) as vrt:
-            return vrt.read(indexes)
+    # Le letture remote a volte si interrompono (file ricevuto troncato):
+    # si riprova fino a READ_ATTEMPTS volte prima di arrendersi.
+    for attempt in range(READ_ATTEMPTS):
+        try:
+            with rasterio.open(href) as src:
+                with WarpedVRT(
+                    src,
+                    crs=grid.crs,
+                    transform=grid.transform,
+                    width=grid.width,
+                    height=grid.height,
+                    resampling=resampling,
+                ) as vrt:
+                    return vrt.read(indexes)
+        except RasterioIOError:
+            if attempt == READ_ATTEMPTS - 1:
+                raise
+            time.sleep(0.5 * (attempt + 1))
 
 
 # ------------------------------------------------------------------
@@ -304,7 +317,7 @@ def ndvi_on_grid(item, grid: Grid):
     red = read_on_grid(item.assets["red"].href, grid)
     nir = read_on_grid(item.assets["nir"].href, grid)
     scl = read_on_grid(item.assets["scl"].href, grid)
-    return compute_ndvi_grid(red, nir, scl, offset=reflectance_offset(item))
+    return compute_ndvi_grid(red, nir, scl, offset=effective_offset(item, red, nir))
 
 
 def harmonize_rgb(source: np.ndarray, reference: np.ndarray) -> np.ndarray:

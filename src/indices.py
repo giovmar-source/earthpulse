@@ -3,7 +3,8 @@ Indici spettrali Sentinel-2 e descrizione dei livelli mostrati nell'app.
 
 Tutti gli indici sono differenze normalizzate:  (A - B) / (A + B)
 calcolate sulla griglia comune (src/imagery.Grid), con:
-- correzione dello scostamento radiometrico 2022 (src/ndvi.reflectance_offset);
+- correzione dello scostamento radiometrico 2022, verificata sui dati
+  (src/ndvi.effective_offset);
 - maschera SCL (nuvole, ombre, neve, dati mancanti);
 - bande a 20 m (B11, B12) ricampionate in modo bilineare sulla griglia a 10 m.
 
@@ -27,7 +28,7 @@ from src.imagery import (
     to_png,
     valid_mask_from_scl,
 )
-from src.ndvi import reflectance_offset
+from src.ndvi import effective_offset
 
 
 # Asset STAC di Earth Search per ogni banda usata.
@@ -219,7 +220,7 @@ def index_on_grid(item, grid: Grid, key: str):
     scl = read_on_grid(item.assets["scl"].href, grid)
 
     has_data = (raw_a > 0) & (raw_b > 0)
-    offset = reflectance_offset(item)
+    offset = effective_offset(item, raw_a, raw_b)
     a = np.clip(raw_a - offset, 0, None)
     b = np.clip(raw_b - offset, 0, None)
     denominator = a + b

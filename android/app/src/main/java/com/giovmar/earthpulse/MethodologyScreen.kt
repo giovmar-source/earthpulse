@@ -102,7 +102,7 @@ fun MethodologyScreen(onBack: () -> Unit) {
             )
             Bullet("Una scena è usata solo se almeno il 70% dei pixel dell'area è valido.")
             Bullet("Se in un giorno ci sono più scene, si tiene quella con meno nuvole dichiarate.")
-            Bullet("Dal 25 gennaio 2022 i dati Sentinel-2 L2A hanno uno scostamento radiometrico di 1000 (processing baseline 04.00): quando il catalogo non lo ha già rimosso, lo sottraiamo prima di calcolare l'NDVI, così i confronti tra anni diversi restano corretti.")
+            Bullet("Dal 25 gennaio 2022 i dati Sentinel-2 L2A possono avere uno scostamento radiometrico di 1000 (processing baseline 04.00). Non ci fidiamo solo del catalogo: lo sottraiamo solo se i dati lo contengono davvero, cioè se anche i pixel più scuri (acqua, ombre) stanno sopra circa 1000. Così i confronti tra anni diversi restano corretti.")
         }
 
         MethodSection("4 · Osservazione recente") {
