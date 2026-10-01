@@ -23,6 +23,27 @@ function emptyCollection() {
   return { type: 'FeatureCollection', features: [] }
 }
 
+/** Quadrato di lato sideKm centrato sul punto (come l'area analizzata dal backend). */
+function squareAround(lat, lon, sideKm) {
+  const half = sideKm / 2
+  const dLat = half / 110.574
+  const dLon = half / (111.320 * Math.cos((lat * Math.PI) / 180))
+  return {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [lon - dLon, lat - dLat], [lon + dLon, lat - dLat], [lon + dLon, lat + dLat],
+          [lon - dLon, lat + dLat], [lon - dLon, lat - dLat],
+        ]],
+      },
+    }],
+  }
+}
+
 function satellitePoints(satellites, now) {
   return {
     type: 'FeatureCollection',
@@ -60,7 +81,7 @@ function satelliteTracks(satellites, now) {
  * Globo 3D (MapLibre GL, proiezione "globe") con i satelliti in tempo reale:
  * punto sotto il satellite, traccia a terra dell'orbita (tratteggiata) e nome.
  */
-export default function Globe({ satellites, selectedNorad, onSelectSatellite, onSelectPlace, flyTarget }) {
+export default function Globe({ satellites, selectedNorad, onSelectSatellite, onSelectPlace, flyTarget, area, wide }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const readyRef = useRef(false)
@@ -69,6 +90,8 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
   const callbacks = useRef({ onSelectSatellite, onSelectPlace })
   callbacks.current = { onSelectSatellite, onSelectPlace }
   satellitesRef.current = satellites
+  const wideRef = useRef(wide)
+  wideRef.current = wide
 
   // Creazione della mappa (una sola volta)
   useEffect(() => {
@@ -88,9 +111,10 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
       const mobile = window.innerWidth <= 700
       map.setPadding(mobile
         ? { top: 60, bottom: Math.round(window.innerHeight * 0.48), left: 0, right: 0 }
-        : { top: 0, bottom: 0, left: 0, right: Math.min(410, window.innerWidth * 0.45) })
+        : { top: 0, bottom: 0, left: 0, right: Math.min(wideRef.current ? 500 : 410, window.innerWidth * 0.5) })
     }
     applyPadding()
+    map.applyPadding = applyPadding
     window.addEventListener('resize', applyPadding)
 
     map.on('style.load', () => {
@@ -102,6 +126,15 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
       })
       localizeLabels(map)
 
+      map.addSource('area', { type: 'geojson', data: emptyCollection() })
+      map.addLayer({
+        id: 'area-fill', type: 'fill', source: 'area',
+        paint: { 'fill-color': '#F2B33D', 'fill-opacity': 0.12 },
+      })
+      map.addLayer({
+        id: 'area-line', type: 'line', source: 'area',
+        paint: { 'line-color': '#F2B33D', 'line-width': 2 },
+      })
       map.addSource('tracks', { type: 'geojson', data: emptyCollection() })
       map.addSource('sats', { type: 'geojson', data: emptyCollection() })
 
@@ -151,6 +184,7 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
       map.on('mouseleave', 'sats-halo', () => { map.getCanvas().style.cursor = '' })
 
       readyRef.current = true
+      map.drawArea?.()
       refreshTracks()
       refreshPositions()
     })
@@ -194,11 +228,28 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
     map.setPaintProperty('tracks-future', 'line-opacity', opacity)
   }, [selectedNorad])
 
+  // Pannello largo (analisi del luogo): il globo si sposta a sinistra
+  useEffect(() => {
+    mapRef.current?.applyPadding?.()
+  }, [wide])
+
+  // Quadrato dell'area analizzata (1 × 1 km) intorno al luogo scelto
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    map.drawArea = () => map.getSource('area')?.setData(area ? squareAround(area.lat, area.lon, area.sideKm) : emptyCollection())
+    if (readyRef.current) map.drawArea()
+  }, [area])
+
   // Volo verso un punto (satellite o luogo scelto) e segnaposto del luogo
   useEffect(() => {
     const map = mapRef.current
     if (!map || !flyTarget) return
     map.flyTo({ center: [flyTarget.lon, flyTarget.lat], zoom: flyTarget.zoom ?? map.getZoom(), duration: 1600 })
+    if (flyTarget.marker === false) {
+      markerRef.current?.remove()
+      markerRef.current = null
+    }
     if (flyTarget.marker) {
       markerRef.current?.remove()
       markerRef.current = new maplibregl.Marker({ color: '#F2B33D' })

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Globe from './Globe.jsx'
+import PlacePanel from './place/PlacePanel.jsx'
+import SearchBox from './SearchBox.jsx'
 import { SATELLITE_CARDS } from './satelliteCards.js'
 import SatelliteParts from './SatelliteParts.jsx'
 import { loadSatellites, periodMinutes, positionAt } from './orbits.js'
@@ -57,21 +59,6 @@ function SatellitePanel({ sat, onClose }) {
   )
 }
 
-function PlacePanel({ place, onClose }) {
-  return (
-    <aside className="panel">
-      <button className="close" onClick={onClose} aria-label="Chiudi">×</button>
-      <p className="eyebrow">Luogo scelto</p>
-      <h2>{formatCoord(place.lat, 'N', 'S')}, {formatCoord(place.lon, 'E', 'O')}</h2>
-      <p>
-        Qui arriverà l'analisi del luogo: vegetazione, acqua, calore, luci notturne e
-        archivio dal 1984, divisi tra <strong>Superficie</strong> e <strong>Atmosfera</strong>.
-      </p>
-      <p className="muted small">Prossimo passo: collegare questo pannello al backend di EarthPulse.</p>
-    </aside>
-  )
-}
-
 function WelcomePanel({ satellites, error, onSelect }) {
   return (
     <aside className="panel">
@@ -79,7 +66,8 @@ function WelcomePanel({ satellites, error, onSelect }) {
       <h2>Cosa vedono i satelliti, spiegato</h2>
       <p>
         Il globo mostra in tempo reale i satelliti che usiamo per analizzare la Terra.
-        Tocca un satellite per scoprire com'è fatto, oppure un punto della Terra per sceglierlo.
+        Tocca un satellite per scoprire com'è fatto. Per analizzare un luogo, toccalo sul
+        globo oppure cercalo per nome.
       </p>
       {error && <p className="error">{error}</p>}
       {!error && satellites.length === 0 && <p className="muted">Calcolo delle orbite…</p>}
@@ -122,13 +110,18 @@ export default function App() {
     setSelectedNorad(norad)
     const sat = satellites.find((s) => s.norad === norad)
     const p = sat && positionAt(sat, new Date())
-    if (p) setFlyTarget({ lat: p.lat, lon: p.lon, zoom: 1.8 })
+    if (p) setFlyTarget({ lat: p.lat, lon: p.lon, zoom: 1.8, marker: false })
   }
 
   function selectPlace(p) {
     setSelectedNorad(null)
     setPlace(p)
-    setFlyTarget({ ...p, marker: true })
+    setFlyTarget({ ...p, marker: true, zoom: 13 })
+  }
+
+  function closePlace() {
+    setPlace(null)
+    setFlyTarget({ lat: place.lat, lon: place.lon, zoom: 1.6, marker: false })
   }
 
   return (
@@ -139,12 +132,15 @@ export default function App() {
         onSelectSatellite={selectSatellite}
         onSelectPlace={selectPlace}
         flyTarget={flyTarget}
+        area={!selected && place ? { lat: place.lat, lon: place.lon, sideKm: 1 } : null}
+        wide={!selected && !!place}
       />
-      <header className="brand">
-        <span className="logo">◉</span> EarthPulse
+      <header className="topbar">
+        <div className="brand"><span className="logo">◉</span> EarthPulse</div>
+        <SearchBox onSelect={selectPlace} />
       </header>
       {selected && <SatellitePanel sat={selected} onClose={() => setSelectedNorad(null)} />}
-      {!selected && place && <PlacePanel place={place} onClose={() => setPlace(null)} />}
+      {!selected && place && <PlacePanel place={place} onClose={closePlace} />}
       {!selected && !place && (
         <WelcomePanel satellites={satellites} error={error} onSelect={selectSatellite} />
       )}
