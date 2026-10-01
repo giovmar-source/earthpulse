@@ -105,3 +105,44 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
   .brand { top: 12px; left: 12px; }
   .maplibregl-ctrl-bottom-left { display: none; }
 }
+
+/* Parti del satellite */
+.eyebrow.section { margin-top: 20px; }
+.parts { margin-top: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--panel-border);
+  color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600;
+}
+.chip:hover { background: rgba(255, 255, 255, 0.1); }
+.chip.on { background: var(--dark-green); border-color: var(--green); }
+.chip .swatch { width: 9px; height: 9px; }
+
+.sat-frame {
+  position: relative; aspect-ratio: 16 / 9; margin-top: 8px;
+  border-radius: 12px; overflow: hidden; background: #000;
+}
+.sat-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.spot {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 24px; height: 24px; border-radius: 50%; padding: 0; cursor: pointer;
+  background: rgba(255, 255, 255, 0.92); border: 2px solid var(--amber);
+  color: var(--dark-green); font: 700 12px/1 system-ui, sans-serif;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.spot:hover { transform: translate(-50%, -50%) scale(1.12); }
+.spot.on { background: var(--amber); border-color: #fff; color: #fff; }
+
+.part-card {
+  margin: 12px 0; padding: 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--panel-border);
+}
+.part-card h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16.5px; }
+.part-card .role { margin: 4px 0 8px; color: var(--green); font-size: 13.5px; }
+.info-box {
+  margin: 12px 0; padding: 12px 14px; border-radius: 12px;
+  background: rgba(63, 214, 143, 0.1); border: 1px solid rgba(63, 214, 143, 0.25);
+}
+.info-box p:last-child { margin-bottom: 0; }

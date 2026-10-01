@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Globe from './Globe.jsx'
 import { SATELLITE_CARDS } from './satelliteCards.js'
+import SatelliteParts from './SatelliteParts.jsx'
 import { loadSatellites, periodMinutes, positionAt } from './orbits.js'
 
 function formatCoord(value, positive, negative) {
@@ -26,9 +27,6 @@ function SatellitePanel({ sat, onClose }) {
       <p className="eyebrow" style={{ color: sat.color }}>● {sat.name}</p>
       <h2>{card.title}</h2>
       <p className="muted">{card.agency}</p>
-      <img className="sat-image" src={card.image} alt={card.title} />
-      <p className="credit">{card.credit}</p>
-
       {live && (
         <div className="live">
           <span className="live-dot" /> In questo momento {sat.name} è sopra{' '}
@@ -39,6 +37,8 @@ function SatellitePanel({ sat, onClose }) {
       )}
 
       <p>{card.intro}</p>
+      <SatelliteParts key={sat.card} cardKey={sat.card} title={card.title} />
+      <p className="eyebrow section">In sintesi</p>
       <dl className="facts">
         {card.facts.map(([label, value]) => (
           <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
