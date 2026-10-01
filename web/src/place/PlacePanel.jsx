@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Section } from './common.jsx'
 import VegetationCard from './VegetationCard.jsx'
 import ImageryCard from './ImageryCard.jsx'
 import HeatCard from './HeatCard.jsx'
 import NightCard from './NightCard.jsx'
 import ArchiveCard from './ArchiveCard.jsx'
+import AtmosphereTab from './AtmosphereTab.jsx'
 
 function formatCoord(value, positive, negative) {
   return `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`
@@ -20,29 +21,11 @@ const SURFACE_SECTIONS = [
   { key: 'archive', icon: '🕰️', title: "Com'era dal 1984", subtitle: 'Archivio Landsat', Card: ArchiveCard },
 ]
 
-function AtmosphereTab() {
-  return (
-    <div className="coming">
-      <p>
-        Qui arriverà quello che c'è <strong>sopra</strong> il luogo, dai satelliti che osservano
-        l'atmosfera:
-      </p>
-      <ul>
-        <li><strong>Qualità dell'aria</strong> (Sentinel-5P): biossido di azoto, ozono, monossido di carbonio, aerosol.</li>
-        <li><strong>Gas serra</strong> (Sentinel-5P): metano.</li>
-        <li><strong>Nuvole in diretta</strong> (Meteosat di terza generazione, strumento FCI): un'immagine ogni 10 minuti.</li>
-      </ul>
-      <p className="muted small">
-        Sono dati con pixel di chilometri, non di metri: descrivono l'aria di una città o di una
-        regione, non di una singola strada.
-      </p>
-    </div>
-  )
-}
-
 /** Analisi del luogo scelto sul globo, divisa tra Superficie e Atmosfera. */
 export default function PlacePanel({ place, onClose }) {
   const [tab, setTab] = useState('surface')
+  const [atmosphereSeen, setAtmosphereSeen] = useState(false)
+  useEffect(() => { if (tab === 'atmosphere') setAtmosphereSeen(true) }, [tab])
   const [open, setOpen] = useState({ vegetation: true })
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
 
@@ -76,7 +59,12 @@ export default function PlacePanel({ place, onClose }) {
           server: la prima volta può servire fino a un minuto.
         </p>
       </div>
-      {tab === 'atmosphere' && <AtmosphereTab />}
+      {/* Atmosfera: caricata la prima volta che apri la scheda, poi resta montata */}
+      {(tab === 'atmosphere' || atmosphereSeen) && (
+        <div key={`atmo-${place.lat},${place.lon}`} hidden={tab !== 'atmosphere'}>
+          <AtmosphereTab place={place} />
+        </div>
+      )}
     </aside>
   )
 }

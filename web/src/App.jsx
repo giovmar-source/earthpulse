@@ -40,7 +40,7 @@ function SatellitePanel({ sat, onClose }) {
 
       <p>{card.intro}</p>
       <SatelliteParts key={sat.card} cardKey={sat.card} title={card.title} />
-      <p className="eyebrow section">In sintesi</p>
+      <p className="eyebrow spaced">In sintesi</p>
       <dl className="facts">
         {card.facts.map(([label, value]) => (
           <div key={label}><dt>{label}</dt><dd>{value}</dd></div>

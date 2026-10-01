@@ -26,7 +26,7 @@ export default function SatelliteParts({ cardKey, title }) {
 
   return (
     <section className="parts">
-      <p className="eyebrow section">Com'è fatto</p>
+      <p className="eyebrow spaced">Com'è fatto</p>
       {info.images.length > 1 && (
         <div className="chips">
           {info.images.map((img, i) => (
