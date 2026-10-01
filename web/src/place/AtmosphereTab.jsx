@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ErrorBox, Loading, Section, formatNumber, useApi } from './common.jsx'
+import { CompareImages, ErrorBox, Legend, Loading, Section, formatDate, formatNumber, useApi } from './common.jsx'
+import { getJson, placeParams } from '../api.js'
 
 // ------------------------------------------------------------------
 // QUALITÀ DELL'ARIA: Copernicus CAMS tramite Open-Meteo (gratuito, senza chiave)
@@ -213,10 +214,33 @@ const CLOUD_VIEWS = [
   { key: 'mtg_fd:rgb_geocolour', label: 'Colori (giorno e notte)',
     caption: 'Di giorno i colori naturali, di notte le nuvole in grigio-azzurro sopra le luci delle città.' },
   { key: 'mtg_fd:rgb_cloudtype', label: 'Tipo di nubi',
-    caption: 'Distingue nubi basse (acqua) da nubi alte (ghiaccio): utile per capire dove si formano i temporali. Solo di giorno.' },
-  { key: 'mtg_fd:rgb_dust', label: 'Polvere',
-    caption: 'La polvere del deserto appare in rosa-magenta: si vedono le nubi di sabbia del Sahara che arrivano in Europa.' },
+    caption: "Ogni colore è un tipo di nube (legenda sotto). Funziona solo di giorno: di notte l'immagine è scura.",
+    // Chiave dei colori della Cloud Type RGB (guida EUMETSAT/EUMETrain)
+    legend: [
+      ['#f4e04d', 'Giallo', 'nubi alte e spesse di ghiaccio: temporali, fronti'],
+      ['#d9473f', 'Rosso', 'nubi alte e sottili: cirri'],
+      ['#e48fd0', 'Rosa-magenta', "nubi basse e medie con acqua e ghiaccio insieme"],
+      ['#a8eef5', 'Ciano o bianco', "nubi basse e medie d'acqua: strati, nebbia"],
+      ['#58c35c', 'Verde', 'neve al suolo'],
+      ['#2a4aa0', 'Blu scuro', 'terra con vegetazione'],
+      ['#5d8ce0', 'Blu medio', 'deserto, suolo nudo'],
+      ['#06080c', 'Nero', 'mare e laghi'],
+    ] },
 ]
+
+// Prodotti FCI sovrapposti alle immagini (stessa ora del fotogramma)
+const EUMETVIEW_MTG = 'https://view.eumetsat.int/geoserver/mtg_fd/ows'
+const OVERLAYS = [
+  { key: 'mtg_fd:frp', layer: 'frp', label: '🔥 Incendi attivi',
+    caption: 'Incendi rilevati da FCI con la loro potenza (megawatt): più grande e più acceso il punto, più forte il fuoco.' },
+  { key: 'mtg_fd:li_afa', layer: 'li_afa', label: '⚡ Fulmini',
+    caption: "Area illuminata dai fulmini negli ultimi 5 minuti, dal Lightning Imager: segue i temporali più attivi." },
+  { key: 'mtg_fd:h40b', layer: 'h40b', label: '🌧️ Pioggia',
+    caption: 'Pioggia stimata (mm/h) da FCI, calibrata con le misure dei satelliti a microonde.' },
+]
+function legendUrl(layer) {
+  return `${EUMETVIEW_MTG}?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=${layer}`
+}
 const RANGES = [
   { key: 'region', label: 'Regione', halfLat: 3 },
   { key: 'wide', label: 'Area vasta', halfLat: 9 },
@@ -250,6 +274,8 @@ function wmsUrl({ layers, bbox, size, time, png }) {
 
 function CloudsCard({ place }) {
   const [view, setView] = useState(CLOUD_VIEWS[0])
+  const [overlays, setOverlays] = useState(['mtg_fd:frp'])
+  const toggleOverlay = (key) => setOverlays((o) => (o.includes(key) ? o.filter((k) => k !== key) : [...o, key]))
   const [range, setRange] = useState(RANGES[0])
   const [duration, setDuration] = useState(DURATIONS[2])
   const times = useMemo(() => frameTimes(duration), [duration])
@@ -266,6 +292,10 @@ function CloudsCard({ place }) {
   const frames = useMemo(
     () => times.map((time) => wmsUrl({ layers: view.key, bbox, size: 640, time })),
     [times, view, bbox],
+  )
+  const productFrames = useMemo(
+    () => overlays.map((key) => ({ key, urls: times.map((time) => wmsUrl({ layers: key, bbox, size: 640, time, png: true })) })),
+    [overlays, times, bbox],
   )
   const overlay = wmsUrl({
     layers: 'backgrounds:ne_10m_coastline,backgrounds:ne_boundary_lines_land', bbox, size: 640, png: true,
@@ -322,6 +352,11 @@ function CloudsCard({ place }) {
           />
         ))}
         <img src={overlay} alt="" className="overlay" draggable={false} onError={(e) => { e.currentTarget.style.display = 'none' }} />
+        {productFrames.map(({ key, urls }) => urls.map((src, i) => (
+          <img key={src} src={src} alt="" draggable={false} className="product"
+            onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
+            style={{ opacity: i === shown ? 1 : 0 }} />
+        )))}
         <span className="place-dot" />
         {shown != null && (
           <span className="tag right">
@@ -344,13 +379,95 @@ function CloudsCard({ place }) {
           aria-label="Ora dell'immagine"
         />
       </div>
+      <div className="chips">
+        <span className="muted small">Mostra anche:</span>
+        {OVERLAYS.map((o) => (
+          <button key={o.key} className={overlays.includes(o.key) ? 'chip on' : 'chip'} onClick={() => toggleOverlay(o.key)}>{o.label}</button>
+        ))}
+      </div>
       <p className="small">{view.caption}</p>
+      {view.legend && (
+        <ul className="cloud-legend">
+          {view.legend.map(([color, name, meaning]) => (
+            <li key={name}><span className="swatch" style={{ background: color }} /><strong>{name}</strong> {meaning}</li>
+          ))}
+        </ul>
+      )}
+      {OVERLAYS.filter((o) => overlays.includes(o.key)).map((o) => (
+        <div key={o.key} className="product-legend">
+          <p className="small"><strong>{o.label}</strong> · {o.caption}</p>
+          <img src={legendUrl(o.layer)} alt={`Legenda ${o.label}`} onError={(e) => { e.currentTarget.style.display = 'none' }} />
+        </div>
+      ))}
       <p className="small muted">
         Meteosat-12 (MTG-I1) è fermo sopra l'equatore, a 36 000 km di quota: vede sempre la
         stessa metà del pianeta e fa un'immagine ogni 10 minuti. Nelle animazioni lunghe ne usiamo
         una ogni 20 minuti (6 ore), mezz'ora (12 ore) o un'ora (24 ore). Il punto giallo è il luogo scelto.
       </p>
-      <p className="credit">Immagini: © EUMETSAT (EUMETView) · Coste e confini: Natural Earth</p>
+      <p className="credit">Immagini e prodotti: © EUMETSAT (EUMETView, MTG FCI e LI) · Coste e confini: Natural Earth</p>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------
+// GAS DAL SATELLITE: Sentinel-5P (tramite il nostro backend)
+// ------------------------------------------------------------------
+
+const GAS_OPTIONS = [
+  { key: 'no2', label: 'NO₂', days: 7 },
+  { key: 'ch4', label: 'Metano', days: 30 },
+  { key: 'co', label: 'CO', days: 7 },
+]
+
+function GasCard({ place }) {
+  const [gas, setGas] = useState(GAS_OPTIONS[0])
+  const [days, setDays] = useState(GAS_OPTIONS[0].days)
+  const result = useApi(
+    (signal) => getJson('/api/v1/s5p', { gas: gas.key, ...placeParams(place, null, 4), days: String(days) }, { signal }),
+    [place.lat, place.lon, gas.key, days],
+  )
+  const choose = (g) => { setGas(g); setDays(g.days) }
+  const d = result.status === 'ok' ? result.data : null
+
+  return (
+    <div>
+      <div className="chips">
+        {GAS_OPTIONS.map((g) => (
+          <button key={g.key} className={g.key === gas.key ? 'chip on' : 'chip'} onClick={() => choose(g)}>{g.label}</button>
+        ))}
+      </div>
+      <div className="chips">
+        <span className="muted small">Media degli ultimi:</span>
+        {[7, 30].map((n) => (
+          <button key={n} className={n === days ? 'chip on' : 'chip'} onClick={() => setDays(n)}>{n} giorni</button>
+        ))}
+      </div>
+      {result.status === 'error' && <ErrorBox message={result.error} onRetry={result.retry} />}
+      {(result.status === 'loading' || result.status === 'idle') && (
+        <Loading text="Lettura dei dati Sentinel-5P…" hint="Media di tutti i passaggi del periodo su 300 × 300 km." />
+      )}
+      {d && (
+        <>
+          <dl className="facts">
+            <div><dt>Sul luogo (entro {d.place_radius_km} km)</dt><dd>{formatNumber(d.place, gas.key === 'co' ? 1 : 0)} {d.unit}</dd></div>
+            <div><dt>Media della regione</dt><dd>{formatNumber(d.region, gas.key === 'co' ? 1 : 0)} {d.unit}</dd></div>
+            <div><dt>Periodo</dt><dd>{formatDate(d.period.start)} – {formatDate(d.period.end)}</dd></div>
+            <div><dt>Area coperta da dati</dt><dd>{formatNumber(d.coverage_percentage, 0)}%</dd></div>
+          </dl>
+          {d.message && <p className="highlight">{d.message}</p>}
+          <div className="framed">
+            <CompareImages after={d.image} afterLabel={`${d.side_km} × ${d.side_km} km`} alt={d.label} />
+            <span className="place-ring" style={{ width: `${(100 * 2 * d.place_radius_km) / d.side_km}%` }} />
+          </div>
+          <Legend stops={d.legend.color_stops} labels={d.legend.labels} />
+          <p className="muted small">
+            <span className="swatch inline" style={{ background: d.legend.no_data_color }} /> Nessun dato (nuvole o
+            qualità insufficiente in tutti i passaggi). Il cerchio è l'area &quot;sul luogo&quot;.
+          </p>
+          <p className="small">{d.caption}</p>
+          <p className="credit">{d.attribution}</p>
+        </>
+      )}
     </div>
   )
 }
@@ -360,7 +477,7 @@ function CloudsCard({ place }) {
 // ------------------------------------------------------------------
 
 export default function AtmosphereTab({ place, category }) {
-  const order = category?.atmosphere || ['air', 'clouds']
+  const order = category?.atmosphere || ['air', 'gas', 'clouds']
   const tips = category?.atmosphereTips || {}
   const [open, setOpen] = useState({ [order[0]]: true })
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
@@ -372,6 +489,12 @@ export default function AtmosphereTab({ place, category }) {
         open={!!open.air} onToggle={() => toggle('air')}>
         {tips.air && <p className="tip">💡 {tips.air}</p>}
         <AirCard place={place} />
+      </Section>
+    ),
+    gas: (
+      <Section key="gas" icon="🛰️" title="Gas dal satellite" subtitle="Sentinel-5P · NO₂, metano, CO"
+        open={!!open.gas} onToggle={() => toggle('gas')}>
+        <GasCard place={place} />
       </Section>
     ),
     clouds: (
@@ -387,10 +510,6 @@ export default function AtmosphereTab({ place, category }) {
   return (
     <div>
       {order.map((key) => sections[key])}
-      <p className="muted small">
-        In arrivo: le mappe dei gas misurati direttamente da Sentinel-5P (biossido di azoto,
-        metano, monossido di carbonio), con pixel di circa 5 km.
-      </p>
     </div>
   )
 }

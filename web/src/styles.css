@@ -375,3 +375,33 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
   .topbar-btn span { display: none; }
   .topbar-btn { padding: 10px 12px; }
 }
+
+/* Indici */
+.group-title {
+  margin: 18px 2px 4px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--muted);
+}
+.outcome.warn.strong { background: rgba(242, 179, 61, 0.2); }
+.framed { position: relative; }
+.analysis-box {
+  position: absolute; left: 50%; top: 50%; aspect-ratio: 1 / 1; transform: translate(-50%, -50%);
+  border: 2px dashed rgba(255, 255, 255, 0.9); border-radius: 2px; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.index-map { margin-top: 6px; }
+
+/* Nuvole: legenda e prodotti */
+.compare.clouds img.product { mix-blend-mode: normal; }
+.cloud-legend { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 5px; font-size: 13px; }
+.cloud-legend li { display: flex; align-items: center; gap: 8px; }
+.cloud-legend .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.25); }
+.cloud-legend strong { min-width: 98px; }
+.product-legend img { max-width: 100%; background: #f5f7f6; border-radius: 8px; padding: 6px; }
+.product-legend p { margin: 8px 0 4px; }
+.place-ring {
+  position: absolute; left: 50%; top: 50%; aspect-ratio: 1 / 1; transform: translate(-50%, -50%);
+  border: 2px solid #fff; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.cloud-legend li { display: grid; grid-template-columns: 14px 104px 1fr; align-items: start; gap: 8px; }
+.cloud-legend .swatch { margin-top: 3px; }
+.product-legend img { max-height: 160px; }

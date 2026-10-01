@@ -18,3 +18,9 @@ services:
       # solo nel pannello di Render (Environment), mai nel repository.
       - key: EARTHDATA_TOKEN
         sync: false
+      # Credenziali Copernicus Data Space (Sentinel-5P): client OAuth creato
+      # nella Dashboard di Sentinel Hub. Valori solo nel pannello di Render.
+      - key: CDSE_CLIENT_ID
+        sync: false
+      - key: CDSE_CLIENT_SECRET
+        sync: false

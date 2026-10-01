@@ -226,11 +226,44 @@ export const METHODOLOGY = [
     ]
   },
   {
+    "title": "Ogni indice: valore e confronto",
+    "items": [
+      [
+        "p",
+        "Ogni indice ha la sua sezione, costruita come quella della vegetazione: il valore nell'area di 1 × 1 km intorno al punto e il confronto con la stessa stagione degli anni precedenti."
+      ],
+      [
+        "b",
+        "Valore della scena: la mediana dell'indice sui pixel validi della zona utile. Per Clorofilla, Umidità e Costruito la zona utile è la terraferma (l'acqua libera è esclusa); per Alghe e Torbidità è solo l'acqua; per la Neve la classe \"neve\" della SCL non viene scartata."
+      ],
+      [
+        "b",
+        "Una scena è usata solo se almeno il 70% della zona utile è senza nuvole. L'osservazione recente è la più nuova valida degli ultimi 45 giorni."
+      ],
+      [
+        "b",
+        "Confronto: mediana delle scene valide degli ultimi 3 anni nella stessa finestra (±15 giorni), fino a 3 per anno; servono almeno 3 osservazioni."
+      ],
+      [
+        "b",
+        "Questi indici sono spesso vicini a zero o negativi, quindi la variazione percentuale non avrebbe senso: usiamo la differenza assoluta. Sotto 0,03 è \"come negli anni scorsi\", da 0,03 a 0,08 un cambiamento \"di poco\", oltre 0,08 un cambiamento netto."
+      ],
+      [
+        "b",
+        "Acqua: oltre all'indice mostriamo gli ettari d'acqua libera (SCL acqua oppure NDWI > 0, senza nuvole). Neve: la quota dell'area con NDSI sopra 0,4."
+      ],
+      [
+        "b",
+        "Sotto i numeri c'è la mappa dell'indice su 3 × 3 km, oggi e un anno fa, con il riquadro tratteggiato dell'area di 1 km. Per la vegetazione anche la mappa della variazione."
+      ]
+    ]
+  },
+  {
     "title": "Immagini dall'alto",
     "items": [
       [
         "p",
-        "Per ogni luogo mostriamo un'area di 1, 2 o 3 km di lato da due scene quasi senza nuvole (almeno 95% di pixel validi): la più recente e quella più vicina alla stessa data di un anno prima."
+        "La sezione \"Dall'alto\" mostra i colori reali di un'area di 1, 2 o 3 km di lato da due scene quasi senza nuvole (almeno 95% di pixel validi): la più recente e quella più vicina alla stessa data di un anno prima. Con \"Scegli le date\" si può confrontare qualsiasi coppia di stagioni. Le mappe degli indici sono nelle loro sezioni."
       ],
       [
         "b",
@@ -371,7 +404,32 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Le misure dirette del satellite Sentinel-5P (mappe dei gas, pixel di circa 5 km) arriveranno in una sezione dedicata."
+        "Le misure dirette del satellite Sentinel-5P (mappe dei gas, pixel di circa 5 km) sono nella sezione \"Gas dal satellite\"."
+      ]
+    ]
+  },
+  {
+    "title": "Gas dal satellite (Sentinel-5P)",
+    "items": [
+      [
+        "p",
+        "Le immagini vengono dallo strumento FCI di Meteosat-12 (MTG-I1), il primo Meteosat di terza generazione, erede dello strumento SEVIRI. È in orbita geostazionaria a 36.000 km sopra l'equatore e riprende Europa, Africa e Atlantico ogni 10 minuti."
+      ],
+      [
+        "b",
+        "Le immagini sono servite da EUMETView (EUMETSAT) con circa 15-20 minuti di ritardo. Nelle animazioni lunghe usiamo un'immagine ogni 20 minuti (6 ore), 30 minuti (12 ore) o un'ora (24 ore)."
+      ],
+      [
+        "b",
+        "Colori: composito GeoColour, colori naturali di giorno e nuvole su sfondo notturno di notte."
+      ],
+      [
+        "b",
+        "Tipo di nubi (Cloud Type RGB, solo di giorno): rosso = bande a 1,38 µm (vede solo le nubi alte), verde = 0,64 µm (visibile), blu = 1,61 µm (il ghiaccio assorbe). Giallo: nubi alte e spesse di ghiaccio; rosso: cirri sottili; rosa-magenta: nubi miste acqua e ghiaccio; ciano o bianco: nubi basse e medie d'acqua; verde: neve; blu: terraferma; nero: mare."
+      ],
+      [
+        "b",
+        "Incendi attivi: prodotto FRP (Fire Radiative Power) di FCI, la potenza dei fuochi in megawatt. Fulmini: area illuminata dai lampi negli ultimi 5 minuti, dal Lightning Imager di MTG. Pioggia: stima istantanea (mm/h) da FCI calibrata con i satelliti a microonde (prodotto H SAF H40B)."
       ]
     ]
   },
@@ -435,6 +493,10 @@ export const METHODOLOGY = [
       [
         "b",
         "L'area è un quadrato approssimato e può includere superfici diverse (strade, edifici, acqua)."
+      ],
+      [
+        "b",
+        "Gas: contiene dati Copernicus Sentinel-5P modificati, tramite Sentinel Hub (Copernicus Data Space Ecosystem)."
       ],
       [
         "b",

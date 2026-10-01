@@ -23,10 +23,13 @@ from src import nightlights
 from src import heat
 from src import archive
 from src import orbits
+from src import index_trend
+from src import sentinel5p
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
     INDICES,
+    LAYERS,
     REQUIRED_ASSETS,
     layer_list,
     render_dnbr_png,
@@ -80,7 +83,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.10.0",
+    version="0.11.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -1181,6 +1184,80 @@ def get_index_stat(
     return _INDEX_STAT_CACHE[key]
 
 
+# ============================================================
+# ENDPOINT: ANDAMENTO DI UN INDICE (come l'analisi NDVI, per gli altri indici)
+# ============================================================
+
+_TREND_CACHE: dict = {}
+MAX_TREND_CACHE = 120
+
+
+@app.get("/api/v1/index/analysis")
+def get_index_analysis(
+    index: str = Query(..., pattern="^(" + "|".join(index_trend.TREND_INDICES) + ")$"),
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(1.0, gt=0, le=5),
+    recent_days: int = Query(45, ge=5, le=180),
+    baseline_years: int = Query(3, ge=1, le=6),
+    baseline_window_days: int = Query(15, ge=5, le=45),
+):
+    """
+    Valore recente di un indice nell'area e confronto con la stessa stagione
+    degli anni precedenti (mediana), con la differenza assoluta.
+    """
+    started = time.monotonic()
+    reference = datetime.now(timezone.utc).date()
+    key = (index, round(lat, 5), round(lon, 5), round(side_km, 3), reference.isoformat())
+    if key in _TREND_CACHE:
+        return _TREND_CACHE[key]
+
+    bbox = make_bbox(lat, lon, side_km)
+    try:
+        recent_items = search_sentinel_items(
+            bbox=bbox, start_date=reference - timedelta(days=recent_days),
+            end_date=reference, max_cloud=60.0, max_items=60,
+        )
+        baseline_items = []
+        for _year, start, end in seasonal_windows(reference, baseline_years, baseline_window_days):
+            baseline_items.extend(search_sentinel_items(
+                bbox=bbox, start_date=start, end_date=end, max_cloud=60.0, max_items=60,
+            ))
+    except Exception as exc:
+        raise HTTPException(status_code=502,
+                            detail=f"Errore durante la ricerca STAC: {exc}") from exc
+
+    def usable(items):
+        return [i for i in items if i.datetime and all(a in i.assets for a in IMAGERY_ASSETS)]
+
+    recent = pick_recent_candidates(usable(recent_items), 4)
+    baseline = pick_baseline_candidates(usable(baseline_items), 3)
+    grid = Grid(lat, lon, side_km)
+    rows = compute_many(recent + baseline,
+                        lambda item: index_trend.scene_stat(item, grid, index))
+    stats = [result for _item, result, _error in rows]
+    errors = sum(1 for _item, result, _error in rows if result is None)
+
+    result = index_trend.build_trend(
+        index, stats[:len(recent)], stats[len(recent):],
+        reference=reference, window_days=baseline_window_days,
+    )
+    layer = LAYERS.get(index, {})
+    result.update({
+        "place": {"latitude": lat, "longitude": lon, "side_km": side_km},
+        "label": layer.get("label"),
+        "formula": layer.get("formula"),
+        "caption": layer.get("caption"),
+        "scenes_evaluated": len(recent) + len(baseline),
+        "technical_errors": errors,
+        "processing_seconds": round(time.monotonic() - started, 1),
+    })
+    if len(_TREND_CACHE) >= MAX_TREND_CACHE:
+        _TREND_CACHE.clear()
+    _TREND_CACHE[key] = result
+    return result
+
+
 @app.get("/api/v1/imagery/water")
 def get_imagery_water(
     item_id: str = Query(..., min_length=5, max_length=100,
@@ -1665,6 +1742,81 @@ def get_archive_image(
 # ============================================================
 # ENDPOINT: ORBITE (TLE da CelesTrak, per il globo del sito web)
 # ============================================================
+
+# ============================================================
+# ENDPOINT: GAS IN ATMOSFERA (Sentinel-5P, Copernicus Data Space)
+# ============================================================
+
+_S5P_CACHE: dict = {}
+MAX_S5P_CACHE = 40
+S5P_GAS_PATTERN = "^(" + "|".join(sentinel5p.GASES) + ")$"
+
+
+def s5p_values(gas: str, lat: float, lon: float, days: int):
+    """Valori del gas (unità mostrate) sull'area; calcolati una volta al giorno per area."""
+    start, end = sentinel5p.period(days)
+    key = (gas, round(lat, 2), round(lon, 2), days, end.isoformat())
+    if key not in _S5P_CACHE:
+        bbox = sentinel5p.area_bbox(lat, lon)
+        try:
+            grid = sentinel5p.fetch_grid(gas, bbox, start, end)
+        except sentinel5p.S5PUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=502,
+                                detail=f"Errore nella lettura di Sentinel-5P: {exc}") from exc
+        if len(_S5P_CACHE) >= MAX_S5P_CACHE:
+            _S5P_CACHE.clear()
+        _S5P_CACHE[key] = (sentinel5p.to_display_units(gas, grid), bbox, start, end)
+    return _S5P_CACHE[key]
+
+
+@app.get("/api/v1/s5p")
+def get_s5p(
+    gas: str = Query("no2", pattern=S5P_GAS_PATTERN),
+    lat: float = Query(..., ge=-85, le=85),
+    lon: float = Query(..., ge=-180, le=180),
+    days: int = Query(7, ge=1, le=31),
+):
+    """Media del periodo di un gas su 300 × 300 km: numeri e indirizzo dell'immagine."""
+    if not sentinel5p.has_credentials():
+        raise HTTPException(status_code=503, detail=(
+            "Sentinel-5P non ancora attivo su questo server "
+            "(mancano le credenziali Copernicus Data Space)."))
+    values, bbox, start, end = s5p_values(gas, lat, lon, days)
+    info = sentinel5p.summary(gas, values)
+    spec = sentinel5p.GASES[gas]
+    query = urlencode({"gas": gas, "lat": round(lat, 4), "lon": round(lon, 4), "days": days})
+    return {
+        "gas": gas,
+        "label": spec["label"],
+        "unit": spec["unit"],
+        "period": {"start": start.isoformat(), "end": end.isoformat(), "days": days},
+        "bbox": bbox,
+        "side_km": 2 * sentinel5p.HALF_SIDE_KM,
+        "place_radius_km": sentinel5p.PLACE_RADIUS_KM,
+        **info,
+        "message": sentinel5p.describe(gas, info),
+        "image": f"/api/v1/s5p/image?{query}",
+        "legend": sentinel5p.legend(gas),
+        "caption": spec["caption"],
+        "attribution": sentinel5p.ATTRIBUTION,
+    }
+
+
+@app.get("/api/v1/s5p/image")
+def get_s5p_image(
+    gas: str = Query("no2", pattern=S5P_GAS_PATTERN),
+    lat: float = Query(..., ge=-85, le=85),
+    lon: float = Query(..., ge=-180, le=180),
+    days: int = Query(7, ge=1, le=31),
+):
+    if not sentinel5p.has_credentials():
+        raise HTTPException(status_code=503, detail="Sentinel-5P non ancora attivo su questo server.")
+    values, _bbox, _start, _end = s5p_values(gas, lat, lon, days)
+    return Response(content=sentinel5p.render_png(gas, values), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
 
 @app.get("/api/v1/tle")
 def get_tle():

@@ -1,5 +1,6 @@
 import { getJson, placeParams } from '../api.js'
 import { ErrorBox, Loading, formatDate, formatNumber, useApi } from './common.jsx'
+import IndexMap from './IndexMap.jsx'
 
 // Colore e frase per ogni esito del confronto con gli anni precedenti
 const OUTCOMES = {
@@ -76,9 +77,11 @@ export default function VegetationCard({ place }) {
         <p>Nessuna immagine abbastanza nitida nelle ultime settimane per quest'area.</p>
       )}
       {(a.messages || []).map((m) => <p key={m} className="note">⚠ {m}</p>)}
+      <p className="formula">NDVI = (B08 − B04) / (B08 + B04)</p>
       <p className="muted small">
         Area di 1 × 1 km intorno al punto · Sentinel-2 L2A, 10 m. {a.warning}
       </p>
+      <IndexMap place={place} layerKey="ndvi" withChange />
     </div>
   )
 }

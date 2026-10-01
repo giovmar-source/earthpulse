@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getJson, placeParams } from '../api.js'
+import { getScenes } from './scenesCache.js'
 import { CompareImages, ErrorBox, Legend, Loading, formatDate, formatNumber, useApi } from './common.jsx'
 
 const SIDE_OPTIONS = [1, 2, 3]
@@ -125,7 +126,7 @@ export default function ImageryCard({ place, layerOrder, tips }) {
   const [picking, setPicking] = useState(false)
   const [custom, setCustom] = useState(null)
   const result = useApi(
-    (signal) => getJson('/api/v1/imagery/scenes', placeParams(place, sideKm.toFixed(1)), { signal }),
+    () => getScenes(place, sideKm),
     [place.lat, place.lon, sideKm],
   )
 
@@ -177,13 +178,13 @@ export default function ImageryCard({ place, layerOrder, tips }) {
   return (
     <div>
       {sizes}
-      <div className="chips layers">
+      {layers.length > 1 && <div className="chips layers">
         {layers.map((l) => (
           <button key={l.key} className={l.key === layer.key ? 'chip on' : 'chip'} onClick={() => setLayerKey(l.key)}>
             {l.label}
           </button>
         ))}
-      </div>
+      </div>}
       <div className="dates-bar">
         {!picking
           ? <button className="chip" onClick={() => setPicking(true)}>📅 Scegli le date</button>
