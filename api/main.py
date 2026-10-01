@@ -22,6 +22,7 @@ from src.geocoding import GeocodingUnavailable, search_places
 from src import nightlights
 from src import heat
 from src import archive
+from src import orbits
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
@@ -1659,6 +1660,20 @@ def get_archive_image(
         _ARCHIVE_PNG_CACHE[key] = png
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ============================================================
+# ENDPOINT: ORBITE (TLE da CelesTrak, per il globo del sito web)
+# ============================================================
+
+@app.get("/api/v1/tle")
+def get_tle():
+    """Elementi orbitali dei satelliti di EarthPulse (cache di 6 ore)."""
+    satellites = orbits.satellites_with_tle()
+    if not satellites:
+        raise HTTPException(status_code=503,
+                            detail="Dati orbitali non disponibili (CelesTrak non raggiungibile).")
+    return {"source": "CelesTrak (celestrak.org)", "satellites": satellites}
 
 
 # ============================================================
