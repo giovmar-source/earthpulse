@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "astronomy-engine": "2.1.19",
     "maplibre-gl": "5.24.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "satellite.js": "5.0.0"
+    "satellite.js": "5.0.0",
+    "three": "0.186.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "5.0.4",

@@ -62,7 +62,8 @@ function satellitePoints(satellites, now) {
 function satelliteTracks(satellites, now) {
   const features = []
   for (const sat of satellites) {
-    const future = groundTrack(sat, now, 0, periodMinutes(sat))
+    // Un giro intero (al massimo 200 minuti: i geostazionari restano quasi fermi)
+    const future = groundTrack(sat, now, 0, Math.min(periodMinutes(sat), 200))
     const past = groundTrack(sat, now, -PAST_MINUTES, 0)
     for (const [kind, lines] of [['future', future], ['past', past]]) {
       for (const coordinates of lines) {

@@ -8,6 +8,8 @@ export const CARD_COLORS = {
   'sentinel-2': '#3FD68F',
   landsat: '#F2B33D',
   'suomi-npp': '#B48CFF',
+  'sentinel-5p': '#FF7AA8',
+  mtg: '#5CC8FF',
 }
 
 /** Scarica gli elementi orbitali dal backend e prepara i "satrec" per SGP4. */

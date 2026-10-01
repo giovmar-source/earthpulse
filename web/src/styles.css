@@ -405,3 +405,29 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
 .cloud-legend li { display: grid; grid-template-columns: 14px 104px 1fr; align-items: start; gap: 8px; }
 .cloud-legend .swatch { margin-top: 3px; }
 .product-legend img { max-height: 160px; }
+
+/* Oltre la Terra */
+.space {
+  position: absolute; inset: 0; z-index: 4;
+  background: radial-gradient(circle at 35% 45%, #0e1626 0%, #03050a 70%);
+}
+.space-stage { position: absolute; inset: 0; right: min(500px, 50%); }
+.sphere3d { position: absolute; inset: 0; }
+.sphere3d canvas { width: 100%; height: 100%; display: block; cursor: grab; }
+.space-hint {
+  position: absolute; left: 0; right: 0; bottom: 18px; margin: 0; text-align: center;
+  color: var(--muted); font-size: 12.5px; pointer-events: none;
+}
+.space-panel .group-title { margin-top: 10px; }
+.missions { margin: 6px 0 0; padding-left: 18px; }
+.missions li { margin: 4px 0; }
+.jupiter-sky { width: 100%; height: auto; margin-top: 8px; display: block; }
+.jupiter-sky .axis-line { stroke: rgba(255, 255, 255, 0.12); }
+.jupiter-sky .jupiter-dot { fill: #e2b98a; }
+.jupiter-sky .moon-dot { fill: #cfd8dc; }
+.jupiter-sky .moon-dot.on { fill: var(--amber); }
+.jupiter-sky .moon-label { fill: var(--muted); font-size: 10.5px; }
+@media (max-width: 700px) {
+  .space-stage { right: 0; bottom: 50%; }
+  .space-panel { max-height: 52%; }
+}

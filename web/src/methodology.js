@@ -429,7 +429,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Incendi attivi: prodotto FRP (Fire Radiative Power) di FCI, la potenza dei fuochi in megawatt. Fulmini: area illuminata dai lampi negli ultimi 5 minuti, dal Lightning Imager di MTG. Pioggia: stima istantanea (mm/h) da FCI calibrata con i satelliti a microonde (prodotto H SAF H40B)."
+        "Incendi attivi: prodotto FRP (Fire Radiative Power) di FCI, la potenza dei fuochi in megawatt. Fulmini: area illuminata dai lampi negli ultimi 5 minuti, dal Lightning Imager di MTG. Pioggia: stima istantanea (mm/h) da FCI calibrata con i satelliti a microonde (prodotto H SAF H40B). Il nostro server scarica questi prodotti da EUMETView e li ricolora con un colore unico (rosso-arancio gli incendi, ingranditi per vederli; giallo i fulmini; blu elettrico la pioggia) e conta i pixel con dati: se non c'è niente nell'area lo scriviamo."
       ]
     ]
   },
@@ -468,6 +468,27 @@ export const METHODOLOGY = [
       [
         "b",
         "La linea tratteggiata è la traccia a terra del prossimo giro; quella tenue il percorso degli ultimi 25 minuti."
+      ]
+    ]
+  },
+  {
+    "title": "Oltre la Terra",
+    "items": [
+      [
+        "p",
+        "Luna, Marte, Giove e le sue quattro lune principali sono disegnati in 3D (three.js) come sfere con la loro mappa globale in proiezione equirettangolare (2048 × 1024 pixel). Giove è leggermente schiacciato ai poli, come nella realtà."
+      ],
+      [
+        "b",
+        "Mappe: Luna, Marte e Giove da Solar System Scope (CC BY 4.0, da dati NASA); Io, Europa, Ganimede e Callisto dai mosaici globali USGS Astrogeology delle sonde Voyager e Galileo (pubblico dominio). Europa e Callisto hanno mosaici in bianco e nero con una leggera tinta; le zone mai fotografate sono in grigio."
+      ],
+      [
+        "b",
+        "\"Adesso\": fase e distanza della Luna, distanza di Marte e Giove e posizione delle lune di Giove sono calcolate nel browser con la libreria astronomy-engine (modelli VSOP87, teoria lunare e L1.2 per le lune di Giove), senza servizi esterni."
+      ],
+      [
+        "b",
+        "Il disegno delle lune di Giove mostra la loro posizione vista dalla Terra, come in un binocolo, ruotato perché la linea delle lune sia orizzontale; le distanze sono in raggi di Giove (71.492 km)."
       ]
     ]
   },
@@ -542,6 +563,10 @@ export const METHODOLOGY = [
       [
         "b",
         "Orbite: elementi TLE di CelesTrak. Immagini dei satelliti: ESA/ATG medialab (Licenza standard ESA) e NASA (pubblico dominio)."
+      ],
+      [
+        "b",
+        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; calcoli astronomici con astronomy-engine (MIT)."
       ]
     ]
   }

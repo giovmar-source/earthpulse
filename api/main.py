@@ -25,6 +25,7 @@ from src import archive
 from src import orbits
 from src import index_trend
 from src import sentinel5p
+from src import fci
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
@@ -94,6 +95,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Data-Pixels"],
 )
 
 
@@ -1816,6 +1818,32 @@ def get_s5p_image(
     values, _bbox, _start, _end = s5p_values(gas, lat, lon, days)
     return Response(content=sentinel5p.render_png(gas, values), media_type="image/png",
                     headers={"Cache-Control": "public, max-age=3600"})
+
+
+# ============================================================
+# ENDPOINT: PRODOTTI METEOSAT MTG (incendi, fulmini, pioggia) ricolorati
+# ============================================================
+
+@app.get("/api/v1/fci/overlay")
+def get_fci_overlay(
+    product: str = Query(..., pattern="^(" + "|".join(fci.PRODUCTS) + ")$"),
+    bbox: str = Query(..., pattern=r"^-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+$"),
+    time: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?Z$"),
+    size: int = Query(512, ge=64, le=fci.MAX_SIZE),
+):
+    """Strato trasparente con un solo colore; X-Data-Pixels = pixel con dati."""
+    west, south, east, north = (float(v) for v in bbox.split(","))
+    if not (-180 <= west < east <= 180 and -90 <= south < north <= 90) or east - west > 60:
+        raise HTTPException(status_code=400, detail="Area non valida.")
+    moment = datetime.fromisoformat(time.replace("Z", "+00:00"))
+    try:
+        png, pixels = fci.overlay(product, [west, south, east, north], moment, size)
+    except Exception as exc:
+        raise HTTPException(status_code=502,
+                            detail=f"Prodotto Meteosat non disponibile: {exc}") from exc
+    return Response(content=png, media_type="image/png", headers={
+        "X-Data-Pixels": str(pixels), "Cache-Control": "public, max-age=86400",
+    })
 
 
 @app.get("/api/v1/tle")

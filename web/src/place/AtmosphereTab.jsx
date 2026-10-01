@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CompareImages, ErrorBox, Legend, Loading, Section, formatDate, formatNumber, useApi } from './common.jsx'
-import { getJson, placeParams } from '../api.js'
+import { apiUrl, getJson, placeParams } from '../api.js'
 
 // ------------------------------------------------------------------
 // QUALITÀ DELL'ARIA: Copernicus CAMS tramite Open-Meteo (gratuito, senza chiave)
@@ -228,19 +228,69 @@ const CLOUD_VIEWS = [
     ] },
 ]
 
-// Prodotti FCI sovrapposti alle immagini (stessa ora del fotogramma)
-const EUMETVIEW_MTG = 'https://view.eumetsat.int/geoserver/mtg_fd/ows'
+// Prodotti MTG sovrapposti alle immagini (stessa ora del fotogramma). Passano dal
+// nostro server, che li ricolora con un colore unico e conta i pixel con dati.
 const OVERLAYS = [
-  { key: 'mtg_fd:frp', layer: 'frp', label: '🔥 Incendi attivi',
-    caption: 'Incendi rilevati da FCI con la loro potenza (megawatt): più grande e più acceso il punto, più forte il fuoco.' },
-  { key: 'mtg_fd:li_afa', layer: 'li_afa', label: '⚡ Fulmini',
-    caption: "Area illuminata dai fulmini negli ultimi 5 minuti, dal Lightning Imager: segue i temporali più attivi." },
-  { key: 'mtg_fd:h40b', layer: 'h40b', label: '🌧️ Pioggia',
-    caption: 'Pioggia stimata (mm/h) da FCI, calibrata con le misure dei satelliti a microonde.' },
+  { key: 'fires', label: '🔥 Incendi attivi', color: '#ff4500', none: 'Nessun incendio attivo rilevato',
+    caption: 'Incendi rilevati da FCI dal calore che emettono (prodotto FRP). I punti sono ingranditi per vederli meglio.' },
+  { key: 'lightning', label: '⚡ Fulmini', color: '#ffec00', none: 'Nessun fulmine rilevato',
+    caption: 'Area illuminata dai fulmini negli ultimi 5 minuti, dal Lightning Imager: segue i temporali più attivi, di giorno e di notte.' },
+  { key: 'rain', label: '🌧️ Pioggia', color: '#1e50ff', none: 'Nessuna pioggia stimata',
+    caption: 'Pioggia stimata da FCI, calibrata con le misure dei satelliti a microonde: indica dove piove, non quanto.' },
 ]
-function legendUrl(layer) {
-  return `${EUMETVIEW_MTG}?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image%2Fpng&width=20&height=20&layer=${layer}`
+
+/** Scarica i fotogrammi di un prodotto (4 alla volta) e conta i pixel con dati. */
+function useOverlayFrames(product, times, bbox, enabled) {
+  const [state, setState] = useState({ urls: [], pixels: [], done: 0 })
+  useEffect(() => {
+    if (!enabled) return undefined
+    let cancelled = false
+    const created = []
+    const urls = new Array(times.length).fill(null)
+    const pixels = new Array(times.length).fill(null)
+    let done = 0
+    setState({ urls: [...urls], pixels: [...pixels], done: 0 })
+    const queue = times.map((time, i) => [time, i])
+    async function worker() {
+      while (queue.length && !cancelled) {
+        const [time, i] = queue.shift()
+        const params = new URLSearchParams({
+          product, bbox: bbox.map((v) => v.toFixed(4)).join(','),
+          time: time.toISOString().slice(0, 16) + 'Z', size: '512',
+        })
+        try {
+          const response = await fetch(apiUrl(`/api/v1/fci/overlay?${params}`))
+          if (response.ok) {
+            pixels[i] = Number(response.headers.get('X-Data-Pixels') || 0)
+            const url = URL.createObjectURL(await response.blob())
+            created.push(url)
+            urls[i] = url
+          }
+        } catch { /* fotogramma mancante */ }
+        done += 1
+        if (!cancelled) setState({ urls: [...urls], pixels: [...pixels], done })
+      }
+    }
+    Promise.all([worker(), worker(), worker(), worker()])
+    return () => { cancelled = true; created.forEach((u) => URL.revokeObjectURL(u)) }
+  }, [product, times, bbox, enabled])
+  return state
 }
+
+/** Uno strato di prodotto sopra il fotogramma mostrato. */
+function OverlayLayer({ product, times, bbox, shown, onSummary }) {
+  const { urls, pixels, done } = useOverlayFrames(product, times, bbox, true)
+  const notify = useRef(onSummary)
+  notify.current = onSummary
+  useEffect(() => {
+    const withData = pixels.filter((p) => p > 0).length
+    notify.current(product, { done, total: times.length, withData, failed: done - pixels.filter((p) => p != null).length })
+  }, [done, pixels, product, times.length])
+  return urls.map((src, i) => src && (
+    <img key={src} src={src} alt="" draggable={false} className="product" style={{ opacity: i === shown ? 1 : 0 }} />
+  ))
+}
+
 const RANGES = [
   { key: 'region', label: 'Regione', halfLat: 3 },
   { key: 'wide', label: 'Area vasta', halfLat: 9 },
@@ -274,7 +324,9 @@ function wmsUrl({ layers, bbox, size, time, png }) {
 
 function CloudsCard({ place }) {
   const [view, setView] = useState(CLOUD_VIEWS[0])
-  const [overlays, setOverlays] = useState(['mtg_fd:frp'])
+  const [overlays, setOverlays] = useState(['fires'])
+  const [summaries, setSummaries] = useState({})
+  const onSummary = useCallback((key, value) => setSummaries((s) => ({ ...s, [key]: value })), [])
   const toggleOverlay = (key) => setOverlays((o) => (o.includes(key) ? o.filter((k) => k !== key) : [...o, key]))
   const [range, setRange] = useState(RANGES[0])
   const [duration, setDuration] = useState(DURATIONS[2])
@@ -292,10 +344,6 @@ function CloudsCard({ place }) {
   const frames = useMemo(
     () => times.map((time) => wmsUrl({ layers: view.key, bbox, size: 640, time })),
     [times, view, bbox],
-  )
-  const productFrames = useMemo(
-    () => overlays.map((key) => ({ key, urls: times.map((time) => wmsUrl({ layers: key, bbox, size: 640, time, png: true })) })),
-    [overlays, times, bbox],
   )
   const overlay = wmsUrl({
     layers: 'backgrounds:ne_10m_coastline,backgrounds:ne_boundary_lines_land', bbox, size: 640, png: true,
@@ -352,11 +400,9 @@ function CloudsCard({ place }) {
           />
         ))}
         <img src={overlay} alt="" className="overlay" draggable={false} onError={(e) => { e.currentTarget.style.display = 'none' }} />
-        {productFrames.map(({ key, urls }) => urls.map((src, i) => (
-          <img key={src} src={src} alt="" draggable={false} className="product"
-            onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
-            style={{ opacity: i === shown ? 1 : 0 }} />
-        )))}
+        {overlays.map((key) => (
+          <OverlayLayer key={key} product={key} times={times} bbox={bbox} shown={shown} onSummary={onSummary} />
+        ))}
         <span className="place-dot" />
         {shown != null && (
           <span className="tag right">
@@ -393,12 +439,21 @@ function CloudsCard({ place }) {
           ))}
         </ul>
       )}
-      {OVERLAYS.filter((o) => overlays.includes(o.key)).map((o) => (
-        <div key={o.key} className="product-legend">
-          <p className="small"><strong>{o.label}</strong> · {o.caption}</p>
-          <img src={legendUrl(o.layer)} alt={`Legenda ${o.label}`} onError={(e) => { e.currentTarget.style.display = 'none' }} />
-        </div>
-      ))}
+      {OVERLAYS.filter((o) => overlays.includes(o.key)).map((o) => {
+        const sum = summaries[o.key]
+        let status = 'Caricamento…'
+        if (sum && sum.done >= sum.total) {
+          if (sum.failed === sum.total) status = 'Prodotto non disponibile in questo momento.'
+          else if (sum.withData === 0) status = `${o.none} nell'area in queste ${duration.label}.`
+          else status = `Presente in ${sum.withData} immagini su ${sum.total - sum.failed}.`
+        } else if (sum) status = `Caricamento… ${sum.done}/${sum.total}`
+        return (
+          <div key={o.key} className="product-legend">
+            <p className="small"><span className="swatch inline" style={{ background: o.color }} /> <strong>{o.label}</strong> · {status}</p>
+            <p className="small muted">{o.caption}</p>
+          </div>
+        )
+      })}
       <p className="small muted">
         Meteosat-12 (MTG-I1) è fermo sopra l'equatore, a 36 000 km di quota: vede sempre la
         stessa metà del pianeta e fa un'immagine ogni 10 minuti. Nelle animazioni lunghe ne usiamo

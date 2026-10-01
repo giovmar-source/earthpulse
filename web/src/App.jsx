@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import Globe from './Globe.jsx'
 import PlacePanel from './place/PlacePanel.jsx'
 import SearchBox from './SearchBox.jsx'
 import MethodologyPanel from './MethodologyPanel.jsx'
+
+// three.js serve solo qui: si scarica quando apri "Oltre la Terra"
+const SpaceView = lazy(() => import('./space/SpaceView.jsx'))
 import { SATELLITE_CARDS } from './satelliteCards.js'
 import SatelliteParts from './SatelliteParts.jsx'
 import { loadSatellites, periodMinutes, positionAt } from './orbits.js'
@@ -34,8 +37,10 @@ function SatellitePanel({ sat, onClose }) {
         <div className="live">
           <span className="live-dot" /> In questo momento {sat.name} è sopra{' '}
           <strong>{formatCoord(live.lat, 'N', 'S')}, {formatCoord(live.lon, 'E', 'O')}</strong>,
-          {' '}a {Math.round(live.heightKm)} km di quota. Un giro della Terra dura{' '}
-          {Math.round(periodMinutes(sat))} minuti.
+          {' '}a {Math.round(live.heightKm).toLocaleString('it-IT')} km di quota.{' '}
+          {periodMinutes(sat) > 1000
+            ? 'Gira alla stessa velocità della Terra: per questo resta sempre sopra lo stesso punto.'
+            : `Un giro della Terra dura ${Math.round(periodMinutes(sat))} minuti.`}
         </div>
       )}
 
@@ -93,6 +98,7 @@ export default function App() {
   const [place, setPlace] = useState(null)
   const [flyTarget, setFlyTarget] = useState(null)
   const [showMethod, setShowMethod] = useState(false)
+  const [showSpace, setShowSpace] = useState(false)
 
   useEffect(() => {
     loadSatellites()
@@ -140,8 +146,14 @@ export default function App() {
       <header className="topbar">
         <div className="brand"><span className="logo">◉</span> EarthPulse</div>
         <SearchBox onSelect={selectPlace} />
+        <button className="topbar-btn" onClick={() => setShowSpace(true)} title="Oltre la Terra">🪐<span> Oltre la Terra</span></button>
         <button className="topbar-btn" onClick={() => setShowMethod(true)} title="Metodologia">ⓘ<span> Metodologia</span></button>
       </header>
+      {showSpace && (
+        <Suspense fallback={<div className="space"><p className="space-hint">Caricamento…</p></div>}>
+          <SpaceView onClose={() => setShowSpace(false)} />
+        </Suspense>
+      )}
       {showMethod && <MethodologyPanel onClose={() => setShowMethod(false)} />}
       {/* Con la metodologia aperta gli altri pannelli restano caricati ma nascosti */}
       <div hidden={showMethod}>

@@ -29,6 +29,8 @@ SATELLITES = [
     {"norad": 39084, "name": "Landsat 8", "card": "landsat"},
     {"norad": 49260, "name": "Landsat 9", "card": "landsat"},
     {"norad": 37849, "name": "Suomi NPP", "card": "suomi-npp"},
+    {"norad": 42969, "name": "Sentinel-5P", "card": "sentinel-5p"},
+    {"norad": 54743, "name": "Meteosat-12", "card": "mtg"},
 ]
 
 _cache: dict = {"time": 0.0, "data": []}

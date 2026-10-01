@@ -152,6 +152,8 @@ def request_body(gas: str, bbox: list, start: date, end: date, size: int = IMAGE
                     "from": f"{start.isoformat()}T00:00:00Z",
                     "to": f"{end.isoformat()}T23:59:59Z",
                 }},
+                # Pixel di 5 km su un'immagine di 256 px: interpolazione morbida
+                "processing": {"upsampling": "BILINEAR"},
             }],
         },
         "output": {"width": size, "height": size,
