@@ -22,7 +22,7 @@ const SURFACE_SECTIONS = [
 ]
 
 /** Analisi del luogo scelto sul globo, divisa tra Superficie e Atmosfera. */
-export default function PlacePanel({ place, onClose }) {
+export default function PlacePanel({ place, onClose, onMethodology }) {
   const [tab, setTab] = useState('surface')
   const [atmosphereSeen, setAtmosphereSeen] = useState(false)
   useEffect(() => { if (tab === 'atmosphere') setAtmosphereSeen(true) }, [tab])
@@ -65,6 +65,7 @@ export default function PlacePanel({ place, onClose }) {
           <AtmosphereTab place={place} />
         </div>
       )}
+      <button className="method-link" onClick={onMethodology}>📘 Metodologia completa e limiti →</button>
     </aside>
   )
 }

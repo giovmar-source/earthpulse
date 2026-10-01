@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Globe from './Globe.jsx'
 import PlacePanel from './place/PlacePanel.jsx'
 import SearchBox from './SearchBox.jsx'
+import MethodologyPanel from './MethodologyPanel.jsx'
 import { SATELLITE_CARDS } from './satelliteCards.js'
 import SatelliteParts from './SatelliteParts.jsx'
 import { loadSatellites, periodMinutes, positionAt } from './orbits.js'
@@ -91,6 +92,7 @@ export default function App() {
   const [selectedNorad, setSelectedNorad] = useState(null)
   const [place, setPlace] = useState(null)
   const [flyTarget, setFlyTarget] = useState(null)
+  const [showMethod, setShowMethod] = useState(false)
 
   useEffect(() => {
     loadSatellites()
@@ -138,12 +140,17 @@ export default function App() {
       <header className="topbar">
         <div className="brand"><span className="logo">◉</span> EarthPulse</div>
         <SearchBox onSelect={selectPlace} />
+        <button className="topbar-btn" onClick={() => setShowMethod(true)} title="Metodologia">ⓘ<span> Metodologia</span></button>
       </header>
+      {showMethod && <MethodologyPanel onClose={() => setShowMethod(false)} />}
+      {/* Con la metodologia aperta gli altri pannelli restano caricati ma nascosti */}
+      <div hidden={showMethod}>
       {selected && <SatellitePanel sat={selected} onClose={() => setSelectedNorad(null)} />}
-      {!selected && place && <PlacePanel place={place} onClose={closePlace} />}
+      {!selected && place && <PlacePanel place={place} onClose={closePlace} onMethodology={() => setShowMethod(true)} />}
       {!selected && !place && (
         <WelcomePanel satellites={satellites} error={error} onSelect={selectSatellite} />
       )}
+      </div>
     </div>
   )
 }

@@ -340,3 +340,38 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
 .btn:disabled { opacity: 0.5; cursor: default; }
 .year-picker { min-width: 0; }
 .year-picker select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+
+/* Metodologia */
+.topbar-btn {
+  padding: 10px 14px; border-radius: 14px; cursor: pointer; white-space: nowrap;
+  background: var(--panel); border: 1px solid var(--panel-border); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 600;
+}
+.topbar-btn:hover { border-color: var(--green); }
+.panel.method { z-index: 3; }
+.method-index { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.method-index a {
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; text-decoration: none;
+  color: var(--text); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--panel-border);
+}
+.method-index a:hover { border-color: var(--green); }
+.method-section {
+  margin: 14px 0; padding: 14px 16px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--panel-border); scroll-margin-top: 12px;
+}
+.method-section h3 { margin: 0 0 8px; font-size: 17px; }
+.method-section p { margin: 8px 0; color: #c9d6d0; }
+.method-bullet { position: relative; padding-left: 16px; }
+.method-bullet::before { content: '•'; position: absolute; left: 2px; color: var(--green); font-weight: 700; }
+.method-formula {
+  padding: 9px 12px; border-radius: 10px; background: rgba(63, 214, 143, 0.1);
+  font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; color: var(--text) !important;
+}
+.method-link {
+  width: 100%; margin: 14px 0 4px; padding: 11px; border-radius: 12px; cursor: pointer;
+  background: none; border: 1px solid var(--green); color: var(--green); font: inherit; font-weight: 600;
+}
+@media (max-width: 700px) {
+  .topbar-btn span { display: none; }
+  .topbar-btn { padding: 10px 12px; }
+}

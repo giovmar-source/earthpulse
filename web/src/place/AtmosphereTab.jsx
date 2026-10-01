@@ -221,15 +221,21 @@ const RANGES = [
   { key: 'region', label: 'Regione', halfLat: 3 },
   { key: 'wide', label: 'Area vasta', halfLat: 9 },
 ]
-const FRAME_STEP_MIN = 10
-const FRAMES = 12           // 2 ore
+// Durata dell'animazione: più ore, fotogrammi più radi (per non scaricare troppe immagini)
+const DURATIONS = [
+  { hours: 2, stepMin: 10, label: '2 ore' },
+  { hours: 6, stepMin: 20, label: '6 ore' },
+  { hours: 12, stepMin: 30, label: '12 ore' },
+  { hours: 24, stepMin: 60, label: '24 ore' },
+]
 const DELAY_MIN = 20        // le immagini arrivano sul servizio con circa 15-20 minuti di ritardo
 
-function frameTimes(now = new Date()) {
+function frameTimes({ hours, stepMin }, now = new Date()) {
+  const count = (hours * 60) / stepMin + 1
   const t = new Date(now.getTime() - DELAY_MIN * 60000)
   t.setUTCSeconds(0, 0)
-  t.setUTCMinutes(Math.floor(t.getUTCMinutes() / FRAME_STEP_MIN) * FRAME_STEP_MIN)
-  return Array.from({ length: FRAMES }, (_, k) => new Date(t.getTime() - (FRAMES - 1 - k) * FRAME_STEP_MIN * 60000))
+  t.setUTCMinutes(Math.floor(t.getUTCMinutes() / 10) * 10)
+  return Array.from({ length: count }, (_, k) => new Date(t.getTime() - (count - 1 - k) * stepMin * 60000))
 }
 
 function wmsUrl({ layers, bbox, size, time, png }) {
@@ -245,9 +251,11 @@ function wmsUrl({ layers, bbox, size, time, png }) {
 function CloudsCard({ place }) {
   const [view, setView] = useState(CLOUD_VIEWS[0])
   const [range, setRange] = useState(RANGES[0])
-  const [times] = useState(() => frameTimes())
+  const [duration, setDuration] = useState(DURATIONS[2])
+  const times = useMemo(() => frameTimes(duration), [duration])
+  const FRAMES = times.length
   const [status, setStatus] = useState({})      // stato di ogni fotogramma: ok / error
-  const [index, setIndex] = useState(FRAMES - 1)
+  const [index, setIndex] = useState(times.length - 1)
   const [playing, setPlaying] = useState(false)
 
   // Riquadro quadrato in km: in longitudine serve più ampiezza lontano dall'equatore
@@ -263,7 +271,7 @@ function CloudsCard({ place }) {
     layers: 'backgrounds:ne_10m_coastline,backgrounds:ne_boundary_lines_land', bbox, size: 640, png: true,
   })
 
-  useEffect(() => { setStatus({}); setIndex(FRAMES - 1); setPlaying(false) }, [frames])
+  useEffect(() => { setStatus({}); setIndex(frames.length - 1); setPlaying(false) }, [frames])
 
   const ready = frames.map((_, i) => status[i] === 'ok')
   const available = ready.map((ok, i) => (ok ? i : null)).filter((i) => i != null)
@@ -278,7 +286,7 @@ function CloudsCard({ place }) {
         const next = available.find((k) => k > i)
         return next ?? available[0]
       })
-    }, 500)
+    }, duration.hours >= 6 ? 300 : 500)
     return () => clearInterval(timer.current)
   }, [playing, available.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -290,6 +298,12 @@ function CloudsCard({ place }) {
       <div className="chips">
         {RANGES.map((r) => (
           <button key={r.key} className={r.key === range.key ? 'chip on' : 'chip'} onClick={() => setRange(r)}>{r.label}</button>
+        ))}
+      </div>
+      <div className="chips">
+        <span className="muted small">Animazione:</span>
+        {DURATIONS.map((d) => (
+          <button key={d.hours} className={d.hours === duration.hours ? 'chip on' : 'chip'} onClick={() => setDuration(d)}>{d.label}</button>
         ))}
       </div>
       <div className="chips layers">
@@ -322,7 +336,7 @@ function CloudsCard({ place }) {
 
       <div className="player">
         <button className="btn small" disabled={available.length < 2} onClick={() => setPlaying((p) => !p)}>
-          {playing ? '❚❚ Pausa' : '▶ Ultime 2 ore'}
+          {playing ? '❚❚ Pausa' : `▶ Ultime ${duration.label}`}
         </button>
         <input
           type="range" min="0" max={FRAMES - 1} value={shown ?? FRAMES - 1}
@@ -333,7 +347,8 @@ function CloudsCard({ place }) {
       <p className="small">{view.caption}</p>
       <p className="small muted">
         Meteosat-12 (MTG-I1) è fermo sopra l'equatore, a 36 000 km di quota: vede sempre la
-        stessa metà del pianeta e fa un'immagine ogni 10 minuti. Il punto giallo è il luogo scelto.
+        stessa metà del pianeta e fa un'immagine ogni 10 minuti. Nelle animazioni lunghe ne usiamo
+        una ogni 20 minuti (6 ore), mezz'ora (12 ore) o un'ora (24 ore). Il punto giallo è il luogo scelto.
       </p>
       <p className="credit">Immagini: © EUMETSAT (EUMETView) · Coste e confini: Natural Earth</p>
     </div>
@@ -344,23 +359,34 @@ function CloudsCard({ place }) {
 // SCHEDA ATMOSFERA
 // ------------------------------------------------------------------
 
-export default function AtmosphereTab({ place }) {
-  const [open, setOpen] = useState({ air: true })
+export default function AtmosphereTab({ place, category }) {
+  const order = category?.atmosphere || ['air', 'clouds']
+  const tips = category?.atmosphereTips || {}
+  const [open, setOpen] = useState({ [order[0]]: true })
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
   // Meteosat vede l'Europa, l'Africa e l'Atlantico (circa da 80° O a 80° E)
   const inMeteosatView = Math.abs(place.lon) <= 75 && Math.abs(place.lat) <= 75
-  return (
-    <div>
-      <Section icon="🌫️" title="Qualità dell'aria" subtitle="Ora e prossime 48 ore · Copernicus CAMS"
+  const sections = {
+    air: (
+      <Section key="air" icon="🌫️" title="Qualità dell'aria" subtitle="Ora e prossime 48 ore · Copernicus CAMS"
         open={!!open.air} onToggle={() => toggle('air')}>
+        {tips.air && <p className="tip">💡 {tips.air}</p>}
         <AirCard place={place} />
       </Section>
-      <Section icon="☁️" title="Nuvole in diretta" subtitle="Ogni 10 minuti · Meteosat di terza generazione"
+    ),
+    clouds: (
+      <Section key="clouds" icon="☁️" title="Nuvole in diretta" subtitle="Ogni 10 minuti · Meteosat di terza generazione"
         open={!!open.clouds} onToggle={() => toggle('clouds')}>
+        {tips.clouds && <p className="tip">💡 {tips.clouds}</p>}
         {inMeteosatView
           ? <CloudsCard place={place} />
           : <p className="note">⚠ Questo luogo è fuori dalla vista di Meteosat, che copre Europa, Africa e Atlantico.</p>}
       </Section>
+    ),
+  }
+  return (
+    <div>
+      {order.map((key) => sections[key])}
       <p className="muted small">
         In arrivo: le mappe dei gas misurati direttamente da Sentinel-5P (biossido di azoto,
         metano, monossido di carbonio), con pixel di circa 5 km.

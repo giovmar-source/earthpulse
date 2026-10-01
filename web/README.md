@@ -28,3 +28,9 @@ React 19 · Vite · MapLibre GL JS 5 (proiezione a globo) · satellite.js (model
 - Orbite: elementi TLE di CelesTrak, forniti dal backend (`/api/v1/tle`).
 - Mappa: OpenFreeMap e OpenMapTiles, © OpenStreetMap contributors.
 - Immagini dei satelliti: ESA/ATG medialab (Licenza standard ESA), NASA (pubblico dominio).
+
+## Pubblicarlo (per farlo vedere ad altri)
+
+Il workflow `.github/workflows/deploy-web.yml` pubblica il sito su GitHub Pages a ogni push
+che modifica `web/`. Una volta sola: su GitHub, **Settings → Pages → Source: GitHub Actions**.
+L'indirizzo sarà `https://<utente>.github.io/<repository>/`.
