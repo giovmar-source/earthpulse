@@ -12,3 +12,11 @@ metodologia, Oltre la Terra (Luna, Marte, Giove e lune in 3D).
    servono immagini NASA (pubblico dominio) della vista interna o esplosa.
 3. **EGMS** (movimenti del terreno).
 4. IRIDE, solo se nasce un progetto con la pubblica amministrazione.
+
+## Promemoria (da fare nelle ultime fasi)
+
+- Interno dei satelliti nella scheda: Landsat 9, Suomi NPP, Sentinel-5P, Meteosat-12 (MTG).
+- Lingue: inglese, poi francese e spagnolo.
+- Copyright delle immagini: sostituire le immagini ESA "Licenza standard" con immagini
+  CC BY-SA 3.0 IGO oppure chiedere il permesso a ESA (vedi docs/ANALISI_PROGETTO.md, 1.1).
+- Rilettura di tutti i testi con tono formale, pensato per professionisti.

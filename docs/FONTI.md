@@ -46,3 +46,7 @@ Le fonti di ogni evento sono in `data/stories.json` (campo `sources`). Fonti con
 - Hunga Tonga 2022: [Nature – Eruption chronology](https://www.nature.com/articles/s43247-022-00606-3)
 - Lago Mead: [NASA JPL – Lake Mead and Drought](https://www.jpl.nasa.gov/images/pia19731-lake-mead-and-drought/)
 - Ghiacciaio Columbia: [NASA – Alaskan Ice in Retreat](https://earthobservatory.nasa.gov/images/149445/alaskan-ice-in-retreat-35-years-at-columbia-glacier)
+
+## Analisi del progetto (ottobre 2026)
+
+Licenze, pubblicazione, fisco e dati planetari: vedi `docs/ANALISI_PROGETTO.md`, sezione "Fonti principali".
