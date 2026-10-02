@@ -44,7 +44,7 @@ const EXTRA = [
   { key: 'uv_index', label: 'Indice UV', unit: '', digits: 1 },
 ]
 const CHART_SERIES = [
-  { key: 'european_aqi', label: 'Indice europeo', unit: '' },
+  { key: 'european_aqi', label: 'Qualità complessiva', unit: '(indice europeo)' },
   ...POLLUTANTS.slice(0, 4).map((p) => ({ key: p.key, label: p.label, unit: 'µg/m³' })),
 ]
 
@@ -74,14 +74,14 @@ async function loadAir(place, signal) {
 }
 
 /** Andamento orario (ieri, oggi, domani) di una grandezza, con il cursore su ogni ora. */
-function HourlyChart({ times, values, unit, nowIso, colorFor }) {
+function HourlyChart({ times, values, unit, nowIso, colorFor, bands = null, minMax = 0 }) {
   const [hover, setHover] = useState(null)
   const W = 440
   const H = 150
   const pad = { l: 34, r: 8, t: 10, b: 22 }
   const points = values.map((v, i) => [i, v]).filter(([, v]) => v != null)
   if (points.length < 2) return <p className="muted small">Andamento non disponibile.</p>
-  const max = Math.max(...points.map(([, v]) => v)) * 1.1 || 1
+  const max = Math.max(minMax, Math.max(...points.map(([, v]) => v)) * 1.1) || 1
   const x = (i) => pad.l + (i / (values.length - 1)) * (W - pad.l - pad.r)
   const y = (v) => H - pad.b - (v / max) * (H - pad.t - pad.b)
   const path = points.map(([i, v], k) => `${k ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')
@@ -100,6 +100,13 @@ function HourlyChart({ times, values, unit, nowIso, colorFor }) {
     <div className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} onPointerMove={onMove} onPointerLeave={() => setHover(null)} role="img"
         aria-label="Andamento orario">
+        {bands && bands.map(([top, , color], k) => {
+          const bottom = k ? bands[k - 1][0] : 0
+          if (bottom >= max) return null
+          const upper = Math.min(top, max)
+          return <rect key={color} x={pad.l} width={W - pad.l - pad.r} y={y(upper)}
+            height={y(bottom) - y(upper)} fill={color} className="aqi-band" />
+        })}
         {ticks.map((v) => (
           <g key={v}>
             <line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} className="grid" />
@@ -127,8 +134,32 @@ function HourlyChart({ times, values, unit, nowIso, colorFor }) {
       </svg>
       <p className="chart-readout small">
         {hover != null
-          ? <>{new Date(`${times[hover]}:00`).toLocaleString('it-IT', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}: <strong>{formatNumber(values[hover], 0)} {unit}</strong></>
+          ? <>{new Date(`${times[hover]}:00`).toLocaleString('it-IT', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}: <strong>{formatNumber(values[hover], 0)} {unit}</strong>
+              {bands && <> · {aqiClass(values[hover])?.[1].toLowerCase()}</>}</>
           : <span className="muted">Passa sul grafico per leggere ogni ora. A destra di "ora" è la previsione.</span>}
+      </p>
+    </div>
+  )
+}
+
+/** Scala dell'indice europeo: sei classi colorate, con il segno sul valore di adesso. */
+function AqiScale({ value }) {
+  const here = AQI_CLASSES.findIndex(([max]) => value <= max)
+  return (
+    <div className="aqi-explain">
+      <div className="aqi-scale" aria-hidden="true">
+        {AQI_CLASSES.map(([, label, color], k) => (
+          <span key={label} title={label} className={k === here ? 'here' : ''} style={{ background: color }} />
+        ))}
+      </div>
+      <div className="aqi-scale-labels small">
+        {AQI_CLASSES.map(([, label]) => <span key={label}>{label}</span>)}
+      </div>
+      <p className="muted small">
+        L'<strong>indice europeo della qualità dell'aria</strong> (Agenzia europea dell'ambiente) riassume
+        in un numero i cinque inquinanti qui sotto: ognuno riceve un punteggio da 0 in su e l'indice è il
+        peggiore dei cinque. 0–20 buona, 20–40 discreta, 40–60 moderata, 60–80 scadente, 80–100 molto
+        scadente, oltre 100 pessima.
       </p>
     </div>
   )
@@ -156,10 +187,11 @@ function AirCard({ place }) {
           <span className="aqi-value">{Math.round(c.european_aqi)}</span>
           <div>
             <strong>Aria {overall[1].toLowerCase()}</strong>
-            <span className="muted small">Indice europeo della qualità dell'aria (0-100+), ora</span>
+            <span className="muted small">Qualità complessiva adesso · indice europeo</span>
           </div>
         </div>
       )}
+      {overall && <AqiScale value={c.european_aqi} />}
 
       <ul className="pollutants">
         {POLLUTANTS.map((p) => {
@@ -181,6 +213,9 @@ function AirCard({ place }) {
           <button key={s.key} className={s.key === series ? 'chip on' : 'chip'} onClick={() => setSeries(s.key)}>{s.label}</button>
         ))}
       </div>
+      {series === 'european_aqi' && (
+        <p className="muted small">Lo sfondo colorato indica le classi della scala qui sopra.</p>
+      )}
       <HourlyChart
         key={series}
         times={d.hourly.time}
@@ -188,6 +223,8 @@ function AirCard({ place }) {
         unit={chosen.unit}
         nowIso={nowIso}
         colorFor={colorFor}
+        bands={series === 'european_aqi' ? AQI_CLASSES.map(([max, label, color]) => [max === Infinity ? 1000 : max, label, color]) : null}
+        minMax={series === 'european_aqi' ? 50 : 0}
       />
 
       <dl className="facts">

@@ -267,7 +267,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Colori reali: calcolati dalle bande B04, B03 e B02 come riflettanza della superficie (16 bit), non dall'immagine \"True Color\" a 8 bit, che satura già a riflettanza 0,31 e trasforma deserti e sabbia in un quadrato giallo chiaro. Usiamo una curva tonale morbida (arcoseno iperbolico) applicata alla luminosità: le zone scure vengono schiarite, quelle chiare compresse gradualmente fino al \"bianco\" della scena (99,5° percentile, tra 0,30 e 0,90), senza cambiare il rapporto tra i colori. La data precedente è armonizzata alla più recente (percentili 2–98) e usa lo stesso bianco: è solo una scelta di visualizzazione."
+        "Colori reali: calcolati dalle bande B04, B03 e B02 come riflettanza della superficie (16 bit), non dall'immagine \"True Color\" a 8 bit, che satura già a riflettanza 0,31 e trasforma deserti e sabbia in un quadrato giallo chiaro. Usiamo una curva tonale morbida (arcoseno iperbolico): le zone scure vengono schiarite, quelle chiare compresse gradualmente fino al \"bianco\" della scena (99,5° percentile, tra 0,30 e 0,90). La curva è applicata per il 25% alla luminosità (colori pieni) e per il 75% canale per canale: le superfici chiare come la sabbia tendono al beige invece che all'arancione, come le vede l'occhio, mentre vegetazione e acqua restano quasi invariate. La data precedente è armonizzata alla più recente (percentili 2–98) e usa lo stesso bianco: è solo una scelta di visualizzazione."
       ],
       [
         "b",
@@ -421,7 +421,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Andamento sul luogo: media giornaliera entro 15 km dal punto (Statistical API), negli ultimi 30, 90 o 365 giorni, confrontata con gli stessi giorni dell'anno precedente. La linea è la media mobile su 7 giorni (almeno 3 giorni con dati), i punti sono i singoli giorni: i giorni nuvolosi mancano."
+        "Andamento sul luogo: media giornaliera entro 15 km dal punto (Statistical API), negli ultimi 30, 90 o 365 giorni, confrontata con gli stessi giorni dell'anno precedente. Ogni giorno è la media dei passaggi validi del satellite (mosaicking per orbita); le richieste sono divise in blocchi di 30 giorni. La linea è la media mobile su 7 giorni (almeno 3 giorni con dati), i punti sono i singoli giorni: i giorni nuvolosi mancano. Se i giorni validi sono meno della metà, la linea unisce direttamente i singoli giorni e compare un avviso."
       ],
       [
         "b",

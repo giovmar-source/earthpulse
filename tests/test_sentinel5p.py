@@ -112,7 +112,7 @@ def test_parse_statistics_skips_empty_days():
 def test_statistics_body_daily_on_place():
     body = sentinel5p.statistics_body("ch4", [1, 2, 3, 4], date(2026, 7, 1), date(2026, 9, 30))
     assert body["aggregation"]["aggregationInterval"] == {"of": "P1D"}
-    assert "dataMask" in body["aggregation"]["evalscript"] and "s.CH4" in body["aggregation"]["evalscript"]
+    assert "dataMask" in body["aggregation"]["evalscript"] and ".CH4" in body["aggregation"]["evalscript"]
 
 
 def test_timeseries_endpoint_compares_with_last_year(monkeypatch):
@@ -126,3 +126,41 @@ def test_timeseries_endpoint_compares_with_last_year(monkeypatch):
                                         params={"lat": 40.68, "lon": 14.77, "days": 90}).json()
     assert data["mean"] == 50.0 and data["previous_mean"] == 40.0 and data["change_percent"] == 25.0
     assert data["valid_days"] == 2 and data["level"] == "medio"
+
+
+def test_parse_statistics_counts_errors_and_empty_days():
+    diag = {}
+    sentinel5p.parse_statistics("no2", STATS_RESPONSE, diag)
+    assert diag["intervals"] == 3 and diag["error_days"] == 1 and diag["empty_days"] == 1
+    assert diag["error_sample"] == "EXECUTION_ERROR"
+
+
+def test_statistics_use_orbit_mosaicking():
+    script = sentinel5p.statistics_evalscript("NO2")
+    assert 'mosaicking: "ORBIT"' in script and "samples[i].dataMask" in script
+
+
+def test_chunks_cover_period_without_gaps():
+    blocks = sentinel5p.chunks(date(2026, 1, 1), date(2026, 3, 31))
+    assert blocks[0] == (date(2026, 1, 1), date(2026, 1, 30))
+    assert blocks[-1][1] == date(2026, 3, 31)
+    days = sum((b - a).days + 1 for a, b in blocks)
+    assert days == 90 and all((b - a).days < 30 for a, b in blocks)
+
+
+def test_fetch_timeseries_requests_one_block_per_month(monkeypatch):
+    monkeypatch.setattr(sentinel5p, "get_token", lambda session=None: "t")
+
+    class Reply:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return STATS_RESPONSE
+
+    session = mock.Mock()
+    session.post.return_value = Reply()
+    diag = {}
+    sentinel5p.fetch_timeseries("no2", 40.0, 14.0, date(2026, 7, 3), date(2026, 9, 30),
+                                session=session, diagnostics=diag)
+    assert session.post.call_count == 3 and diag["intervals"] == 9

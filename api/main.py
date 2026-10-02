@@ -1879,10 +1879,13 @@ def get_s5p_timeseries(
     key = (gas, round(lat, 2), round(lon, 2), days, end.isoformat())
     if key not in _S5P_SERIES_CACHE:
         try:
-            series = sentinel5p.fetch_timeseries(gas, lat, lon, start, end)
+            diag_now: dict = {}
+            diag_prev: dict = {}
+            series = sentinel5p.fetch_timeseries(gas, lat, lon, start, end, diagnostics=diag_now)
             try:
                 previous = sentinel5p.fetch_timeseries(
-                    gas, lat, lon, sentinel5p.shift_year(start), sentinel5p.shift_year(end))
+                    gas, lat, lon, sentinel5p.shift_year(start), sentinel5p.shift_year(end),
+                    diagnostics=diag_prev)
             except sentinel5p.S5PUnavailable:
                 previous = []
         except sentinel5p.S5PUnavailable as exc:
@@ -1907,8 +1910,12 @@ def get_s5p_timeseries(
                                if mean_now is not None and mean_prev else None),
             "valid_days": len(series),
             "level": sentinel5p.level(gas, mean_now),
+            # Giorni chiesti, giorni con errore di Sentinel Hub, giorni senza dati validi
+            "diagnostics": {"current": diag_now, "previous": diag_prev},
             "attribution": sentinel5p.ATTRIBUTION,
         }
+        if diag_now.get("error_days"):
+            print(f"[s5p] {gas} {lat:.2f},{lon:.2f}: {diag_now}", flush=True)
     return _S5P_SERIES_CACHE[key]
 
 

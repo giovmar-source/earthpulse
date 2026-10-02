@@ -260,6 +260,7 @@ def stretch_rgb(rgb: np.ndarray, high: float = RGB_HIGH) -> np.ndarray:
 TONE_SOFTNESS = 0.06       # sotto questo valore la curva è quasi lineare
 TONE_MIN_WHITE = 0.30      # riflettanza minima del "bianco" (scene verdi)
 TONE_MAX_WHITE = 0.90      # massima (neve, saline)
+TONE_NEUTRAL = 0.75        # quota della curva applicata canale per canale (0 = colori pieni)
 
 
 def scene_white(reflectance: np.ndarray) -> float:
@@ -275,18 +276,26 @@ def tone_map_rgb(reflectance: np.ndarray, white: float) -> np.ndarray:
     """
     Riflettanza (3, righe, colonne) -> immagine (righe, colonne, 3) uint8.
 
-    Curva arcoseno iperbolico sulla luminosità: le zone scure (vegetazione,
-    acqua) vengono schiarite, quelle chiare (sabbia, roccia, cemento)
-    compresse gradualmente fino a "white". I rapporti tra i canali restano
-    invariati, quindi la sabbia resta color sabbia e non vira al bianco.
+    Curva arcoseno iperbolico: le zone scure (vegetazione, acqua) vengono
+    schiarite, quelle chiare (sabbia, roccia, cemento) compresse gradualmente
+    fino a "white". Due versioni miscelate:
+    - sulla luminosità (rapporti tra canali invariati): colori pieni, ma la
+      sabbia del Sahel diventa arancione;
+    - canale per canale: le zone chiare tendono al neutro, come le vede l'occhio
+      e come le mostrano le fotocamere.
+    TONE_NEUTRAL dice quanto pesa la seconda: la sabbia resta beige, la
+    vegetazione e l'acqua (scure) quasi non cambiano.
     """
     data = np.nan_to_num(reflectance.astype(np.float32), nan=0.0)
     data = np.clip(data, 0, None)
-    luminance = data.max(axis=0)
     scale_top = np.arcsinh(white / TONE_SOFTNESS)
+    luminance = data.max(axis=0)
     mapped = np.arcsinh(luminance / TONE_SOFTNESS) / scale_top
     gain = np.divide(mapped, luminance, out=np.zeros_like(luminance), where=luminance > 1e-6)
-    image = np.clip(data * gain, 0, 1) * 255
+    full_colour = data * gain
+    per_channel = np.arcsinh(data / TONE_SOFTNESS) / scale_top
+    blended = (1 - TONE_NEUTRAL) * full_colour + TONE_NEUTRAL * per_channel
+    image = np.clip(blended, 0, 1) * 255
     image[:, ~np.isfinite(reflectance).all(axis=0) | (luminance <= 0)] = 0
     return np.transpose(image, (1, 2, 0)).astype(np.uint8)
 

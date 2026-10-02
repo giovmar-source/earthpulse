@@ -26,6 +26,16 @@ function rolling(points, total) {
   return out
 }
 
+/** Linea che unisce i giorni con dati, interrotta nei vuoti più lunghi di maxGap giorni. */
+function connect(points, x, y, maxGap = 10) {
+  let d = ''
+  points.forEach((p, k) => {
+    const jump = k === 0 || p.i - points[k - 1].i > maxGap
+    d += `${jump ? 'M' : 'L'}${x(p.i).toFixed(1)},${y(p.value).toFixed(1)}`
+  })
+  return d
+}
+
 function path(values, x, y) {
   let d = ''
   let pen = false
@@ -48,9 +58,11 @@ function TrendChart({ data, digits }) {
   const now = data.series.map((p) => ({ i: dayIndex(p.date, start), value: p.value, date: p.date }))
   const prevStart = `${Number(start.slice(0, 4)) - 1}${start.slice(4)}`
   const prev = data.previous.map((p) => ({ i: dayIndex(p.date, prevStart), value: p.value, date: p.date }))
-  const nowLine = rolling(now, total)
-  const prevLine = rolling(prev, total)
-  const all = [...now.map((p) => p.value), ...prevLine.filter((v) => v != null)]
+  // Con pochi giorni validi la media su 7 giorni sparirebbe: si uniscono i singoli giorni
+  const sparse = now.length < total * 0.5 || prev.length < total * 0.5
+  const nowLine = sparse ? new Array(total).fill(null) : rolling(now, total)
+  const prevLine = sparse ? new Array(total).fill(null) : rolling(prev, total)
+  const all = [...now.map((p) => p.value), ...(sparse ? prev.map((p) => p.value) : prevLine.filter((v) => v != null))]
   if (all.length < 2) return <p className="muted small">Troppo pochi giorni con dati validi per un grafico.</p>
   const lo = Math.min(...all)
   const hi = Math.max(...all)
@@ -64,6 +76,7 @@ function TrendChart({ data, digits }) {
     if (d.getUTCDate() === 1) months.push([i, d.toLocaleDateString('it-IT', { month: 'short' })])
   }
   const hoverNow = hover != null ? now.find((p) => p.i === hover) : null
+  const hoverPrev = hover != null ? prev.find((p) => p.i === hover) : null
 
   function onMove(e) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -75,9 +88,9 @@ function TrendChart({ data, digits }) {
   return (
     <div className="chart">
       <div className="chart-legend small">
-        <span><i className="key now" /> Media su 7 giorni, ultimi {total} giorni</span>
+        <span><i className="key now" /> {sparse ? 'Giorni con dati' : 'Media su 7 giorni'}, ultimi {total} giorni</span>
         <span><i className="key prev" /> Stesso periodo, anno precedente</span>
-        <span><i className="key dot" /> Valore del singolo giorno</span>
+        {!sparse && <span><i className="key dot" /> Valore del singolo giorno</span>}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} onPointerMove={onMove} onPointerLeave={() => setHover(null)}
         role="img" aria-label="Andamento del gas sul luogo">
@@ -88,9 +101,10 @@ function TrendChart({ data, digits }) {
           </g>
         ))}
         {months.map(([i, label]) => <text key={i} x={x(i)} y={H - 6} className="axis">{label}</text>)}
-        {now.map((p) => <circle key={p.i} cx={x(p.i)} cy={y(p.value)} r="2.2" className="day-dot" />)}
-        <path d={path(prevLine, x, y)} className="trend-prev" />
-        <path d={path(nowLine, x, y)} className="trend-now" />
+        {!sparse && now.map((p) => <circle key={p.i} cx={x(p.i)} cy={y(p.value)} r="2.2" className="day-dot" />)}
+        <path d={sparse ? connect(prev, x, y) : path(prevLine, x, y)} className="trend-prev" />
+        <path d={sparse ? connect(now, x, y) : path(nowLine, x, y)} className="trend-now" />
+        {sparse && now.map((p) => <circle key={p.i} cx={x(p.i)} cy={y(p.value)} r="2.6" className="day-dot strong" />)}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={P.t} y2={H - P.b} className="cross" />}
       </svg>
       <p className="chart-readout small">
@@ -100,6 +114,7 @@ function TrendChart({ data, digits }) {
             {hoverNow ? <strong>{formatNumber(hoverNow.value, digits)} {data.unit}</strong> : 'nessun dato (nuvole)'}
             {nowLine[hover] != null && <> · media 7 giorni {formatNumber(nowLine[hover], digits)}</>}
             {prevLine[hover] != null && <> · anno prima {formatNumber(prevLine[hover], digits)}</>}
+            {sparse && hoverPrev && <> · anno prima {formatNumber(hoverPrev.value, digits)}</>}
           </>
         ) : <span className="muted">Passa sul grafico per leggere i singoli giorni.</span>}
       </p>
@@ -154,6 +169,13 @@ export default function GasCard({ place }) {
             <div><dt>Giorni con dati validi</dt><dd>{s.valid_days} su {s.period.days}</dd></div>
           </dl>
           <TrendChart data={s} digits={gas.digits} />
+          {s.valid_days < s.period.days * 0.3 && (
+            <p className="note">
+              ⚠ Pochi giorni con dati validi: nuvole, qualità del passaggio insufficiente
+              {s.diagnostics?.current?.error_days > 0 && <> o errori del servizio Copernicus ({s.diagnostics.current.error_days} giorni)</>}.
+              La media del periodo è meno affidabile.
+            </p>
+          )}
         </>
       )}
 
@@ -170,9 +192,7 @@ export default function GasCard({ place }) {
               afterLabel="Adesso"
               alt={m.label}
             />
-            <span className="place-area" style={{ width: `${(100 * 2 * m.place_radius_km) / m.side_km}%` }}>
-              <span>luogo</span>
-            </span>
+            <span className="place-area" style={{ width: `${(100 * 2 * m.place_radius_km) / m.side_km}%` }} />
           </div>
           <p className="muted small hint">
             Adesso: {formatDate(m.period.start)} – {formatDate(m.period.end)}
@@ -183,7 +203,7 @@ export default function GasCard({ place }) {
           <Legend stops={m.legend.color_stops} labels={m.legend.labels} />
           <p className="muted small">
             <span className="swatch inline" style={{ background: m.legend.no_data_color }} /> Nessun dato:
-            nuvole o qualità insufficiente in tutti i passaggi. Il riquadro tratteggiato è l'area &quot;sul luogo&quot;.
+            nuvole o qualità insufficiente in tutti i passaggi. Il riquadro tratteggiato al centro è l'area &quot;sul luogo&quot; (15 km attorno al punto).
           </p>
           {m.message && <p className="highlight">{m.message}</p>}
           <p className="small">{m.caption}</p>

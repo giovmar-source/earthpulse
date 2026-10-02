@@ -291,15 +291,25 @@ def period(days: int, today: date | None = None) -> tuple:
 # ------------------------------------------------------------------
 
 def statistics_evalscript(band: str) -> str:
+    """
+    Per ogni giorno: media dei passaggi validi sopra ogni pixel (mosaicking ORBIT,
+    come per la mappa). Con il mosaicking SIMPLE Sentinel Hub prende solo il
+    passaggio più recente che tocca l'area, spesso senza dati validi sul luogo.
+    """
     return f"""//VERSION=3
 function setup() {{
   return {{
     input: [{{ bands: ["{band}", "dataMask"] }}],
-    output: [{{ id: "default", bands: 1, sampleType: "FLOAT32" }}, {{ id: "dataMask", bands: 1 }}]
+    output: [{{ id: "default", bands: 1, sampleType: "FLOAT32" }}, {{ id: "dataMask", bands: 1 }}],
+    mosaicking: "ORBIT"
   }};
 }}
-function evaluatePixel(s) {{
-  return {{ default: [s.{band}], dataMask: [s.dataMask] }};
+function evaluatePixel(samples) {{
+  var sum = 0, n = 0;
+  for (var i = 0; i < samples.length; i++) {{
+    if (samples[i].dataMask === 1) {{ sum += samples[i].{band}; n++; }}
+  }}
+  return {{ default: [n > 0 ? sum / n : 0], dataMask: [n > 0 ? 1 : 0] }};
 }}
 """
 
@@ -322,39 +332,76 @@ def statistics_body(gas: str, bbox: list, start: date, end: date) -> dict:
     }
 
 
-def parse_statistics(gas: str, body: dict) -> list:
-    """Risposta della Statistical API -> [{"date", "value"}] in unità mostrate."""
+def parse_statistics(gas: str, body: dict, diagnostics: dict | None = None) -> list:
+    """
+    Risposta della Statistical API -> [{"date", "value"}] in unità mostrate.
+    Se passi `diagnostics`, vi conta i giorni con errore o senza dati e
+    conserva il primo messaggio di errore (utile per capire i buchi nella serie).
+    """
     factor = GASES[gas]["factor"]
+    diag = diagnostics if diagnostics is not None else {}
+    for name in ("intervals", "error_days", "empty_days"):
+        diag.setdefault(name, 0)
     series = []
     for entry in body.get("data", []):
+        diag["intervals"] += 1
         if entry.get("error"):
+            diag["error_days"] += 1
+            error = entry["error"]
+            diag.setdefault("error_sample", str(error.get("message") or error.get("type") or error)[:300]
+                            if isinstance(error, dict) else str(error)[:300])
             continue
         try:
             stats = entry["outputs"]["default"]["bands"]["B0"]["stats"]
             day = entry["interval"]["from"][:10]
         except (KeyError, TypeError):
+            diag["empty_days"] += 1
             continue
         mean = stats.get("mean")
         valid = stats.get("sampleCount", 0) - stats.get("noDataCount", 0)
-        if mean is None or valid <= 0 or not math.isfinite(float(mean)):
+        try:
+            mean = float(mean)
+        except (TypeError, ValueError):
+            mean = math.nan
+        if valid <= 0 or not math.isfinite(mean):
+            diag["empty_days"] += 1
             continue
-        series.append({"date": day, "value": round(float(mean) * factor, GASES[gas]["digits"] + 1)})
+        series.append({"date": day, "value": round(mean * factor, GASES[gas]["digits"] + 1)})
     return sorted(series, key=lambda p: p["date"])
 
 
-def fetch_timeseries(gas: str, lat: float, lon: float, start: date, end: date, session=requests) -> list:
-    """Valori medi giornalieri entro PLACE_RADIUS_KM dal punto."""
-    token = get_token(session)
+STATS_CHUNK_DAYS = 30     # una richiesta ogni 30 giorni: risposte piccole e veloci
+
+
+def chunks(start: date, end: date, size: int = STATS_CHUNK_DAYS) -> list:
+    """Divide [start, end] in blocchi consecutivi di al massimo `size` giorni."""
+    blocks = []
+    current = start
+    while current <= end:
+        last = min(end, current + timedelta(days=size - 1))
+        blocks.append((current, last))
+        current = last + timedelta(days=1)
+    return blocks
+
+
+def fetch_timeseries(gas: str, lat: float, lon: float, start: date, end: date,
+                     session=requests, diagnostics: dict | None = None) -> list:
+    """Valori medi giornalieri entro PLACE_RADIUS_KM dal punto, a blocchi di 30 giorni."""
     bbox = area_bbox(lat, lon, half_km=PLACE_RADIUS_KM)
-    response = session.post(STATISTICS_URL, json=statistics_body(gas, bbox, start, end),
-                            headers={"Authorization": f"Bearer {token}"}, timeout=90)
-    if response.status_code == 401:
-        _token["value"] = None
-    if response.status_code == 429:
-        raise S5PUnavailable("Limite di Copernicus Data Space raggiunto: riprova più tardi.")
-    if response.status_code != 200:
-        raise S5PUnavailable(f"Sentinel Hub ha risposto con errore {response.status_code}: {response.text[:200]}")
-    return parse_statistics(gas, response.json())
+    diag = diagnostics if diagnostics is not None else {}
+    series = []
+    for block_start, block_end in chunks(start, end):
+        token = get_token(session)
+        response = session.post(STATISTICS_URL, json=statistics_body(gas, bbox, block_start, block_end),
+                                headers={"Authorization": f"Bearer {token}"}, timeout=90)
+        if response.status_code == 401:
+            _token["value"] = None
+        if response.status_code == 429:
+            raise S5PUnavailable("Limite di Copernicus Data Space raggiunto: riprova più tardi.")
+        if response.status_code != 200:
+            raise S5PUnavailable(f"Sentinel Hub ha risposto con errore {response.status_code}: {response.text[:200]}")
+        series.extend(parse_statistics(gas, response.json(), diag))
+    return sorted(series, key=lambda p: p["date"])
 
 
 def level(gas: str, value) -> str | None:

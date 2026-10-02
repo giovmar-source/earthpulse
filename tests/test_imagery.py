@@ -418,3 +418,10 @@ def test_harmonize_reflectance_matches_reference_range():
     hazy = ref * 0.8 + 0.05
     out = harmonize_reflectance(hazy, ref)
     assert abs(float(_np.median(out[0])) - float(_np.median(ref[0]))) < 0.02
+
+
+def test_sahel_sand_is_beige_not_orange():
+    sand = _np.array([0.42, 0.33, 0.24], dtype=_np.float32)[:, None, None] * _np.ones((1, 20, 20), _np.float32)
+    r, g, b = (int(v) for v in tone_map_rgb(sand, 0.6)[10, 10])
+    assert r > g > b
+    assert b / r > 0.65          # con i soli rapporti originali sarebbe 0,57: arancione
