@@ -254,7 +254,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Sotto i numeri c'è la mappa dell'indice su 3 × 3 km, oggi e un anno fa, con il riquadro tratteggiato dell'area di 1 km. Per la vegetazione anche la mappa della variazione."
+        "Il grafico \"Stesso periodo, anni diversi\" mostra ogni immagine valida degli anni precedenti nella stessa finestra stagionale (punti grigi), l'intervallo osservato (fascia), la mediana di riferimento (linea tratteggiata) e il valore attuale (punto arancione). Sotto i numeri c'è la mappa dell'indice su 3 × 3 km, oggi e un anno fa, con il riquadro tratteggiato dell'area di 1 km. Per la vegetazione anche la mappa della variazione."
       ]
     ]
   },

@@ -26,8 +26,16 @@ import time
 import requests
 
 
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-PHOTON_URL = "https://photon.komoot.io/api/"
+import os
+
+# Indirizzi configurabili: per la versione commerciale si useranno servizi
+# installati sul nostro server (le istanze pubbliche non lo consentono).
+NOMINATIM_BASE = os.environ.get("NOMINATIM_BASE", "https://nominatim.openstreetmap.org").rstrip("/")
+PHOTON_BASE = os.environ.get("PHOTON_BASE", "https://photon.komoot.io").rstrip("/")
+NOMINATIM_URL = f"{NOMINATIM_BASE}/search"
+NOMINATIM_REVERSE_URL = f"{NOMINATIM_BASE}/reverse"
+PHOTON_URL = f"{PHOTON_BASE}/api/"
+PHOTON_REVERSE_URL = f"{PHOTON_BASE}/reverse"
 USER_AGENT = "EarthPulse/0.5 (+https://github.com/giovmar-source/earthpulse)"
 
 MIN_INTERVAL_SECONDS = 1.0
@@ -187,3 +195,89 @@ def search_places(query: str, limit: int = 5, language: str = "it",
     _cache[key] = results
 
     return results
+
+
+# ------------------------------------------------------------------
+# Geocoding inverso: dalle coordinate al nome del luogo
+# ------------------------------------------------------------------
+
+_reverse_cache: dict = {}
+# Dal più specifico al più generale: il primo trovato è il nome del luogo
+PLACE_KEYS = ("village", "town", "city", "municipality", "hamlet", "suburb",
+              "county", "state_district", "state")
+
+
+def _reverse_nominatim(http, lat, lon, language) -> dict | None:
+    response = _get(http, NOMINATIM_REVERSE_URL, {
+        "lat": f"{lat:.5f}", "lon": f"{lon:.5f}", "format": "jsonv2",
+        "zoom": 12, "addressdetails": 1, "namedetails": 1,
+    }, language)
+    status = getattr(response, "status_code", 200)
+    if status in (403, 429):
+        raise PermissionError(f"Nominatim ha rifiutato la richiesta ({status}).")
+    response.raise_for_status()
+    body = response.json()
+    if not body or body.get("error"):
+        return None
+    address = body.get("address") or {}
+    name = next((address[k] for k in PLACE_KEYS if address.get(k)), None)
+    if not name:
+        names = body.get("namedetails") or {}
+        name = names.get(f"name:{language}") or names.get("name:en") or body.get("name")
+    if not name:
+        return None
+    context = [address.get(k) for k in ("state", "country") if address.get(k) and address.get(k) != name]
+    return {"name": name, "context": ", ".join(context), "display_name": body.get("display_name", name)}
+
+
+def _reverse_photon(http, lat, lon, language) -> dict | None:
+    response = None
+    for lang in dict.fromkeys([language, "en"]):
+        response = _get(http, PHOTON_REVERSE_URL,
+                        {"lat": f"{lat:.5f}", "lon": f"{lon:.5f}", "lang": lang, "limit": 1}, language)
+        if getattr(response, "status_code", 200) != 400:
+            break
+    response.raise_for_status()
+    features = response.json().get("features") or []
+    if not features:
+        return None
+    props = features[0].get("properties") or {}
+    name = props.get("city") or props.get("town") or props.get("village") or props.get("county") or props.get("name")
+    if not name:
+        return None
+    context = [props.get(k) for k in ("state", "country") if props.get(k) and props.get(k) != name]
+    return {"name": name, "context": ", ".join(context), "display_name": ", ".join([name, *context])}
+
+
+def reverse_place(lat: float, lon: float, language: str = "it", session=None) -> dict:
+    """
+    Nome del comune o della località più vicina al punto:
+    {"name", "context", "display_name"}; name è None in mare aperto o
+    dove non c'è un luogo con nome. Cache a circa 100 m.
+    """
+    key = (round(lat, 3), round(lon, 3), language)
+    if key in _reverse_cache:
+        return _reverse_cache[key]
+
+    http = session or requests
+    result = None
+    answered = False
+    if time.monotonic() >= _nominatim_blocked_until[0]:
+        try:
+            result = _reverse_nominatim(http, lat, lon, language)
+            answered = True
+        except PermissionError:
+            _nominatim_blocked_until[0] = time.monotonic() + NOMINATIM_PAUSE_SECONDS
+        except (requests.RequestException, ValueError, KeyError):
+            pass
+    if not answered:
+        try:
+            result = _reverse_photon(http, lat, lon, language)
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            raise GeocodingUnavailable("Nome del luogo non disponibile in questo momento.") from exc
+
+    result = result or {"name": None, "context": "", "display_name": ""}
+    if len(_reverse_cache) >= MAX_CACHE_ENTRIES:
+        _reverse_cache.clear()
+    _reverse_cache[key] = result
+    return result

@@ -150,3 +150,57 @@ class TestGeocoding(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ------------------------------------------------------------------
+# Geocoding inverso
+# ------------------------------------------------------------------
+from unittest import mock as _mock
+
+from src import geocoding as _geo
+
+
+class _Resp:
+    def __init__(self, payload, status=200):
+        self._payload = payload
+        self.status_code = status
+
+    def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise _geo.requests.HTTPError(str(self.status_code))
+
+
+def test_reverse_place_uses_town_and_context():
+    _geo._reverse_cache.clear()
+    _geo._nominatim_blocked_until[0] = 0.0
+    session = _mock.Mock()
+    session.get.return_value = _Resp({"address": {"town": "Cava de' Tirreni", "state": "Campania",
+                                                  "country": "Italia"}, "display_name": "Cava"})
+    with _mock.patch.object(_geo, "MIN_INTERVAL_SECONDS", 0):
+        place = _geo.reverse_place(40.70, 14.70, session=session)
+        again = _geo.reverse_place(40.7001, 14.7002, session=session)
+    assert place["name"] == "Cava de' Tirreni" and place["context"] == "Campania, Italia"
+    assert again == place and session.get.call_count == 1      # cache a ~100 m
+
+
+def test_reverse_place_open_sea_has_no_name():
+    _geo._reverse_cache.clear()
+    _geo._nominatim_blocked_until[0] = 0.0
+    session = _mock.Mock()
+    session.get.return_value = _Resp({"error": "Unable to geocode"})
+    with _mock.patch.object(_geo, "MIN_INTERVAL_SECONDS", 0):
+        assert _geo.reverse_place(38.0, 13.0, session=session)["name"] is None
+
+
+def test_reverse_place_falls_back_to_photon():
+    _geo._reverse_cache.clear()
+    _geo._nominatim_blocked_until[0] = 0.0
+    session = _mock.Mock()
+    session.get.side_effect = [_Resp({}, status=429),
+                               _Resp({"features": [{"properties": {"city": "Salerno", "country": "Italia"}}]})]
+    with _mock.patch.object(_geo, "MIN_INTERVAL_SECONDS", 0):
+        place = _geo.reverse_place(40.68, 14.77, session=session)
+    assert place["name"] == "Salerno"

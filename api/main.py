@@ -18,7 +18,7 @@ from src.analysis import (
     pick_recent_candidates,
     seasonal_windows,
 )
-from src.geocoding import GeocodingUnavailable, search_places
+from src.geocoding import GeocodingUnavailable, reverse_place, search_places
 from src import nightlights
 from src import heat
 from src import archive
@@ -744,6 +744,20 @@ def get_ndvi_analysis(
 # ============================================================
 # ENDPOINT 8: RICERCA LOCALITÀ (Nominatim / OpenStreetMap)
 # ============================================================
+
+@app.get("/api/v1/reverse-geocode")
+def reverse_geocode(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    language: str = Query("it", max_length=10),
+):
+    """Nome del comune o della località per un punto scelto sul globo."""
+    try:
+        place = reverse_place(lat, lon, language=language)
+    except GeocodingUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {**place, "attribution": "Dati © OpenStreetMap contributors (ODbL)"}
+
 
 @app.get("/api/v1/geocode")
 def geocode(

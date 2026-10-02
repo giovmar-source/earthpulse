@@ -1,6 +1,7 @@
 import { getJson, placeParams } from '../api.js'
 import { ErrorBox, Loading, formatDate, formatNumber, useApi } from './common.jsx'
 import IndexMap from './IndexMap.jsx'
+import SeasonChart from './SeasonChart.jsx'
 
 // Colore e frase per ogni esito del confronto con gli anni precedenti
 const OUTCOMES = {
@@ -75,6 +76,17 @@ export default function VegetationCard({ place }) {
         </>
       ) : (
         <p>Nessuna immagine abbastanza nitida nelle ultime settimane per quest'area.</p>
+      )}
+      {(baseline.observations?.length > 0) && (
+        <>
+          <p className="eyebrow spaced">Stesso periodo, anni diversi</p>
+          <SeasonChart
+            observations={baseline.observations.map((o) => ({ date: o.date, value: o.ndvi_mean }))}
+            baseline={baseline.ndvi_median != null
+              ? { median: baseline.ndvi_median, min: baseline.ndvi_min, max: baseline.ndvi_max } : null}
+            latest={latest && { date: latest.date, value: latest.ndvi_mean }}
+          />
+        </>
       )}
       {(a.messages || []).map((m) => <p key={m} className="note">⚠ {m}</p>)}
       <p className="formula">NDVI = (B08 − B04) / (B08 + B04)</p>

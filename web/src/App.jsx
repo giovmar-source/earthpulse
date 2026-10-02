@@ -3,6 +3,7 @@ import Globe from './Globe.jsx'
 import PlacePanel from './place/PlacePanel.jsx'
 import SearchBox from './SearchBox.jsx'
 import MethodologyPanel from './MethodologyPanel.jsx'
+import { APP_NAME, TAGLINE } from './brand.js'
 import BigEvents from './events/BigEvents.jsx'
 import { getJson } from './api.js'
 
@@ -55,7 +56,7 @@ function SatellitePanel({ sat, onClose }) {
         ))}
       </dl>
       <div className="box">
-        <p className="eyebrow">In EarthPulse</p>
+        <p className="eyebrow">In {APP_NAME}</p>
         <p>{card.inEarthPulse}</p>
       </div>
       {card.note && <p className="muted small">{card.note}</p>}
@@ -70,8 +71,8 @@ function SatellitePanel({ sat, onClose }) {
 function WelcomePanel({ satellites, error, onSelect }) {
   return (
     <aside className="panel">
-      <p className="eyebrow">EarthPulse</p>
-      <h2>Cosa vedono i satelliti, spiegato</h2>
+      <p className="eyebrow">{APP_NAME}</p>
+      <h2>{TAGLINE}</h2>
       <p>
         Il globo mostra in tempo reale i satelliti che usiamo per analizzare la Terra.
         Tocca un satellite per scoprire com'è fatto. Per analizzare un luogo, toccalo sul
@@ -153,6 +154,16 @@ export default function App() {
     setSelectedNorad(null)
     setPlace(p)
     setFlyTarget({ ...p, marker: true, zoom: 13 })
+    // Punto scelto sul globo: cerchiamo il nome del comune o della località
+    if (!p.name) {
+      getJson('/api/v1/reverse-geocode', { lat: p.lat.toFixed(5), lon: p.lon.toFixed(5) })
+        .then((r) => {
+          if (!r.name) return
+          setPlace((current) => (current && current.lat === p.lat && current.lon === p.lon
+            ? { ...current, name: r.name, context: r.context } : current))
+        })
+        .catch(() => { /* senza nome restano le coordinate */ })
+    }
   }
 
   function closePlace() {
@@ -176,7 +187,7 @@ export default function App() {
         onSelectEvent={selectEvent}
       />
       <header className="topbar">
-        <div className="brand"><span className="logo">◉</span> EarthPulse</div>
+        <div className="brand"><span className="logo">◉</span> {APP_NAME}</div>
         <SearchBox onSelect={selectPlace} />
         <button className="topbar-btn" onClick={openEvents} title="Big Events">⚡<span> Big Events</span></button>
         <button className="topbar-btn" onClick={() => setShowSpace(true)} title="Oltre la Terra">🪐<span> Oltre la Terra</span></button>

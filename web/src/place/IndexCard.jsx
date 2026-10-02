@@ -1,6 +1,7 @@
 import { getJson, placeParams } from '../api.js'
 import { ErrorBox, Loading, formatDate, formatNumber, useApi } from './common.jsx'
 import IndexMap from './IndexMap.jsx'
+import SeasonChart from './SeasonChart.jsx'
 
 // Come leggere ogni indice: frasi per l'andamento e per il valore attuale
 export const INDEX_SECTIONS = {
@@ -117,6 +118,16 @@ export default function IndexCard({ place, indexKey }) {
         )}
         {latest && <div><dt>Zona senza nuvole</dt><dd>{formatNumber(latest.clear_percentage, 0)}%</dd></div>}
       </dl>
+      {(baseline?.observations?.length > 0 || latest) && (
+        <>
+          <p className="eyebrow spaced">Stesso periodo, anni diversi</p>
+          <SeasonChart
+            observations={(baseline?.observations || []).map((o) => ({ date: o.date, value: o.median }))}
+            baseline={baseline}
+            latest={latest && { date: latest.date, value: latest.median }}
+          />
+        </>
+      )}
       {a.messages.map((m) => <p key={m} className="note">⚠ {m}</p>)}
       {a.formula && <p className="formula">{a.formula}</p>}
       <IndexMap place={place} layerKey={indexKey} />

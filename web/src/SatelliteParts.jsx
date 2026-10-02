@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SATELLITE_PARTS } from './satelliteParts.js'
+import { APP_NAME } from './brand.js'
 
 /**
  * Immagine del satellite con i punti numerati delle parti (come nell'app):
@@ -84,7 +85,7 @@ export default function SatelliteParts({ cardKey, title }) {
           </div>
           {part.inEarthPulse && (
             <div className="box">
-              <p className="eyebrow">In EarthPulse</p>
+              <p className="eyebrow">In {APP_NAME}</p>
               <p>{part.inEarthPulse}</p>
             </div>
           )}

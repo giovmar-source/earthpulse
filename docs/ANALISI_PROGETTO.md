@@ -302,10 +302,16 @@ utile: i dati recenti sono proprio quelli che attirano. Propongo di limitare la
 
 ---
 
-## 5. Domande aperte
-1. Gas dal satellite: vanno bene grafico nel tempo + confronto con l'anno prima (1.5)?
-2. Piano Pro: quali limiti preferisci tra quelli proposti in 4.2?
-3. Nome: teniamo "EarthPulse" (da verificare come marchio) o ne valutiamo un altro?
+## 5. Decisioni (2 ottobre 2026)
+1. **Gas dal satellite**: grafico nel tempo sul luogo (ultimi 90 giorni di base, con scelta
+   30 / 90 / 365 giorni) + confronto con lo stesso periodo dell'anno prima.
+2. **Piano Pro**: limiti su numero di analisi al giorno, esportazioni (PDF/CSV/GeoTIFF),
+   luoghi salvati con avvisi automatici; piano istituzionale per università e PA.
+   La dimensione delle aree resta uguale per tutti.
+3. **Nome**: "EarthPulse" NON è utilizzabile per un prodotto commerciale: esiste già
+   EarthPulse S.L. (Barcellona, dal 2020), che vende analisi di dati satellitari in
+   abbonamento (earthpulse.ai). Si sceglie un nome nuovo (proposte nella conversazione),
+   da verificare su TMview/EUIPO, UIBM e domini prima di usarlo.
 
 ## Fonti principali
 - Copernicus Sentinel, nota legale: https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice
@@ -330,4 +336,5 @@ utile: i dati recenti sono proprio quelli che attirano. Propongo di limitare la
 - NASA SDO: https://sdo.gsfc.nasa.gov/data/ · https://sdo.gsfc.nasa.gov/data/rules.php
 - Fisco: https://fiscomania.com/regime-forfettario/ · https://fiscomania.com/regime-oss-e-regime-forfettario/ · https://www.studiomicera.it/vendere-saas-partita-iva-developer-2026/ · INPS 2026: https://www.tutelaprevidenziale.it/artigiani-e-commercianti-contributi-inps-2026-aliquote-minimali-scadenze-circolare-n-14-2026/ · ATECO: https://codiceateco2025.it/58.29
 - Pagamenti: https://www.paddle.com/pricing · https://www.lemonsqueezy.com/pricing · https://stripe.com/it/pricing
+- Omonimia del nome: https://datos.gob.es/en/companies/earthpulse · https://earthpulse.ai/
 - Cookie: https://www.garanteprivacy.it/temi/cookie · Marchi: https://www.tmdn.org/tmview

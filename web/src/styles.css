@@ -457,3 +457,9 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
 @media (max-width: 700px) {
   .topbar { flex-wrap: wrap; }
 }
+
+/* Grafico "stesso periodo, anni diversi" */
+.season-chart .range-band { fill: rgba(255, 255, 255, 0.07); }
+.season-chart .median-line { stroke: rgba(255, 255, 255, 0.55); stroke-width: 2; stroke-dasharray: 5 4; }
+.season-chart .pt { fill: #b9c6c0; stroke: #0b1a2e; stroke-width: 1.5; }
+.season-chart .pt.current { fill: var(--amber); stroke: #fff; stroke-width: 2; }

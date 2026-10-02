@@ -60,7 +60,10 @@ export default function PlacePanel({ place, onClose, onMethodology }) {
       <p className="eyebrow">Analisi del luogo</p>
       <h2>{place.name || `${formatCoord(place.lat, 'N', 'S')}, ${formatCoord(place.lon, 'E', 'O')}`}</h2>
       {place.name && (
-        <p className="muted small">{formatCoord(place.lat, 'N', 'S')}, {formatCoord(place.lon, 'E', 'O')}</p>
+        <p className="muted small">
+          {place.context && <>{place.context} · </>}
+          {formatCoord(place.lat, 'N', 'S')}, {formatCoord(place.lon, 'E', 'O')}
+        </p>
       )}
 
       <div className="tabs" role="tablist">
