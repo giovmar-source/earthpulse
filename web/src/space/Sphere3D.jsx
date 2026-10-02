@@ -136,7 +136,7 @@ export default function Sphere3D({ texture, flattening = 0, onTextureState, onPi
 
   // Cambio di corpo: nuova mappa (e schiacciamento ai poli per Giove)
   useEffect(() => {
-    const { material, mesh, camera } = state.current
+    const { material, mesh } = state.current
     if (!material) return
     let cancelled = false
     callbacks.current.onTextureState?.('loading')

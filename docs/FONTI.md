@@ -40,7 +40,15 @@ nel sito sotto ogni evento; quelle dei dati sono nella **Metodologia** del sito
 - Marte di notte all'infrarosso: [THEMIS Night IR, Mars Trek](https://trek.nasa.gov/tiles/Mars/EQ/THEMIS_NightIR_ControlledMosaics_100m_v2_oct2018/1.0.0/WMTSCapabilities.xml) (NASA/JPL/ASU)
 - Catalogo e API: [NASA Moon Trek](https://trek.nasa.gov/moon/index.html) · [Trek API](https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=moon) · [ricerca prodotti Trek](https://trek.nasa.gov/moon/TrekServices/ws/index/eq/searchItems?start=0&rows=60&key=Diviner)
 - Uso dei contenuti NASA: [NASA Images and Media Usage Guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/) (citare NASA come fonte, non suggerire che NASA approvi il prodotto)
-- Scartati per ora, perché i metadati Trek non danno la scala dei colori in numeri: Diviner (temperatura), Clementine FeO (ferro), Kaguya (gravità), MOLA a colori di Trek, TES (polvere, inerzia termica)
+- Luna, Lunar Prospector (torio, ferro, idrogeno, 0,5°): [prodotti speciali PDS](https://pds-geosciences.wustl.edu/missions/lunarp/reduced_special.html)
+- Luna, gravità GRAIL: [GRGM660PRIM, anomalia in aria libera](https://pds-geosciences.wustl.edu/grail/grail-l-lgrs-5-rdr-v1/grail_1001/rsdmap/gggrx_0660pm_anom_l320.lbl)
+- Marte, acqua (Mars Odyssey GRS): [elementi, PDS](https://pds-geosciences.wustl.edu/missions/odyssey/grs_elements.html)
+- Marte, inerzia termica (MGS TES): [prodotti speciali TES](https://pds-geosciences.wustl.edu/missions/mgs/tesspecial.html)
+- Marte, campo magnetico crostale (MGS MAG/ER): [Connerney et al. 2001, dati](https://mgs-mager.gsfc.nasa.gov/publications/grl_28_connerney/data/grl_28_connerney_data.html)
+- Mercurio, Mg/Si (MESSENGER XRS): [mappe XRS, PDS](https://pds.nasa.gov/ds-view/pds/viewProfile.jsp?dsid=MESS-H-XRS-3-RDR-MAPS-V1.0)
+- Cerere, idrogeno (Dawn GRaND): [mappe GRaND, PDS Small Bodies Node](https://sbn.psi.edu/pds/resource/dawn/dwncgrdmaps.html)
+- Mosaici Trek: Mercurio MESSENGER MDIS (MD3Color, EnhancedColor), Venere Magellan C3-MDIR, Cerere Dawn FC (DLR), Vesta Dawn HAMO TrueClr (DLR), Fobos Viking (DLR), Encelado (P. Schenk, LPI), Titano Cassini ISS 938 nm (E. Karkoschka): [portale Trek](https://trek.nasa.gov/)
+- Non usati, perché i metadati Trek non danno la scala dei colori in numeri: Diviner (temperatura), Clementine FeO, Kaguya (gravità), rilievi a colori di Trek. Non trovati su Trek: lune minori di Saturno, Plutone, Caronte, Tritone, Callisto
 
 ## Big Events
 

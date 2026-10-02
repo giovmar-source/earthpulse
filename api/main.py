@@ -27,6 +27,7 @@ from src import index_trend
 from src import sentinel5p
 from src import fci
 from src import planets
+from src import planet_layers
 from src.limits import heavy_task
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
@@ -1925,12 +1926,19 @@ def get_s5p_timeseries(
 # ENDPOINT: OLTRE LA TERRA (mappe tematiche di Luna e Marte)
 # ============================================================
 
-SPACE_BODY_PATTERN = "^(" + "|".join(planets.LAYERS) + ")$"
+SPACE_BODY_PATTERN = "^(" + "|".join(planet_layers.BODIES) + ")$"
+
+
+def _space_layer_or_404(body: str, layer: str) -> dict:
+    spec = planet_layers.BODIES[body]["layers"].get(layer)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"Mappa non disponibile: {layer}")
+    return spec
 
 
 @app.get("/api/v1/space/layers")
 def get_space_layers(body: str = Query(..., pattern=SPACE_BODY_PATTERN)):
-    """Mappe tematiche disponibili per un corpo celeste, con legenda e fonti."""
+    """Mappe disponibili per un corpo celeste (immagini e dati numerici), con fonti."""
     return {"body": body, "layers": planets.catalog(body)}
 
 
@@ -1939,9 +1947,8 @@ def get_space_layer(
     body: str = Query(..., pattern=SPACE_BODY_PATTERN),
     layer: str = Query(..., pattern=r"^[a-z_]{2,20}$"),
 ):
-    """Mappa globale (equirettangolare, JPEG) da avvolgere sulla sfera 3D."""
-    if layer not in planets.LAYERS[body]:
-        raise HTTPException(status_code=404, detail=f"Mappa non disponibile: {layer}")
+    """Mappa globale (equirettangolare, JPEG 2048 × 1024) da avvolgere sulla sfera 3D."""
+    _space_layer_or_404(body, layer)
     try:
         with heavy_task():
             data = planets.layer_image(body, layer)
@@ -1951,21 +1958,37 @@ def get_space_layer(
                     headers={"Cache-Control": "public, max-age=604800"})
 
 
-@app.get("/api/v1/space/elevation")
-def get_space_elevation(
-    body: str = Query(..., pattern="^(moon|mars)$"),
-    lat: float = Query(..., ge=-90, le=90),
-    lon: float = Query(..., ge=-180, le=180),
+@app.get("/api/v1/space/legend")
+def get_space_legend(
+    body: str = Query(..., pattern=SPACE_BODY_PATTERN),
+    layer: str = Query(..., pattern=r"^[a-z_]{2,20}$"),
 ):
-    """Altitudine di un punto della Luna o di Marte (griglia a 4 pixel per grado)."""
+    """Legenda con i numeri di una mappa numerica (le soglie possono dipendere dai dati)."""
+    spec = _space_layer_or_404(body, layer)
+    if spec["kind"] != "grid":
+        return spec.get("legend") or {}
     try:
-        value = planets.elevation_at(body, lat, lon)
+        with heavy_task():
+            return planets.layer_legend(body, layer)
     except planets.PlanetDataUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    spec = planets.DEMS[body]
-    return {"body": body, "lat": lat, "lon": lon, "elevation_m": round(value),
-            "reference": spec["reference"], "pixel_km": round(2 * 3.14159 * spec["radius_km"] / 1440, 1),
-            "attribution": spec["attribution"]}
+
+
+@app.get("/api/v1/space/point")
+def get_space_point(
+    body: str = Query(..., pattern=SPACE_BODY_PATTERN),
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    layers: str = Query("elevation", pattern=r"^[a-z_,]{2,120}$"),
+):
+    """Valori delle mappe numeriche richieste nel punto toccato sul globo."""
+    wanted = [k for k in layers.split(",") if k]
+    try:
+        with heavy_task():
+            values = planets.point(body, lat, lon, wanted)
+    except planets.PlanetDataUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"body": body, "lat": lat, "lon": lon, "values": values}
 
 
 # ============================================================

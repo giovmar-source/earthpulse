@@ -507,3 +507,4 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
 .point-box { border: 1px solid rgba(242, 179, 61, 0.5); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
 .point-box > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .point-box p { margin: 4px 0 0; }
+.point-values dd .muted { display: block; font-weight: 400; }

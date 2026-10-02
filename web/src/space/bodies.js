@@ -1,4 +1,6 @@
 // "Oltre la Terra": i corpi celesti mostrati e le loro schede.
+// I corpi con texture null usano la mappa "Immagine" preparata dal server
+// (mosaici NASA Solar System Treks): fonti in src/planet_layers.py.
 // Mappe: Luna, Marte e Giove da Solar System Scope (CC BY 4.0); lune di Giove
 // da mosaici USGS Astrogeology (pubblico dominio), elaborati dal progetto
 // open source amarcher/solar-system.
@@ -8,7 +10,7 @@ const USGS = 'Mappa: NASA/JPL/USGS Astrogeology (Voyager, Galileo), pubblico dom
 
 export const BODIES = [
   {
-    key: 'moon', name: 'Luna', group: 'Terra', texture: 'textures/space/moon.jpg', credit: SSS,
+    key: 'moon', name: 'Luna', group: 'Terra', texture: 'textures/space/moon.jpg', credit: SSS, live: { type: 'moon' },
     tagline: "L'unico satellite naturale della Terra, e l'unico altro mondo dove l'uomo ha camminato.",
     facts: [
       ['Diametro', '3474 km (poco più di un quarto della Terra)'],
@@ -25,7 +27,7 @@ export const BODIES = [
       'Programma Artemis (NASA, ESA e partner): il ritorno degli astronauti'],
   },
   {
-    key: 'mars', name: 'Marte', group: 'Pianeti', texture: 'textures/space/mars.jpg', credit: SSS,
+    key: 'mars', name: 'Marte', group: 'Pianeti', texture: 'textures/space/mars.jpg', credit: SSS, live: { type: 'planet', target: 'Mars', label: 'Marte' },
     tagline: 'Il pianeta rosso: deserti di ossidi di ferro, vulcani giganti e antichi letti di fiumi.',
     facts: [
       ['Diametro', '6779 km (circa metà della Terra)'],
@@ -42,7 +44,7 @@ export const BODIES = [
       'ExoMars Trace Gas Orbiter (ESA) misura i gas della sua atmosfera'],
   },
   {
-    key: 'jupiter', name: 'Giove', group: 'Giove', texture: 'textures/space/jupiter.jpg', credit: SSS,
+    key: 'jupiter', name: 'Giove', group: 'Giove', texture: 'textures/space/jupiter.jpg', credit: SSS, live: { type: 'jupiter' },
     tagline: 'Il gigante del Sistema solare: potrebbe contenere più di mille Terre.',
     facts: [
       ['Diametro', '139 820 km (11 volte la Terra)'],
@@ -57,7 +59,7 @@ export const BODIES = [
     missions: ['Juno (NASA) in orbita dal 2016, vola sopra i poli', 'JUICE (ESA) e Europa Clipper (NASA) in viaggio verso le sue lune'],
   },
   {
-    key: 'io', name: 'Io', group: 'Giove', texture: 'textures/space/io.jpg', credit: USGS,
+    key: 'io', name: 'Io', group: 'Giove', texture: 'textures/space/io.jpg', credit: USGS, live: { type: 'jupiter' },
     tagline: 'Il mondo più vulcanico del Sistema solare.',
     facts: [
       ['Diametro', '3643 km (come la nostra Luna)'],
@@ -69,7 +71,7 @@ export const BODIES = [
     missions: ['Galileo (NASA, 1995-2003)', 'Juno (NASA): sorvoli ravvicinati nel 2023 e 2024'],
   },
   {
-    key: 'europa', name: 'Europa', group: 'Giove', texture: 'textures/space/europa.jpg', credit: USGS,
+    key: 'europa', name: 'Europa', group: 'Giove', texture: 'textures/space/europa.jpg', credit: USGS, live: { type: 'jupiter' },
     tagline: 'Sotto il ghiaccio, un oceano di acqua salata più grande di tutti quelli terrestri.',
     facts: [
       ['Diametro', '3122 km'],
@@ -81,7 +83,7 @@ export const BODIES = [
     missions: ['Europa Clipper (NASA): lanciata nel 2024, arrivo previsto nel 2030', 'JUICE (ESA): due sorvoli previsti'],
   },
   {
-    key: 'ganymede', name: 'Ganimede', group: 'Giove', texture: 'textures/space/ganymede.jpg', credit: USGS,
+    key: 'ganymede', name: 'Ganimede', group: 'Giove', texture: 'textures/space/ganymede.jpg', credit: USGS, live: { type: 'jupiter' },
     tagline: 'La luna più grande del Sistema solare: è più grande del pianeta Mercurio.',
     facts: [
       ['Diametro', '5268 km'],
@@ -93,7 +95,7 @@ export const BODIES = [
     missions: ['JUICE (ESA): lanciata nel 2023, entrerà in orbita intorno a Ganimede nel 2034'],
   },
   {
-    key: 'callisto', name: 'Callisto', group: 'Giove', texture: 'textures/space/callisto.jpg', credit: USGS,
+    key: 'callisto', name: 'Callisto', group: 'Giove', texture: 'textures/space/callisto.jpg', credit: USGS, live: { type: 'jupiter' },
     tagline: 'La superficie più craterizzata del Sistema solare: un archivio di 4 miliardi di anni.',
     facts: [
       ['Diametro', '4821 km'],
@@ -103,5 +105,104 @@ export const BODIES = [
     story: 'Quasi niente ha cambiato la sua superficie dalla nascita del Sistema solare: ogni cratere ' +
       'è rimasto lì. Il grande bacino Valhalla, con i suoi anelli, è largo circa 3800 km.',
     missions: ['Galileo (NASA, 1995-2003)', 'JUICE (ESA): numerosi sorvoli previsti'],
+  },
+  // ---- Corpi con mappe scaricate dal server (NASA Solar System Treks): texture null
+  {
+    key: 'phobos', name: 'Fobos', group: 'Marte', texture: null, live: { type: 'planet', target: 'Mars', label: 'Marte' },
+    tagline: 'La luna più grande di Marte: un sasso di 27 km che un giorno si sbriciolerà.',
+    facts: [
+      ['Dimensioni', '27 × 22 × 18 km (non è sferico: qui è disegnato come una sfera)'],
+      ['Distanza da Marte', 'circa 6000 km dalla superficie'],
+      ['Un giro intorno a Marte', '7 ore e 39 minuti, più veloce di un giorno marziano'],
+    ],
+    story: 'Gira così vicino a Marte che le maree lo avvicinano di quasi 2 metri ogni secolo: tra qualche ' +
+      'decina di milioni di anni si spezzerà in un anello o cadrà sul pianeta. Il grande cratere Stickney ' +
+      'è largo 9 km, un terzo della luna.',
+    missions: ['Mars Express (ESA): numerosi sorvoli ravvicinati', 'MMX (JAXA): missione per raccoglierne campioni e riportarli sulla Terra'],
+  },
+  {
+    key: 'mercury', name: 'Mercurio', group: 'Pianeti', texture: null, live: { type: 'planet', target: 'Mercury', label: 'Mercurio' },
+    tagline: 'Il pianeta più piccolo e più vicino al Sole, con un nucleo di ferro enorme.',
+    facts: [
+      ['Diametro', '4879 km (poco più grande della Luna)'],
+      ['Distanza dal Sole', 'circa 58 milioni di km'],
+      ['Un anno', '88 giorni terrestri'],
+      ['Un giorno (da un\'alba all\'altra)', '176 giorni terrestri'],
+      ['Temperatura', 'da −180 °C di notte a +430 °C di giorno'],
+    ],
+    story: 'Il nucleo metallico occupa circa l\'85% del raggio del pianeta. Nonostante il caldo, nei crateri ' +
+      'vicino ai poli, sempre in ombra, MESSENGER ha trovato ghiaccio d\'acqua.',
+    missions: ['MESSENGER (NASA): in orbita dal 2011 al 2015, ha mappato tutto il pianeta',
+      'BepiColombo (ESA e JAXA): ingresso in orbita previsto a fine 2026'],
+  },
+  {
+    key: 'venus', name: 'Venere', group: 'Pianeti', texture: null, live: { type: 'planet', target: 'Venus', label: 'Venere' },
+    tagline: 'Il pianeta più caldo: sotto nubi di acido solforico, una superficie vista solo con il radar.',
+    facts: [
+      ['Diametro', '12 104 km (quasi come la Terra)'],
+      ['Distanza dal Sole', 'circa 108 milioni di km'],
+      ['Un giorno (rotazione)', '243 giorni terrestri, al contrario degli altri pianeti'],
+      ['Un anno', '225 giorni terrestri'],
+      ['Al suolo', 'circa 464 °C e una pressione 92 volte quella terrestre'],
+    ],
+    story: 'Le nubi nascondono sempre la superficie: la mappa è un\'immagine radar della sonda Magellan. ' +
+      'Le zone chiare sono terreni ruvidi, come colate di lava e montagne; quelle scure pianure lisce.',
+    missions: ['Magellan (NASA, 1990-1994): ha mappato con il radar il 98% della superficie',
+      'Venus Express (ESA, 2006-2014) e Akatsuki (JAXA, 2015-2024) hanno studiato l\'atmosfera',
+      'EnVision (ESA), VERITAS e DAVINCI (NASA): missioni previste negli anni 2030'],
+  },
+  {
+    key: 'ceres', name: 'Cerere', group: 'Asteroidi', texture: null, live: null,
+    tagline: 'Il pianeta nano della fascia degli asteroidi, con macchie di sale lucenti.',
+    facts: [
+      ['Diametro', 'circa 940 km'],
+      ['Distanza dal Sole', 'circa 414 milioni di km (tra Marte e Giove)'],
+      ['Un giorno', '9 ore'],
+      ['Un anno', '4,6 anni terrestri'],
+    ],
+    story: 'È l\'oggetto più grande della fascia degli asteroidi. Le macchie chiare del cratere Occator sono ' +
+      'depositi di sali (carbonato di sodio) lasciati da acqua salata risalita dall\'interno.',
+    missions: ['Dawn (NASA): in orbita dal 2015 al 2018'],
+  },
+  {
+    key: 'vesta', name: 'Vesta', group: 'Asteroidi', texture: null, live: null,
+    tagline: 'Un mondo mancato: un asteroide con crosta, mantello e nucleo, come un piccolo pianeta.',
+    facts: [
+      ['Diametro medio', 'circa 525 km'],
+      ['Distanza dal Sole', 'circa 353 milioni di km'],
+      ['Un giorno', '5 ore e 20 minuti'],
+      ['Un anno', '3,6 anni terrestri'],
+    ],
+    story: 'Al polo sud c\'è il bacino da impatto Rheasilvia, largo circa 500 km, con un picco centrale ' +
+      'tra i più alti del Sistema solare. Molti meteoriti caduti sulla Terra (le eucriti) vengono da Vesta.',
+    missions: ['Dawn (NASA): in orbita dal 2011 al 2012'],
+  },
+  {
+    key: 'enceladus', name: 'Encelado', group: 'Saturno', texture: null, live: { type: 'planet', target: 'Saturn', label: 'Saturno' },
+    tagline: 'Una luna di ghiaccio che spruzza nello spazio l\'acqua del suo oceano.',
+    facts: [
+      ['Diametro', '504 km'],
+      ['Distanza da Saturno', 'circa 238 000 km'],
+      ['Un giro intorno a Saturno', '1,4 giorni'],
+    ],
+    story: 'Dalle "strisce di tigre" vicino al polo sud escono getti di vapore e cristalli di ghiaccio che ' +
+      'alimentano uno degli anelli di Saturno. Vengono da un oceano sotto la crosta: Cassini li ha attraversati ' +
+      'e vi ha trovato sali e molecole organiche. I colori della mappa sono potenziati.',
+    missions: ['Cassini (NASA, ESA, ASI): intorno a Saturno dal 2004 al 2017'],
+  },
+  {
+    key: 'titan', name: 'Titano', group: 'Saturno', texture: null, live: { type: 'planet', target: 'Saturn', label: 'Saturno' },
+    tagline: 'La luna con un\'atmosfera più densa della nostra e laghi di metano.',
+    facts: [
+      ['Diametro', '5150 km (più grande di Mercurio)'],
+      ['Distanza da Saturno', 'circa 1,2 milioni di km'],
+      ['Un giro intorno a Saturno', '16 giorni'],
+      ['Al suolo', 'circa −180 °C e una pressione 1,5 volte quella terrestre'],
+    ],
+    story: 'Una foschia arancione nasconde la superficie: la mappa è ripresa nel vicino infrarosso, che la ' +
+      'attraversa. Ci sono dune, fiumi e laghi, ma di metano ed etano liquidi. Nel 2005 la sonda europea ' +
+      'Huygens è atterrata sulla sua superficie.',
+    missions: ['Cassini-Huygens (NASA, ESA, ASI): 2004-2017, con l\'atterraggio di Huygens nel 2005',
+      'Dragonfly (NASA): un drone che volerà su Titano, arrivo previsto nel 2034'],
   },
 ]

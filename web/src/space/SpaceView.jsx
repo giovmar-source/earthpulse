@@ -6,8 +6,11 @@ import { BODIES } from './bodies.js'
 import { jupiterMoonsNow, moonNow, planetNow } from './live.js'
 
 const GROUPS = [
-  { title: 'Vicino a noi', keys: ['moon', 'mars'] },
+  { title: 'Vicino a noi', keys: ['moon', 'mars', 'phobos'] },
+  { title: 'Pianeti interni', keys: ['mercury', 'venus'] },
+  { title: 'Fascia degli asteroidi', keys: ['ceres', 'vesta'] },
   { title: 'Giove e le sue lune', keys: ['jupiter', 'io', 'europa', 'ganymede', 'callisto'] },
+  { title: 'Saturno', keys: ['enceladus', 'titan'] },
 ]
 const GALILEAN = ['io', 'europa', 'ganymede', 'callisto']
 const MOON_LABEL = { io: 'Io', europa: 'Europa', ganymede: 'Ganimede', callisto: 'Callisto' }
@@ -73,11 +76,13 @@ function JupiterSky({ data: raw, highlight }) {
 
 function LiveBox({ body, now }) {
   const live = useMemo(() => {
-    if (body.key === 'moon') return { moon: moonNow(now) }
-    if (body.key === 'mars') return { planet: planetNow('Mars', now) }
+    if (!body.live) return null
+    if (body.live.type === 'moon') return { moon: moonNow(now) }
+    if (body.live.type === 'planet') return { planet: planetNow(body.live.target, now), label: body.live.label }
     return { jupiter: jupiterMoonsNow(now) }
-  }, [body.key, now])
+  }, [body.live, now])
 
+  if (!live) return null
   if (live.moon) {
     const m = live.moon
     return (
@@ -91,7 +96,7 @@ function LiveBox({ body, now }) {
   if (live.planet) {
     return (
       <div className="live">
-        <span className="live-dot" /> Adesso Marte è a <strong>{millionKm(live.planet.distanceKm)}</strong> dalla
+        <span className="live-dot" /> Adesso {live.label} è a <strong>{millionKm(live.planet.distanceKm)}</strong> dalla
         Terra: la sua luce impiega {Math.round(live.planet.lightMinutes)} minuti ad arrivare fino a noi.
       </div>
     )
@@ -114,8 +119,8 @@ function LiveBox({ body, now }) {
   )
 }
 
-// Corpi con mappe tematiche e altitudine calcolate dal server
-const MAPPED = ['moon', 'mars']
+// Corpi con mappe preparate dal server (gli altri hanno solo la mappa nel sito)
+const SERVER_BODIES = ['moon', 'mars', 'phobos', 'mercury', 'venus', 'ceres', 'vesta', 'enceladus', 'titan']
 
 function formatLat(lat) {
   return `${Math.abs(lat).toLocaleString('it-IT', { maximumFractionDigits: 1 })}° ${lat >= 0 ? 'N' : 'S'}`
@@ -140,56 +145,107 @@ function SpaceLegend({ legend }) {
       <div className="legend-bar" style={{ background: `linear-gradient(90deg, ${gradient})` }} />
       <div className="legend-ticks">
         {legend.labels.map((l, i) => (
-          <span key={l} style={{ left: `${legend.positions[i] * 100}%` }}>{l}</span>
+          // Con molte soglie scriviamo una etichetta sì e una no (sempre la prima e l'ultima)
+          (legend.labels.length <= 7 || i % 2 === 0 || i === legend.labels.length - 1) && (
+            <span key={l} style={{ left: `${legend.positions[i] * 100}%` }}>{l}</span>
+          )
         ))}
       </div>
     </div>
   )
 }
 
-/** Punto toccato sul globo: coordinate e altitudine. */
-function PointBox({ body, point, onClear }) {
+function formatValue(value, digits) {
+  return value.toLocaleString('it-IT', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+}
+
+/** Punto toccato sul globo: coordinate e valori delle mappe numeriche. */
+function PointBox({ body, point, layers, onClear }) {
   const result = useApi(
-    (signal) => getJson('/api/v1/space/elevation',
-      { body, lat: point.lat.toFixed(3), lon: point.lon.toFixed(3) }, { signal }),
-    [body, point.lat, point.lon],
+    (signal) => getJson('/api/v1/space/point',
+      { body, lat: point.lat.toFixed(3), lon: point.lon.toFixed(3), layers: layers.join(',') }, { signal }),
+    [body, point.lat, point.lon, layers.join(',')],
+    layers.length > 0,
   )
-  const e = result.status === 'ok' ? result.data : null
+  const values = result.status === 'ok' ? result.data.values : []
   return (
     <div className="point-box">
       <div>
         <strong>{formatLat(point.lat)}, {formatLon(point.lon)}</strong>
         <button className="link" onClick={onClear}>Togli il punto</button>
       </div>
-      {result.status === 'error' && <p className="muted small">Altitudine non disponibile: {result.error}</p>}
-      {(result.status === 'loading' || result.status === 'idle') && <p className="muted small">Lettura dell'altitudine…</p>}
-      {e && (
-        <p className="small">
-          Altitudine <strong>{e.elevation_m > 0 ? '+' : ''}{e.elevation_m.toLocaleString('it-IT')} m</strong>{' '}
-          <span className="muted">rispetto al {e.reference}; media su un pixel di circa {e.pixel_km.toLocaleString('it-IT')} km.</span>
-        </p>
+      {result.status === 'error' && <p className="muted small">Valori non disponibili: {result.error}</p>}
+      {result.status === 'loading' && <p className="muted small">Lettura dei valori…</p>}
+      {values.length > 0 && (
+        <dl className="facts point-values">
+          {values.map((v) => (
+            <div key={v.key}>
+              <dt>{v.label}</dt>
+              <dd>
+                {v.value == null
+                  ? <span className="muted">nessun dato qui</span>
+                  : <><strong>{v.key === 'elevation' && v.value > 0 ? '+' : ''}{formatValue(v.value, v.digits)} {v.unit}</strong>
+                    {v.reference && <span className="muted small"> {v.reference}</span>}
+                    <span className="muted small"> · pixel di {v.pixel_km.toLocaleString('it-IT')} km</span></>}
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
+      {values.length > 0 && <p className="muted small">Ogni valore è quello del pixel della mappa che contiene il punto.</p>}
     </div>
   )
 }
 
-/** "Oltre la Terra": Luna, Marte, Giove e le sue lune in 3D. */
+/** Legenda di una mappa: dal catalogo o, per le scale calcolate sui dati, dal server. */
+function LayerLegend({ body, layer }) {
+  const needsServer = layer.numeric && !layer.legend
+  const result = useApi(
+    (signal) => getJson('/api/v1/space/legend', { body, layer: layer.key }, { signal }),
+    [body, layer.key],
+    needsServer,
+  )
+  const legend = layer.legend || (result.status === 'ok' ? result.data : null)
+  if (!legend) return needsServer && result.status === 'loading' ? <p className="muted small">Preparazione della legenda…</p> : null
+  return (
+    <>
+      <SpaceLegend legend={legend} />
+      {legend.no_data && (
+        <p className="muted small"><span className="swatch inline" style={{ background: legend.no_data }} /> Nessun dato</p>
+      )}
+    </>
+  )
+}
+
+/** "Oltre la Terra": Luna, pianeti, asteroidi e lune in 3D, con le mappe del telerilevamento. */
 export default function SpaceView({ onClose }) {
   const [key, setKey] = useState('moon')
   const [mapKey, setMapKey] = useState('photo')
   const [point, setPoint] = useState(null)
   const [textureState, setTextureState] = useState('ok')
   const body = BODIES.find((b) => b.key === key)
-  const mapped = MAPPED.includes(key)
+  const fromServer = SERVER_BODIES.includes(key)
   const now = useNow()
-  const layers = useApi(
+  const catalog = useApi(
     (signal) => getJson('/api/v1/space/layers', { body: key }, { signal }),
     [key],
-    mapped,
+    fromServer,
   )
-  const available = mapped && layers.status === 'ok' ? layers.data.layers : []
-  const layer = available.find((l) => l.key === mapKey) || null
-  const texture = layer ? apiUrl(layer.image) : body.texture
+  const all = fromServer && catalog.status === 'ok' ? catalog.data.layers : []
+  const photo = all.find((l) => l.key === 'photo')
+  const extra = all.filter((l) => l.key !== 'photo')
+  const layer = extra.find((l) => l.key === mapKey) || null
+  const numeric = all.filter((l) => l.numeric)
+  // Valori nel punto: altitudine (se c'è) e la mappa numerica mostrata
+  const pointLayers = [...new Set([
+    ...numeric.filter((l) => l.key === 'elevation').map((l) => l.key),
+    ...(layer?.numeric ? [layer.key] : []),
+  ])]
+  const pickable = numeric.length > 0
+  let texture = body.texture
+  if (layer) texture = apiUrl(layer.image)
+  else if (!body.texture && photo) texture = apiUrl(photo.image)
+  const credit = body.credit || photo?.attribution
 
   function choose(k) {
     setKey(k)
@@ -200,16 +256,21 @@ export default function SpaceView({ onClose }) {
   return (
     <div className="space">
       <div className="space-stage">
-        <Sphere3D texture={texture} flattening={key === 'jupiter' ? 0.065 : 0}
-          onTextureState={setTextureState} onPick={mapped ? setPoint : undefined} marker={point} />
-        {textureState === 'loading' && layer && (
+        {texture && (
+          <Sphere3D texture={texture} flattening={key === 'jupiter' ? 0.065 : 0}
+            onTextureState={setTextureState} onPick={pickable ? setPoint : undefined} marker={point} />
+        )}
+        {(textureState === 'loading' || !texture) && fromServer && catalog.status !== 'error' && (
           <p className="space-status"><span className="spinner" /> Preparazione della mappa… la prima volta può servire un minuto.</p>
         )}
-        {textureState === 'error' && layer && (
+        {textureState === 'error' && (
           <p className="space-status error">Mappa non disponibile in questo momento. Riprova più tardi.</p>
         )}
+        {catalog.status === 'error' && !body.texture && (
+          <p className="space-status error">Mappa non disponibile: {catalog.error}</p>
+        )}
         <p className="space-hint">
-          Trascina per girare · rotella o due dita per avvicinarti{mapped && ' · tocca un punto per leggerne l\'altitudine'}
+          Trascina per girare · rotella o due dita per avvicinarti{pickable && ' · tocca un punto per leggerne i valori'}
         </p>
       </div>
       <aside className="panel wide space-panel">
@@ -230,31 +291,32 @@ export default function SpaceView({ onClose }) {
         <h2>{body.name}</h2>
         <p className="muted">{body.tagline}</p>
         <LiveBox body={body} now={now} />
-        {mapped && (
+        {extra.length > 0 && (
           <div className="space-maps">
-            <p className="eyebrow spaced">Mappa sul globo</p>
+            <p className="eyebrow spaced">Mappe dal telerilevamento</p>
             <div className="chips">
-              <button className={!layer ? 'chip on' : 'chip'} onClick={() => setMapKey('photo')}>Immagine</button>
-              {available.map((l) => (
+              <button className={!layer ? 'chip on' : 'chip'} onClick={() => setMapKey('photo')}>
+                {photo?.label || 'Immagine'}
+              </button>
+              {extra.map((l) => (
                 <button key={l.key} className={layer?.key === l.key ? 'chip on' : 'chip'} onClick={() => setMapKey(l.key)}>
                   {l.label}
                 </button>
               ))}
-              {layers.status === 'loading' && <span className="muted small">Carico le mappe…</span>}
             </div>
-            {layers.status === 'error' && <p className="muted small">Mappe tematiche non disponibili: {layers.error}</p>}
             {layer && (
               <>
-                <SpaceLegend legend={layer.legend} />
-                <p className="small">{layer.caption}</p>
+                <LayerLegend key={layer.key} body={key} layer={layer} />
+                {layer.caption && <p className="small">{layer.caption}</p>}
                 <p className="credit">{layer.attribution}</p>
               </>
             )}
-            {point
-              ? <PointBox body={key} point={point} onClear={() => setPoint(null)} />
-              : <p className="muted small">Tocca un punto del globo per leggerne coordinate e altitudine.</p>}
           </div>
         )}
+        {fromServer && catalog.status === 'loading' && <p className="muted small">Carico le mappe disponibili…</p>}
+        {pickable && (point
+          ? <PointBox body={key} point={point} layers={pointLayers.length ? pointLayers : [numeric[0].key]} onClear={() => setPoint(null)} />
+          : <p className="muted small">Tocca un punto del globo per leggerne le coordinate e i valori misurati.</p>)}
         <p>{body.story}</p>
         <dl className="facts">
           {body.facts.map(([label, value]) => (
@@ -265,7 +327,7 @@ export default function SpaceView({ onClose }) {
           <p className="eyebrow">Chi lo osserva</p>
           <ul className="missions">{body.missions.map((m) => <li key={m}>{m}</li>)}</ul>
         </div>
-        <p className="credit">{body.credit}. Posizioni calcolate nel browser con astronomy-engine.</p>
+        {credit && <p className="credit">{credit}. Posizioni calcolate nel browser con astronomy-engine.</p>}
       </aside>
     </div>
   )

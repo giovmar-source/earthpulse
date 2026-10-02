@@ -504,11 +504,23 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Altitudine di Luna e Marte: griglie originali degli altimetri laser LOLA (Lunar Reconnaissance Orbiter, file LDEM_4) e MOLA (Mars Global Surveyor, file MEGDR MEGT90N000CB), dall'archivio PDS Geosciences Node della NASA, di pubblico dominio. Risoluzione 4 pixel per grado: circa 7,6 km per pixel all'equatore sulla Luna e 14,8 km su Marte. Le quote sono in metri rispetto al raggio medio di 1737,4 km (Luna) e all'areoide, il \"livello del mare\" di Marte. La scala dei colori va da viola (in basso) a bianco (in cima) con soglie fisse in km; l'ombreggiatura del rilievo ha luce da nord-ovest e rilievo esagerato 3 volte. Il valore di un punto toccato sul globo è quello del pixel della griglia che lo contiene."
+        "Altri corpi: Mercurio, Venere, Cerere, Vesta, Fobos, Encelado e Titano usano i mosaici globali di NASA Solar System Treks (MESSENGER, Magellan, Dawn, Viking, Cassini), uniti dal server in una mappa di 2048 × 1024 pixel. Venere è un'immagine radar: le nubi nascondono la superficie. Titano è ripreso a 938 nm, nel vicino infrarosso che attraversa la foschia. Fobos non è sferico (27 × 22 × 18 km): la sfera è un'approssimazione. Encelado e la mappa \"Colori potenziati\" di Mercurio sono a falsi colori."
       ],
       [
         "b",
-        "Roccia o polvere (Marte): mosaico notturno della camera infrarossa THEMIS (Mars Odyssey, NASA/JPL/Arizona State University) dalle tessere di NASA Solar System Treks. Di notte le superfici che trattengono il calore (roccia, suolo compatto) restano più calde e appaiono chiare; polvere e sabbia fine si raffreddano in fretta e appaiono scure. È una lettura qualitativa dell'inerzia termica, senza valori numerici."
+        "Mappe con valori numerici: il server scarica i dati originali dal Planetary Data System della NASA (pubblico dominio), li porta tutti alla stessa griglia (nord in alto, longitudine da 180° O a 180° E, al massimo 4 pixel per grado) e li colora. Le soglie sono fisse per l'altitudine e calcolate sui dati per le altre mappe (dal 2° al 98° percentile, arrotondate); le scale divergenti (gravità, magnetismo) sono simmetriche attorno a zero. Il grigio indica dove il dato manca. Toccando il globo si legge il valore del pixel che contiene il punto, con la sua dimensione."
+      ],
+      [
+        "b",
+        "Luna: altitudine LRO LOLA (LDEM_4, metri rispetto a 1737,4 km); torio (ppm), ossido di ferro (% in peso) e idrogeno (ppm) da Lunar Prospector, celle di 0,5° (Lawrence et al.); anomalia di gravità in aria libera da GRAIL (modello GRGM660PRIM fino al grado 320, milligal)."
+      ],
+      [
+        "b",
+        "Marte: altitudine MGS MOLA (MEGDR, metri rispetto all'areoide); acqua nel suolo da Mars Odyssey GRS (% in peso, celle di 5°, alte latitudini escluse; Boynton et al. 2007); inerzia termica da MGS TES (J m⁻² K⁻¹ s⁻½, tra 60° N e 50° S); componente radiale del campo magnetico crostale a 400 km di quota da MGS MAG/ER (nT, celle di 1°; Connerney et al. 2001); infrarosso notturno THEMIS (qualitativo)."
+      ],
+      [
+        "b",
+        "Mercurio: rapporto magnesio/silicio dallo spettrometro a raggi X di MESSENGER (celle di 0,25°, copertura parziale; Nittler et al. 2020). Cerere: idrogeno come percentuale di acqua equivalente dallo spettrometro GRaND di Dawn (risoluzione di circa 600 km; Prettyman et al.)."
       ]
     ]
   },
@@ -607,7 +619,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; altitudine LRO LOLA e MGS MOLA dal NASA PDS Geosciences Node (pubblico dominio); THEMIS notturno NASA/JPL/ASU tramite NASA Solar System Treks; calcoli astronomici con astronomy-engine (MIT)."
+        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; dati LRO LOLA, Lunar Prospector, GRAIL, MGS MOLA/TES/MAG, Mars Odyssey GRS, MESSENGER XRS e Dawn GRaND dal NASA Planetary Data System (pubblico dominio); mosaici MESSENGER, Magellan, Dawn, Viking, Cassini e THEMIS tramite NASA Solar System Treks; calcoli astronomici con astronomy-engine (MIT)."
       ]
     ]
   }

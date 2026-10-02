@@ -24,9 +24,11 @@ Analisi completa delle scelte: `docs/ANALISI_PROGETTO.md`. Fonti: `docs/FONTI.md
 
 ## Fase 2 · Oltre la Terra
 - [x] Mappe tematiche: altitudine di Luna e Marte (LOLA, MOLA dal PDS, legenda in km, altitudine del punto toccato) e "Roccia o polvere" su Marte (THEMIS notturno)
-- [ ] Altre mappe con scala numerica: temperatura della Luna (Diviner), ferro (Clementine), gravità: servono i file di dati originali, non le immagini Trek a colori
+- [ ] Altre mappe con scala numerica: temperatura della Luna (Diviner, file grandi: lettura a pezzi), gravità di Venere (Magellan), forme vere di Fobos e Vesta (modelli 3D)
 - [ ] Altitudine più dettagliata (16 pixel per grado) e nomi dei crateri e dei luoghi (IAU Gazetteer) sul punto toccato
-- [ ] Nuovi corpi con immagini reali: Mercurio, Cerere, Vesta, Fobos, lune di Saturno, Sole dal vivo (SDO); parziali Plutone, Caronte, Tritone
+- [x] Nuovi corpi con immagini reali: Mercurio, Venere, Cerere, Vesta, Fobos, Encelado, Titano
+- [x] Dati del telerilevamento con valori numerici: Luna (torio, ferro, idrogeno, gravità), Marte (acqua, inerzia termica, magnetismo), Mercurio (magnesio), Cerere (idrogeno); tocco sul globo con tutti i valori
+- [ ] Ancora da fare: Sole dal vivo (SDO); lune minori di Saturno, Plutone, Caronte (fonti da trovare fuori da Trek)
 - [ ] Orbite delle sonde (JPL Horizons): LRO, Danuri, MRO, Mars Express, MAVEN, TGO, Juno…
 
 ## Fase 3 · Pronto per la vendita (tecnico)
