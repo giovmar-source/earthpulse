@@ -82,14 +82,14 @@ function satelliteTracks(satellites, now) {
  * Globo 3D (MapLibre GL, proiezione "globe") con i satelliti in tempo reale:
  * punto sotto il satellite, traccia a terra dell'orbita (tratteggiata) e nome.
  */
-export default function Globe({ satellites, selectedNorad, onSelectSatellite, onSelectPlace, flyTarget, area, wide }) {
+export default function Globe({ satellites, selectedNorad, onSelectSatellite, onSelectPlace, flyTarget, area, wide, events, onSelectEvent }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const readyRef = useRef(false)
   const satellitesRef = useRef(satellites)
   const markerRef = useRef(null)
-  const callbacks = useRef({ onSelectSatellite, onSelectPlace })
-  callbacks.current = { onSelectSatellite, onSelectPlace }
+  const callbacks = useRef({ onSelectSatellite, onSelectPlace, onSelectEvent })
+  callbacks.current = { onSelectSatellite, onSelectPlace, onSelectEvent }
   satellitesRef.current = satellites
   const wideRef = useRef(wide)
   wideRef.current = wide
@@ -136,6 +136,23 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
         id: 'area-line', type: 'line', source: 'area',
         paint: { 'line-color': '#F2B33D', 'line-width': 2 },
       })
+      // Big Events: un punto per evento (visibile solo con il pannello aperto)
+      map.addSource('events', { type: 'geojson', data: emptyCollection() })
+      map.addLayer({
+        id: 'events-dot', type: 'circle', source: 'events',
+        paint: {
+          'circle-radius': 7, 'circle-color': '#ff6b4a',
+          'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2,
+        },
+      })
+      map.addLayer({
+        id: 'events-label', type: 'symbol', source: 'events',
+        layout: {
+          'text-field': ['get', 'title'], 'text-font': ['Noto Sans Regular'], 'text-size': 11.5,
+          'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true,
+        },
+        paint: { 'text-color': '#ffd9cf', 'text-halo-color': '#0b1a2e', 'text-halo-width': 1.5 },
+      })
       map.addSource('tracks', { type: 'geojson', data: emptyCollection() })
       map.addSource('sats', { type: 'geojson', data: emptyCollection() })
 
@@ -174,6 +191,11 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
 
       // Clic: su un satellite apre la sua scheda, altrove sceglie un luogo
       map.on('click', (event) => {
+        const eventHit = map.queryRenderedFeatures(event.point, { layers: ['events-dot'] })
+        if (eventHit.length > 0 && callbacks.current.onSelectEvent) {
+          callbacks.current.onSelectEvent(eventHit[0].properties.id)
+          return
+        }
         const hit = map.queryRenderedFeatures(event.point, { layers: ['sats-dot', 'sats-halo'] })
         if (hit.length > 0) {
           callbacks.current.onSelectSatellite(hit[0].properties.norad)
@@ -182,10 +204,13 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
         }
       })
       map.on('mouseenter', 'sats-halo', () => { map.getCanvas().style.cursor = 'pointer' })
+      map.on('mouseenter', 'events-dot', () => { map.getCanvas().style.cursor = 'pointer' })
+      map.on('mouseleave', 'events-dot', () => { map.getCanvas().style.cursor = '' })
       map.on('mouseleave', 'sats-halo', () => { map.getCanvas().style.cursor = '' })
 
       readyRef.current = true
       map.drawArea?.()
+      map.drawEvents?.()
       refreshTracks()
       refreshPositions()
     })
@@ -241,6 +266,21 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
     map.drawArea = () => map.getSource('area')?.setData(area ? squareAround(area.lat, area.lon, area.sideKm) : emptyCollection())
     if (readyRef.current) map.drawArea()
   }, [area])
+
+  // Punti dei Big Events
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    map.drawEvents = () => map.getSource('events')?.setData({
+      type: 'FeatureCollection',
+      features: (events || []).map((e) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [e.longitude, e.latitude] },
+        properties: { id: e.id, title: e.title },
+      })),
+    })
+    if (readyRef.current) map.drawEvents()
+  }, [events])
 
   // Volo verso un punto (satellite o luogo scelto) e segnaposto del luogo
   useEffect(() => {

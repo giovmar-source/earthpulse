@@ -493,6 +493,27 @@ export const METHODOLOGY = [
     ]
   },
   {
+    "title": "Big Events",
+    "items": [
+      [
+        "p",
+        "Ogni evento ha luogo, area (da 4 a 12 km di lato), data e due finestre di tempo \"prima\" e \"dopo\" in cui cerchiamo le immagini più limpide. Per gli eventi recenti usiamo Sentinel-2 (10 m), per i cambiamenti di decenni l'archivio Landsat (30 m)."
+      ],
+      [
+        "b",
+        "Dopo una verifica visiva alcune scene sono fissate per avere risposte rapide e sempre uguali."
+      ],
+      [
+        "b",
+        "I testi e i numeri di ogni evento vengono dalle fonti elencate sotto l'evento (agenzie spaziali, servizi Copernicus, articoli scientifici, enciclopedie): i dati sulle vittime possono cambiare con il tempo."
+      ],
+      [
+        "b",
+        "Durante alluvioni e incendi il cielo è spesso coperto: l'immagine \"dopo\" è la prima abbastanza limpida, non sempre il momento peggiore."
+      ]
+    ]
+  },
+  {
     "title": "7 · Limiti",
     "items": [
       [

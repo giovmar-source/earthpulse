@@ -2,7 +2,7 @@
 
 Il sito di EarthPulse: globo 3D con i satelliti in tempo reale e analisi di qualsiasi
 luogo (vegetazione, immagini e indici, isole di calore, luci notturne, archivio dal 1984).
-Usa lo stesso backend FastAPI dell'app Android. I prossimi passi sono in `ROADMAP.md`.
+Usa lo stesso backend FastAPI dell'app Android. I prossimi passi sono in `ROADMAP.md`, le fonti in `docs/FONTI.md`.
 
 ## Avviarlo sul PC
 

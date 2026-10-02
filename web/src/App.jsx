@@ -3,6 +3,8 @@ import Globe from './Globe.jsx'
 import PlacePanel from './place/PlacePanel.jsx'
 import SearchBox from './SearchBox.jsx'
 import MethodologyPanel from './MethodologyPanel.jsx'
+import BigEvents from './events/BigEvents.jsx'
+import { getJson } from './api.js'
 
 // three.js serve solo qui: si scarica quando apri "Oltre la Terra"
 const SpaceView = lazy(() => import('./space/SpaceView.jsx'))
@@ -99,6 +101,30 @@ export default function App() {
   const [flyTarget, setFlyTarget] = useState(null)
   const [showMethod, setShowMethod] = useState(false)
   const [showSpace, setShowSpace] = useState(false)
+  // Big Events: pannello, evento scelto e punti sul globo
+  const [showEvents, setShowEvents] = useState(false)
+  const [eventId, setEventId] = useState(null)
+  const [eventList, setEventList] = useState([])
+  useEffect(() => {
+    if (!showEvents || eventList.length) return
+    getJson('/api/v1/stories').then((d) => setEventList(d.stories)).catch(() => {})
+  }, [showEvents, eventList.length])
+  const selectedEvent = eventList.find((e) => e.id === eventId) || null
+
+  function openEvents() {
+    setShowMethod(false)
+    setShowEvents(true)
+  }
+  function selectEvent(id) {
+    setShowEvents(true)
+    setEventId(id)
+    const e = eventList.find((x) => x.id === id)
+    if (e) setFlyTarget({ lat: e.latitude, lon: e.longitude, zoom: e.side_km >= 10 ? 10.5 : 12, marker: false })
+  }
+  function closeEvents() {
+    setShowEvents(false)
+    setEventId(null)
+  }
 
   useEffect(() => {
     loadSatellites()
@@ -122,6 +148,8 @@ export default function App() {
   }
 
   function selectPlace(p) {
+    setShowEvents(false)
+    setEventId(null)
     setSelectedNorad(null)
     setPlace(p)
     setFlyTarget({ ...p, marker: true, zoom: 13 })
@@ -140,12 +168,17 @@ export default function App() {
         onSelectSatellite={selectSatellite}
         onSelectPlace={selectPlace}
         flyTarget={flyTarget}
-        area={!selected && place ? { lat: place.lat, lon: place.lon, sideKm: 1 } : null}
-        wide={!selected && !!place}
+        area={showEvents
+          ? (selectedEvent ? { lat: selectedEvent.latitude, lon: selectedEvent.longitude, sideKm: selectedEvent.side_km } : null)
+          : (!selected && place ? { lat: place.lat, lon: place.lon, sideKm: 1 } : null)}
+        wide={showEvents || (!selected && !!place)}
+        events={showEvents ? eventList : []}
+        onSelectEvent={selectEvent}
       />
       <header className="topbar">
         <div className="brand"><span className="logo">◉</span> EarthPulse</div>
         <SearchBox onSelect={selectPlace} />
+        <button className="topbar-btn" onClick={openEvents} title="Big Events">⚡<span> Big Events</span></button>
         <button className="topbar-btn" onClick={() => setShowSpace(true)} title="Oltre la Terra">🪐<span> Oltre la Terra</span></button>
         <button className="topbar-btn" onClick={() => setShowMethod(true)} title="Metodologia">ⓘ<span> Metodologia</span></button>
       </header>
@@ -154,9 +187,12 @@ export default function App() {
           <SpaceView onClose={() => setShowSpace(false)} />
         </Suspense>
       )}
+      {showEvents && !showMethod && (
+        <BigEvents onClose={closeEvents} selectedId={eventId} onSelect={(id) => (id ? selectEvent(id) : setEventId(null))} />
+      )}
       {showMethod && <MethodologyPanel onClose={() => setShowMethod(false)} />}
       {/* Con la metodologia aperta gli altri pannelli restano caricati ma nascosti */}
-      <div hidden={showMethod}>
+      <div hidden={showMethod || showEvents}>
       {selected && <SatellitePanel sat={selected} onClose={() => setSelectedNorad(null)} />}
       {!selected && place && <PlacePanel place={place} onClose={closePlace} onMethodology={() => setShowMethod(true)} />}
       {!selected && !place && (

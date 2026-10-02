@@ -122,6 +122,7 @@ def story_summary(story: dict) -> dict:
         "country": story["country"],
         "latitude": story["latitude"],
         "longitude": story["longitude"],
+        "side_km": story["side_km"],
         "event_date": story["event_date"].isoformat(),
         # Testo della data quando l'evento dura anni (es. "2001–2010")
         "event_label": story.get("event_label"),

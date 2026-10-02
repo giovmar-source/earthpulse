@@ -431,3 +431,29 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
   .space-stage { right: 0; bottom: 50%; }
   .space-panel { max-height: 52%; }
 }
+
+/* Big Events */
+.panel.events { z-index: 3; }
+.event-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.event-list button {
+  width: 100%; display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--panel-border);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.event-list button:hover { background: rgba(255, 255, 255, 0.09); border-color: var(--green); }
+.event-icon { font-size: 24px; }
+.event-text { display: grid; gap: 2px; }
+.sources { padding-left: 18px; margin: 6px 0; }
+.sources a { color: var(--green); }
+/* Barra in alto: sotto i 1450 px di larghezza restano solo le icone */
+@media (max-width: 1450px) {
+  .topbar-btn span { display: none; }
+  .topbar-btn { padding: 10px 13px; font-size: 16px; }
+  .search input { width: 220px; }
+}
+@media (max-width: 700px) {
+  .search input { width: 100%; }
+}
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; }
+}

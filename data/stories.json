@@ -260,6 +260,310 @@
         "end": "2025-09-30",
         "target": "2025-07-15"
       }
+    },
+    {
+      "id": "emilia-romagna-2023",
+      "category": "Alluvione",
+      "title": "L'alluvione in Romagna",
+      "place": "Lugo e Conselice, Ravenna",
+      "country": "Italia",
+      "latitude": 44.47,
+      "longitude": 11.87,
+      "side_km": 12,
+      "event_date": "2023-05-16",
+      "summary": "Tra il 16 e il 17 maggio 2023 piogge eccezionali hanno fatto esondare 23 corsi d'acqua in Emilia-Romagna, dopo una prima ondata di piena all'inizio del mese. Nella pianura tra Lugo e Conselice l'acqua è rimasta per settimane: Conselice è stata evacuata il 26 maggio per l'acqua stagnante.",
+      "what_to_look": "Nei colori reali i campi coltivati della pianura diventano distese marroni di acqua fangosa; nell'indice dell'acqua compaiono grandi macchie blu dove prima c'erano campi. Nella variazione la vegetazione sommersa appare in rosso.",
+      "caveat": "Durante le piene il cielo è spesso coperto: l'immagine \"dopo\" è la prima abbastanza limpida, quindi mostra l'acqua rimasta qualche giorno dopo il picco, non il momento peggiore. Per seguire le alluvioni sotto le nuvole servono i satelliti radar (Sentinel-1).",
+      "facts": [
+        "Prima ondata: 2-3 maggio 2023; seconda: 16-17 maggio",
+        "23 corsi d'acqua esondati, oltre 400 frane",
+        "17 vittime, più di 50.000 sfollati",
+        "Danni stimati: oltre 10 miliardi di euro"
+      ],
+      "sources": [
+        {
+          "title": "2023 Emilia-Romagna floods – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/2023_Emilia-Romagna_floods"
+        },
+        {
+          "title": "NHESS – Environmental impacts of the 2023 floods in Emilia-Romagna",
+          "url": "https://nhess.copernicus.org/articles/24/673/2024/"
+        },
+        {
+          "title": "Copernicus EMS – Flood in Emilia Romagna (EMSN154)",
+          "url": "https://mapping.emergency.copernicus.eu/activations/EMSN154/"
+        }
+      ],
+      "before": {
+        "start": "2023-04-01",
+        "end": "2023-05-01",
+        "target": "2023-04-20"
+      },
+      "after": {
+        "start": "2023-05-18",
+        "end": "2023-06-15",
+        "target": "2023-05-24"
+      },
+      "min_valid_percentage": 80
+    },
+    {
+      "id": "valencia-2024",
+      "category": "Alluvione",
+      "title": "La DANA di Valencia",
+      "place": "Paiporta e l'Horta Sud, Valencia",
+      "country": "Spagna",
+      "latitude": 39.405,
+      "longitude": -0.41,
+      "side_km": 12,
+      "event_date": "2024-10-29",
+      "summary": "Il 29 ottobre 2024 una DANA (goccia fredda) ha scaricato in poche ore più pioggia di quella di un anno intero. Il Barranco del Poyo ha rotto gli argini e l'acqua ha travolto i paesi a sud di Valencia, fino alla laguna dell'Albufera. Nella provincia di Valencia le vittime sono state oltre 220.",
+      "what_to_look": "Nei colori reali il fango copre campi, strade e quartieri tra i paesi dell'Horta Sud; nell'indice dell'acqua la laguna dell'Albufera si allarga e compaiono zone allagate nelle risaie e nei frutteti intorno.",
+      "caveat": "L'immagine \"dopo\" è la prima senza nuvole dopo l'evento: l'acqua era già in parte defluita, ma restano il fango e i segni del passaggio della piena. A 10 m per pixel non si vedono i danni ai singoli edifici.",
+      "facts": [
+        "Data: 29 ottobre 2024",
+        "Turís: 184,6 mm di pioggia in un'ora, record in Spagna",
+        "Barranco del Poyo: picchi di circa 2300 m³/s a Paiporta",
+        "Oltre 220 vittime nella provincia di Valencia"
+      ],
+      "sources": [
+        {
+          "title": "2024 Spanish floods – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/2024_Spanish_floods"
+        },
+        {
+          "title": "Copernicus – Floods in Horta Sud, Valencia",
+          "url": "https://www.copernicus.eu/en/media/image-day-gallery/floods-horta-sud-valencia-spain"
+        },
+        {
+          "title": "NASA Earth Observatory – Valencia Floods",
+          "url": "https://earthobservatory.nasa.gov/images/153533/valencia-floods"
+        }
+      ],
+      "before": {
+        "start": "2024-09-25",
+        "end": "2024-10-28",
+        "target": "2024-10-20"
+      },
+      "after": {
+        "start": "2024-10-31",
+        "end": "2024-11-30",
+        "target": "2024-11-05"
+      },
+      "min_valid_percentage": 85
+    },
+    {
+      "id": "derna-2023",
+      "category": "Alluvione",
+      "title": "Derna, quando cedono le dighe",
+      "place": "Derna",
+      "country": "Libia",
+      "latitude": 32.76,
+      "longitude": 22.64,
+      "side_km": 4,
+      "event_date": "2023-09-11",
+      "summary": "Nella notte tra il 10 e l'11 settembre 2023 la tempesta Daniel ha riversato piogge torrenziali sulla Libia orientale. Le due dighe di terra a monte di Derna, senza manutenzione da anni, hanno ceduto: un'onda di circa 30 milioni di m³ d'acqua ha attraversato la città lungo il letto del Wadi Derna.",
+      "what_to_look": "Nei colori reali, lungo il wadi che taglia la città, gli edifici e il verde lasciano il posto a una larga fascia di fango e detriti fino al mare; in mare il pennacchio di sedimenti. Nella variazione la striscia distrutta appare in rosso.",
+      "caveat": "La zona colpita è stretta (poche centinaia di metri): con pixel di 10 m si vede la fascia distrutta, non il singolo edificio. Il numero delle vittime è ancora incerto e le stime variano molto.",
+      "facts": [
+        "Data: 10-11 settembre 2023 (tempesta Daniel)",
+        "Dighe di Abu Mansour (75 m) e di Derna (45 m), in terra",
+        "Circa un quarto della città distrutto, oltre 40.000 sfollati",
+        "Vittime ufficiali: oltre 4500, più migliaia di dispersi"
+      ],
+      "sources": [
+        {
+          "title": "Derna dam collapses – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Derna_dam_collapses"
+        },
+        {
+          "title": "Nature Communications – How extreme rainfall and failing dams unleashed the Derna flood",
+          "url": "https://www.nature.com/articles/s41467-025-59261-9"
+        },
+        {
+          "title": "Eos – Torrents of sediment-laden water worsened Libyan floods",
+          "url": "https://eos.org/articles/torrents-of-sediment-laden-water-worsened-disastrous-libyan-floods"
+        }
+      ],
+      "before": {
+        "start": "2023-07-20",
+        "end": "2023-09-09",
+        "target": "2023-08-30"
+      },
+      "after": {
+        "start": "2023-09-12",
+        "end": "2023-10-31",
+        "target": "2023-09-20"
+      },
+      "min_valid_percentage": 90
+    },
+    {
+      "id": "lahaina-2023",
+      "category": "Incendio",
+      "title": "Il fuoco di Lahaina",
+      "place": "Lahaina, Maui",
+      "country": "Stati Uniti (Hawaii)",
+      "latitude": 20.876,
+      "longitude": -156.675,
+      "side_km": 4,
+      "event_date": "2023-08-08",
+      "summary": "L'8 agosto 2023, con la siccità e i venti fortissimi legati al passaggio a sud dell'uragano Dora, un incendio ha raggiunto la città storica di Lahaina e l'ha distrutta in poche ore. È l'incendio più mortale negli Stati Uniti da oltre un secolo.",
+      "what_to_look": "Nei colori reali i tetti e il verde del centro di Lahaina diventano grigio-cenere; nella gravità dell'incendio (dNBR) l'area bruciata della città e delle colline sopra appare con i colori delle classi alte.",
+      "caveat": "Il dNBR misura il cambiamento della vegetazione: in città, dove la vegetazione è poca, l'indice sottostima il danno agli edifici, che si legge meglio nei colori reali.",
+      "facts": [
+        "Data: 8 agosto 2023",
+        "102 vittime accertate",
+        "Oltre 2200 edifici distrutti",
+        "Circa 2170 acri (880 ettari) bruciati a Lahaina"
+      ],
+      "sources": [
+        {
+          "title": "2023 Hawaii wildfires – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/2023_Hawaii_wildfires"
+        },
+        {
+          "title": "NASA Earth Observatory – Devastation in Maui",
+          "url": "https://earthobservatory.nasa.gov/images/151688/devastation-in-maui"
+        }
+      ],
+      "before": {
+        "start": "2023-06-15",
+        "end": "2023-08-07",
+        "target": "2023-07-25"
+      },
+      "after": {
+        "start": "2023-08-10",
+        "end": "2023-10-15",
+        "target": "2023-08-25"
+      },
+      "min_valid_percentage": 85,
+      "extra_layers": [
+        "dnbr"
+      ]
+    },
+    {
+      "id": "hunga-tonga-2022",
+      "category": "Vulcano",
+      "title": "Hunga Tonga, l'isola che è sparita",
+      "place": "Hunga Tonga-Hunga Ha'apai",
+      "country": "Tonga",
+      "latitude": -20.545,
+      "longitude": -175.39,
+      "side_km": 6,
+      "event_date": "2022-01-15",
+      "summary": "Il 15 gennaio 2022 il vulcano sottomarino Hunga Tonga-Hunga Ha'apai ha prodotto l'esplosione più potente degli ultimi decenni: il pennacchio è salito fino a oltre 30 km, l'onda di pressione ha fatto il giro della Terra e gli tsunami hanno raggiunto le coste di tutto il Pacifico. L'isola che univa le due cime è quasi scomparsa.",
+      "what_to_look": "Nei colori reali, prima, un'isola con un lago craterico tra le due terre più antiche; dopo, restano solo due piccoli frammenti e il mare intorno è chiaro e torbido per la cenere e i sedimenti.",
+      "caveat": "Ai tropici le nuvole sono frequenti: le date sono le più vicine all'evento con cielo limpido. L'isola era nata nel 2014-2015 da un'eruzione precedente.",
+      "facts": [
+        "Data: 15 gennaio 2022",
+        "Pennacchio fino a circa 31 km (forse quasi 40 km)",
+        "Nube a ombrello larga circa 500 km",
+        "Tsunami e onda di pressione registrati in tutto il mondo"
+      ],
+      "sources": [
+        {
+          "title": "NASA Earth Observatory – Hunga Tonga-Hunga Ha'apai Erupts",
+          "url": "https://science.nasa.gov/earth/earth-observatory/hunga-tonga-hunga-haapai-erupts-149347/"
+        },
+        {
+          "title": "NASA Earthdata – The 2022 Hunga Tonga-Hunga Ha'apai Eruption",
+          "url": "https://www.earthdata.nasa.gov/learn/data-in-action/2022-hunga-tonga-hunga-haapai-eruption"
+        }
+      ],
+      "before": {
+        "start": "2021-09-01",
+        "end": "2021-12-15",
+        "target": "2021-11-20"
+      },
+      "after": {
+        "start": "2022-01-17",
+        "end": "2022-04-30",
+        "target": "2022-02-10"
+      },
+      "min_valid_percentage": 85
+    },
+    {
+      "id": "lake-mead-2000-2022",
+      "category": "Siccità",
+      "title": "Il lago Mead si ritira",
+      "place": "Lago Mead, Nevada-Arizona",
+      "country": "Stati Uniti",
+      "latitude": 36.1,
+      "longitude": -114.8,
+      "side_km": 12,
+      "event_date": "2011-01-01",
+      "event_label": "2000 → 2022",
+      "source": "landsat",
+      "summary": "Il lago Mead, creato dalla diga di Hoover sul fiume Colorado, dà acqua a circa 40 milioni di persone. Dopo oltre vent'anni di siccità nell'Ovest degli Stati Uniti, nel luglio 2022 il suo livello è sceso al minimo dal 1937, quando il lago si stava ancora riempiendo: era pieno solo al 27%.",
+      "what_to_look": "Nei colori reali confronta le rive: nel 2022 bracci e baie si sono ritirati, lasciando fasce chiare di roccia e sedimenti dove prima c'era acqua. Le isole si sono allargate e alcune insenature sono scomparse.",
+      "caveat": "Le due immagini vengono da sensori Landsat diversi (2000 e 2022), con pixel di 30 m: confronta le forme del lago, non piccole differenze di colore.",
+      "facts": [
+        "Luglio 2000: livello a 1200 piedi (circa 365 m)",
+        "Luglio 2022: 1041 piedi (circa 317 m), lago pieno al 27%",
+        "Livello più basso dall'aprile 1937",
+        "Fornisce acqua a circa 40 milioni di persone"
+      ],
+      "sources": [
+        {
+          "title": "NASA Earth Observatory – Lake Mead Keeps Dropping",
+          "url": "https://science.nasa.gov/earth/earth-observatory/lake-mead-keeps-dropping-150111"
+        },
+        {
+          "title": "Lake Mead – Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Lake_Mead"
+        }
+      ],
+      "before": {
+        "start": "2000-06-01",
+        "end": "2000-09-30",
+        "target": "2000-07-06"
+      },
+      "after": {
+        "start": "2022-06-01",
+        "end": "2022-09-30",
+        "target": "2022-07-03"
+      }
+    },
+    {
+      "id": "columbia-glacier-1986-2025",
+      "category": "Ghiacciaio",
+      "title": "Il ghiacciaio Columbia arretra",
+      "place": "Ghiacciaio Columbia, Prince William Sound",
+      "country": "Stati Uniti (Alaska)",
+      "latitude": 61.05,
+      "longitude": -147.06,
+      "side_km": 12,
+      "event_date": "2005-01-01",
+      "event_label": "1986 → 2025",
+      "source": "landsat",
+      "summary": "Il Columbia è un ghiacciaio che finisce direttamente in mare. È rimasto stabile fino al 1980, poi ha cominciato una ritirata rapidissima: da allora il ramo principale è arretrato di oltre 20 km e ha perso più di metà del suo spessore e del suo volume.",
+      "what_to_look": "Nei colori reali, nel 1986 il ghiaccio riempie tutta la valle; oggi al suo posto c'è un fiordo di acqua scura punteggiato di iceberg, e il fronte del ghiacciaio è molto più a nord. Ai lati compaiono rocce e vegetazione dove prima c'era ghiaccio.",
+      "caveat": "In Alaska le estati sono spesso nuvolose: per ogni anno usiamo la giornata estiva più limpida disponibile. La ritirata del Columbia è dovuta soprattutto alla dinamica del ghiacciaio che si stacca in mare (calving), avviata e accelerata dal riscaldamento.",
+      "facts": [
+        "Stabile fino al 1980, poi in ritirata rapida",
+        "Arretramento: oltre 20 km dagli anni '80",
+        "Perso più di metà dello spessore e del volume",
+        "Circa metà della perdita di ghiaccio dei monti Chugach"
+      ],
+      "sources": [
+        {
+          "title": "NASA Earth Observatory – World of Change: Columbia Glacier",
+          "url": "https://science.nasa.gov/earth/earth-observatory/world-of-change/columbia-glacier/"
+        },
+        {
+          "title": "USGS EROS – Earthshots: Columbia Glacier",
+          "url": "https://eros.usgs.gov/earthshots/columbia-glacier-alaska-usa"
+        }
+      ],
+      "before": {
+        "start": "1986-06-01",
+        "end": "1986-09-30",
+        "target": "1986-07-28"
+      },
+      "after": {
+        "start": "2025-06-01",
+        "end": "2025-09-30",
+        "target": "2025-07-28"
+      }
     }
   ]
 }
