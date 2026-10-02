@@ -18,6 +18,8 @@ nel sito sotto ogni evento; quelle dei dati sono nella **Metodologia** del sito
 | Legenda "Tipo di nubi" | [Guida rapida Cloud Type RGB (EUMETSAT)](https://user.eumetsat.int/s3/eup-strapi-media/QG_Cloud_Type_RGB_ab06957dd1.pdf) · [Guida estesa (EUMETrain)](https://resources.eumetrain.org/data/7/736/navmenu.php?tab=4&page=1.0.0) |
 | Orbite (TLE) | [CelesTrak](https://celestrak.org) · [TLE API](https://tle.ivanstanojevic.me) |
 | Mappa di base | [OpenFreeMap](https://openfreemap.org) · © OpenStreetMap contributors |
+| Globo realistico (Blue Marble) | [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/access-basics/) |
+| Gas, andamento giornaliero | [Sentinel Hub Statistical API (CDSE)](https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Statistical.html) |
 
 ## Satelliti (schede)
 

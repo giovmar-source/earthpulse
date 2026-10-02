@@ -26,6 +26,7 @@ import requests
 
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
+STATISTICS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
 
 ATTRIBUTION = ("Contiene dati Copernicus Sentinel-5P modificati, "
                "elaborati con Sentinel Hub (Copernicus Data Space Ecosystem)")
@@ -46,6 +47,9 @@ GASES = {
                     "Viene soprattutto da traffico, centrali e industrie: le città e i porti "
                     "spiccano come macchie."),
         "default_days": 7,
+        # Lettura indicativa della colonna troposferica di NO₂ (media su più giorni)
+        "levels": [(30, "basso, tipico delle aree rurali"), (70, "medio"),
+                   (150, "alto, tipico delle grandi città"), (float("inf"), "molto alto, aree urbane e industriali dense")],
     },
     "ch4": {
         "band": "CH4", "label": "Metano (CH₄)",
@@ -57,6 +61,8 @@ GASES = {
                     "discariche, risaie, estrazione di gas e petrolio. Le nuvole lasciano "
                     "molti buchi: per questo usiamo un mese."),
         "default_days": 30,
+        "levels": [(1880, "vicino alla media globale recente"), (1930, "sopra la media"),
+                   (float("inf"), "molto sopra la media: possibili sorgenti vicine")],
     },
     "co": {
         "band": "CO", "label": "Monossido di carbonio (CO)",
@@ -67,6 +73,7 @@ GASES = {
         "caption": ("Colonna totale di CO. Viene da combustioni incomplete: incendi, traffico, "
                     "riscaldamento. I fumi degli incendi si vedono anche a centinaia di km."),
         "default_days": 7,
+        "levels": [(30, "basso"), (40, "medio"), (float("inf"), "alto: incendi o combustioni nella zona")],
     },
 }
 NO_DATA_COLOR = (40, 46, 56)
@@ -277,3 +284,96 @@ def period(days: int, today: date | None = None) -> tuple:
     """Ultimi `days` giorni fino a ieri (i dati di oggi arrivano nel corso della giornata)."""
     end = (today or datetime.now(timezone.utc).date()) - timedelta(days=1)
     return end - timedelta(days=days - 1), end
+
+
+# ------------------------------------------------------------------
+# Andamento giorno per giorno sul luogo (Statistical API)
+# ------------------------------------------------------------------
+
+def statistics_evalscript(band: str) -> str:
+    return f"""//VERSION=3
+function setup() {{
+  return {{
+    input: [{{ bands: ["{band}", "dataMask"] }}],
+    output: [{{ id: "default", bands: 1, sampleType: "FLOAT32" }}, {{ id: "dataMask", bands: 1 }}]
+  }};
+}}
+function evaluatePixel(s) {{
+  return {{ default: [s.{band}], dataMask: [s.dataMask] }};
+}}
+"""
+
+
+def statistics_body(gas: str, bbox: list, start: date, end: date) -> dict:
+    return {
+        "input": {
+            "bounds": {"bbox": bbox,
+                       "properties": {"crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"}},
+            "data": [{"type": "sentinel-5p-l2"}],
+        },
+        "aggregation": {
+            "timeRange": {"from": f"{start.isoformat()}T00:00:00Z",
+                          "to": f"{end.isoformat()}T23:59:59Z"},
+            "aggregationInterval": {"of": "P1D"},
+            "width": 12, "height": 12,
+            "evalscript": statistics_evalscript(GASES[gas]["band"]),
+        },
+        "calculations": {"default": {}},
+    }
+
+
+def parse_statistics(gas: str, body: dict) -> list:
+    """Risposta della Statistical API -> [{"date", "value"}] in unità mostrate."""
+    factor = GASES[gas]["factor"]
+    series = []
+    for entry in body.get("data", []):
+        if entry.get("error"):
+            continue
+        try:
+            stats = entry["outputs"]["default"]["bands"]["B0"]["stats"]
+            day = entry["interval"]["from"][:10]
+        except (KeyError, TypeError):
+            continue
+        mean = stats.get("mean")
+        valid = stats.get("sampleCount", 0) - stats.get("noDataCount", 0)
+        if mean is None or valid <= 0 or not math.isfinite(float(mean)):
+            continue
+        series.append({"date": day, "value": round(float(mean) * factor, GASES[gas]["digits"] + 1)})
+    return sorted(series, key=lambda p: p["date"])
+
+
+def fetch_timeseries(gas: str, lat: float, lon: float, start: date, end: date, session=requests) -> list:
+    """Valori medi giornalieri entro PLACE_RADIUS_KM dal punto."""
+    token = get_token(session)
+    bbox = area_bbox(lat, lon, half_km=PLACE_RADIUS_KM)
+    response = session.post(STATISTICS_URL, json=statistics_body(gas, bbox, start, end),
+                            headers={"Authorization": f"Bearer {token}"}, timeout=90)
+    if response.status_code == 401:
+        _token["value"] = None
+    if response.status_code == 429:
+        raise S5PUnavailable("Limite di Copernicus Data Space raggiunto: riprova più tardi.")
+    if response.status_code != 200:
+        raise S5PUnavailable(f"Sentinel Hub ha risposto con errore {response.status_code}: {response.text[:200]}")
+    return parse_statistics(gas, response.json())
+
+
+def level(gas: str, value) -> str | None:
+    """Lettura indicativa di un valore medio (soglie in GASES[gas]["levels"])."""
+    if value is None:
+        return None
+    for limit, text in GASES[gas].get("levels", []):
+        if value < limit:
+            return text
+    return None
+
+
+def mean_value(series: list) -> float | None:
+    values = [p["value"] for p in series]
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def shift_year(day: date, years: int = 1) -> date:
+    try:
+        return day.replace(year=day.year - years)
+    except ValueError:      # 29 febbraio
+        return day.replace(year=day.year - years, day=28)

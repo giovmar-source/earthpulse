@@ -267,7 +267,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Colori reali: immagine True Color di Sentinel-2 (B04, B03, B02), con lo stesso contrasto per tutte le date. Nelle scene molto chiare (deserti, neve) il bianco viene spostato più in alto, altrimenti l'immagine risulterebbe bruciata; le due date usano comunque lo stesso valore. I colori della data precedente sono armonizzati alla più recente (percentili 2–98 di ogni banda) per compensare luce e foschia: è solo una scelta di visualizzazione."
+        "Colori reali: calcolati dalle bande B04, B03 e B02 come riflettanza della superficie (16 bit), non dall'immagine \"True Color\" a 8 bit, che satura già a riflettanza 0,31 e trasforma deserti e sabbia in un quadrato giallo chiaro. Usiamo una curva tonale morbida (arcoseno iperbolico) applicata alla luminosità: le zone scure vengono schiarite, quelle chiare compresse gradualmente fino al \"bianco\" della scena (99,5° percentile, tra 0,30 e 0,90), senza cambiare il rapporto tra i colori. La data precedente è armonizzata alla più recente (percentili 2–98) e usa lo stesso bianco: è solo una scelta di visualizzazione."
       ],
       [
         "b",
@@ -363,6 +363,10 @@ export const METHODOLOGY = [
       [
         "b",
         "I sensori di epoche diverse hanno bande leggermente diverse: le piccole differenze di colore o di NDVI tra decenni non sono significative, i grandi cambiamenti sì."
+      ],
+      [
+        "b",
+        "Stessa curva tonale dei colori reali di Sentinel-2: sabbia, roccia e cemento non diventano bianchi."
       ]
     ]
   },
@@ -413,23 +417,31 @@ export const METHODOLOGY = [
     "items": [
       [
         "p",
-        "Le immagini vengono dallo strumento FCI di Meteosat-12 (MTG-I1), il primo Meteosat di terza generazione, erede dello strumento SEVIRI. È in orbita geostazionaria a 36.000 km sopra l'equatore e riprende Europa, Africa e Atlantico ogni 10 minuti."
+        "Lo strumento TROPOMI di Sentinel-5P misura ogni giorno, verso le 13:30 ora locale, la luce del Sole riflessa dall'atmosfera e ne ricava la quantità di diversi gas nella colonna d'aria. Leggiamo i dati di livello 2 tramite le API Sentinel Hub di Copernicus Data Space Ecosystem."
       ],
       [
         "b",
-        "Le immagini sono servite da EUMETView (EUMETSAT) con circa 15-20 minuti di ritardo. Nelle animazioni lunghe usiamo un'immagine ogni 20 minuti (6 ore), 30 minuti (12 ore) o un'ora (24 ore)."
+        "Andamento sul luogo: media giornaliera entro 15 km dal punto (Statistical API), negli ultimi 30, 90 o 365 giorni, confrontata con gli stessi giorni dell'anno precedente. La linea è la media mobile su 7 giorni (almeno 3 giorni con dati), i punti sono i singoli giorni: i giorni nuvolosi mancano."
       ],
       [
         "b",
-        "Colori: composito GeoColour, colori naturali di giorno e nuvole su sfondo notturno di notte."
+        "Mappa: media di tutti i passaggi validi degli ultimi 7 giorni (30 per il metano, che ha più lacune) su 300 × 300 km, a confronto con gli stessi giorni dell'anno precedente."
       ],
       [
         "b",
-        "Tipo di nubi (Cloud Type RGB, solo di giorno): rosso = bande a 1,38 µm (vede solo le nubi alte), verde = 0,64 µm (visibile), blu = 1,61 µm (il ghiaccio assorbe). Giallo: nubi alte e spesse di ghiaccio; rosso: cirri sottili; rosa-magenta: nubi miste acqua e ghiaccio; ciano o bianco: nubi basse e medie d'acqua; verde: neve; blu: terraferma; nero: mare."
+        "Usiamo solo i dati che superano il controllo di qualità del prodotto (qa ≥ 75% per NO₂, ≥ 50% per gli altri gas). Pixel TROPOMI di circa 5,5 × 3,5 km."
       ],
       [
         "b",
-        "Incendi attivi: prodotto FRP (Fire Radiative Power) di FCI, la potenza dei fuochi in megawatt. Fulmini: area illuminata dai lampi negli ultimi 5 minuti, dal Lightning Imager di MTG. Pioggia: stima istantanea (mm/h) da FCI calibrata con i satelliti a microonde (prodotto H SAF H40B). Il nostro server scarica questi prodotti da EUMETView e li ricolora con un colore unico (rosso-arancio gli incendi, ingranditi per vederli; giallo i fulmini; blu elettrico la pioggia) e conta i pixel con dati: se non c'è niente nell'area lo scriviamo."
+        "Lettura indicativa per l'NO₂ troposferico (media di più giorni): sotto 30 µmol/m² basso (aree rurali), 30–70 medio, 70–150 alto (grandi città), oltre 150 molto alto. Metano in ppb rispetto alla media globale recente (circa 1880–1930 ppb). Sono soglie orientative, non limiti di legge."
+      ],
+      [
+        "b",
+        "Sono quantità nella colonna d'aria, non concentrazioni al livello della strada: per l'aria che respiriamo vale la sezione \"Qualità dell'aria\"."
+      ],
+      [
+        "b",
+        "Ogni area e periodo viene calcolato una volta al giorno e tenuto in memoria, per rispettare le quote del servizio."
       ]
     ]
   },
@@ -450,7 +462,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Nelle animazioni lunghe usiamo un'immagine ogni 20 minuti (6 ore), 30 minuti (12 ore) o un'ora (24 ore)."
+        "Nelle animazioni lunghe usiamo un'immagine ogni 20 minuti (6 ore), 30 minuti (12 e 24 ore)."
       ]
     ]
   },

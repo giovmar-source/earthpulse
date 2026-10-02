@@ -290,9 +290,9 @@ def render_rgb(scene: ArchiveScene, white: float = RGB_WHITE) -> bytes:
     """Colori reali con la stessa scala per tutti gli anni e i sensori."""
     # Nelle scene chiare (bianco adattato) niente schiarimento dei mezzitoni:
     # renderebbe la sabbia ancora più pallida.
-    gamma = RGB_GAMMA if white <= RGB_WHITE else 1.0
-    rgb = np.clip(np.nan_to_num(scene.rgb, nan=0.0) / white, 0, 1) ** gamma
-    image = np.transpose(rgb * 255, (1, 2, 0)).astype(np.uint8)
+    # Curva tonale morbida (come Sentinel-2): sabbia e roccia non diventano bianche.
+    from src.imagery import TONE_MIN_WHITE, tone_map_rgb
+    image = tone_map_rgb(scene.rgb, max(white, TONE_MIN_WHITE))
     no_data = ~np.isfinite(scene.rgb).all(axis=0) | ~scene.valid & (np.nan_to_num(scene.rgb).sum(axis=0) == 0)
     cloudy = ~scene.valid & ~no_data
     # Vuoti rimasti (per esempio strisce non coperte da nessuna giornata): grigio

@@ -373,3 +373,48 @@ class TestImageryEndpoints(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ------------------------------------------------------------------
+# Curva tonale dalla riflettanza (deserti non più "bruciati")
+# ------------------------------------------------------------------
+import numpy as _np
+from src.imagery import scene_white, tone_map_rgb, harmonize_reflectance
+
+
+def _sand(size=40):
+    rng = _np.random.default_rng(1)
+    base = _np.array([0.45, 0.36, 0.22], dtype=_np.float32)[:, None, None]
+    texture = 1 + 0.15 * rng.standard_normal((1, size, size)).astype(_np.float32)
+    return base * texture
+
+
+def test_desert_keeps_detail_and_color():
+    sand = _sand()
+    image = tone_map_rgb(sand, scene_white(sand))
+    r, g, b = (image[..., k].astype(int) for k in range(3))
+    assert r.mean() > g.mean() > b.mean()                 # resta color sabbia
+    assert (r >= 254).mean() < 0.05                       # quasi niente saturato
+    assert r.std() > 8                                    # le dune si distinguono
+
+
+def test_vegetation_is_brightened_and_green():
+    veg = _np.array([0.04, 0.08, 0.05], dtype=_np.float32)[:, None, None] * _np.ones((1, 20, 20), _np.float32)
+    image = tone_map_rgb(veg, scene_white(veg))
+    r, g, b = image[10, 10]
+    assert g > r and g > b and g > 80
+
+
+def test_white_is_adaptive_and_no_data_is_black():
+    assert abs(scene_white(_np.full((3, 20, 20), 0.05, _np.float32)) - 0.30) < 1e-6
+    assert 0.4 < scene_white(_sand()) <= 0.9
+    data = _sand(10)
+    data[:, 0, 0] = _np.nan
+    assert tuple(tone_map_rgb(data, 0.6)[0, 0]) == (0, 0, 0)
+
+
+def test_harmonize_reflectance_matches_reference_range():
+    ref = _sand()
+    hazy = ref * 0.8 + 0.05
+    out = harmonize_reflectance(hazy, ref)
+    assert abs(float(_np.median(out[0])) - float(_np.median(ref[0]))) < 0.02

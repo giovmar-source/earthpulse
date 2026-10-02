@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CompareImages, ErrorBox, Legend, Loading, Section, formatDate, formatNumber, useApi } from './common.jsx'
 import { apiUrl, getJson, placeParams } from '../api.js'
+import GasCard from './GasCard.jsx'
 
 // ------------------------------------------------------------------
 // QUALITÀ DELL'ARIA: Copernicus CAMS tramite Open-Meteo (gratuito, senza chiave)
@@ -300,7 +301,7 @@ const DURATIONS = [
   { hours: 2, stepMin: 10, label: '2 ore' },
   { hours: 6, stepMin: 20, label: '6 ore' },
   { hours: 12, stepMin: 30, label: '12 ore' },
-  { hours: 24, stepMin: 60, label: '24 ore' },
+  { hours: 24, stepMin: 30, label: '24 ore' },
 ]
 const DELAY_MIN = 20        // le immagini arrivano sul servizio con circa 15-20 minuti di ritardo
 
@@ -457,7 +458,7 @@ function CloudsCard({ place }) {
       <p className="small muted">
         Meteosat-12 (MTG-I1) è fermo sopra l'equatore, a 36 000 km di quota: vede sempre la
         stessa metà del pianeta e fa un'immagine ogni 10 minuti. Nelle animazioni lunghe ne usiamo
-        una ogni 20 minuti (6 ore), mezz'ora (12 ore) o un'ora (24 ore). Il punto giallo è il luogo scelto.
+        una ogni 20 minuti (6 ore) o ogni mezz'ora (12 e 24 ore). Il punto giallo è il luogo scelto.
       </p>
       <p className="credit">Immagini e prodotti: © EUMETSAT (EUMETView, MTG FCI e LI) · Coste e confini: Natural Earth</p>
     </div>
@@ -467,65 +468,6 @@ function CloudsCard({ place }) {
 // ------------------------------------------------------------------
 // GAS DAL SATELLITE: Sentinel-5P (tramite il nostro backend)
 // ------------------------------------------------------------------
-
-const GAS_OPTIONS = [
-  { key: 'no2', label: 'NO₂', days: 7 },
-  { key: 'ch4', label: 'Metano', days: 30 },
-  { key: 'co', label: 'CO', days: 7 },
-]
-
-function GasCard({ place }) {
-  const [gas, setGas] = useState(GAS_OPTIONS[0])
-  const [days, setDays] = useState(GAS_OPTIONS[0].days)
-  const result = useApi(
-    (signal) => getJson('/api/v1/s5p', { gas: gas.key, ...placeParams(place, null, 4), days: String(days) }, { signal }),
-    [place.lat, place.lon, gas.key, days],
-  )
-  const choose = (g) => { setGas(g); setDays(g.days) }
-  const d = result.status === 'ok' ? result.data : null
-
-  return (
-    <div>
-      <div className="chips">
-        {GAS_OPTIONS.map((g) => (
-          <button key={g.key} className={g.key === gas.key ? 'chip on' : 'chip'} onClick={() => choose(g)}>{g.label}</button>
-        ))}
-      </div>
-      <div className="chips">
-        <span className="muted small">Media degli ultimi:</span>
-        {[7, 30].map((n) => (
-          <button key={n} className={n === days ? 'chip on' : 'chip'} onClick={() => setDays(n)}>{n} giorni</button>
-        ))}
-      </div>
-      {result.status === 'error' && <ErrorBox message={result.error} onRetry={result.retry} />}
-      {(result.status === 'loading' || result.status === 'idle') && (
-        <Loading text="Lettura dei dati Sentinel-5P…" hint="Media di tutti i passaggi del periodo su 300 × 300 km." />
-      )}
-      {d && (
-        <>
-          <dl className="facts">
-            <div><dt>Sul luogo (entro {d.place_radius_km} km)</dt><dd>{formatNumber(d.place, gas.key === 'co' ? 1 : 0)} {d.unit}</dd></div>
-            <div><dt>Media della regione</dt><dd>{formatNumber(d.region, gas.key === 'co' ? 1 : 0)} {d.unit}</dd></div>
-            <div><dt>Periodo</dt><dd>{formatDate(d.period.start)} – {formatDate(d.period.end)}</dd></div>
-            <div><dt>Area coperta da dati</dt><dd>{formatNumber(d.coverage_percentage, 0)}%</dd></div>
-          </dl>
-          {d.message && <p className="highlight">{d.message}</p>}
-          <div className="framed">
-            <CompareImages after={d.image} afterLabel={`${d.side_km} × ${d.side_km} km`} alt={d.label} />
-            <span className="place-ring" style={{ width: `${(100 * 2 * d.place_radius_km) / d.side_km}%` }} />
-          </div>
-          <Legend stops={d.legend.color_stops} labels={d.legend.labels} />
-          <p className="muted small">
-            <span className="swatch inline" style={{ background: d.legend.no_data_color }} /> Nessun dato (nuvole o
-            qualità insufficiente in tutti i passaggi). Il cerchio è l'area &quot;sul luogo&quot;.
-          </p>
-          <p className="small">{d.caption}</p>
-          <p className="credit">{d.attribution}</p>
-        </>
-      )}
-    </div>
-  )
-}
 
 // ------------------------------------------------------------------
 // SCHEDA ATMOSFERA

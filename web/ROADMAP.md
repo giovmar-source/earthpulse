@@ -17,10 +17,10 @@ Analisi completa delle scelte: `docs/ANALISI_PROGETTO.md`. Fonti: `docs/FONTI.md
 - [x] Nome del prodotto centralizzato
 - [x] Nome del luogo accanto alle coordinate (geocoding inverso, servizio sostituibile)
 - [x] Grafico "stesso periodo, anni diversi" per tutti gli indici
-- [ ] Colori reali: curva tonale morbida (sabbia e deserti non più bianchi)
-- [ ] Gas dal satellite rifatto: andamento sul luogo (30 / 90 / 365 giorni) + confronto con l'anno prima
-- [ ] Nuvole: sfondo "mappa semplice" con coste e confini
-- [ ] Globo realistico all'apertura (NASA Blue Marble)
+- [x] Colori reali: dalle bande a 16 bit con curva tonale morbida (sabbia e deserti non più gialli)
+- [x] Gas dal satellite rifatto: andamento sul luogo (30 / 90 / 365 giorni) + confronto con l'anno prima
+- [x] Nuvole: animazione 24 ore con un'immagine ogni 30 minuti (sfondo invariato)
+- [x] Globo realistico all'apertura (NASA Blue Marble, fino allo zoom 7)
 
 ## Fase 2 · Oltre la Terra
 - [ ] Strati tematici NASA Trek (Luna, Marte, Mercurio…): altitudine, composizione, temperatura, ghiaccio

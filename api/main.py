@@ -1768,10 +1768,15 @@ MAX_S5P_CACHE = 40
 S5P_GAS_PATTERN = "^(" + "|".join(sentinel5p.GASES) + ")$"
 
 
-def s5p_values(gas: str, lat: float, lon: float, days: int):
-    """Valori del gas (unità mostrate) sull'area; calcolati una volta al giorno per area."""
+def s5p_values(gas: str, lat: float, lon: float, days: int, years_back: int = 0):
+    """
+    Valori del gas (unità mostrate) sull'area; calcolati una volta al giorno
+    per area. years_back=1: stessi giorni dell'anno precedente.
+    """
     start, end = sentinel5p.period(days)
-    key = (gas, round(lat, 2), round(lon, 2), days, end.isoformat())
+    if years_back:
+        start, end = sentinel5p.shift_year(start, years_back), sentinel5p.shift_year(end, years_back)
+    key = (gas, round(lat, 2), round(lon, 2), days, start.isoformat(), end.isoformat())
     if key not in _S5P_CACHE:
         bbox = sentinel5p.area_bbox(lat, lon)
         try:
@@ -1787,6 +1792,13 @@ def s5p_values(gas: str, lat: float, lon: float, days: int):
     return _S5P_CACHE[key]
 
 
+def s5p_require_credentials():
+    if not sentinel5p.has_credentials():
+        raise HTTPException(status_code=503, detail=(
+            "Sentinel-5P non ancora attivo su questo server "
+            "(mancano le credenziali Copernicus Data Space)."))
+
+
 @app.get("/api/v1/s5p")
 def get_s5p(
     gas: str = Query("no2", pattern=S5P_GAS_PATTERN),
@@ -1794,15 +1806,26 @@ def get_s5p(
     lon: float = Query(..., ge=-180, le=180),
     days: int = Query(7, ge=1, le=31),
 ):
-    """Media del periodo di un gas su 300 × 300 km: numeri e indirizzo dell'immagine."""
-    if not sentinel5p.has_credentials():
-        raise HTTPException(status_code=503, detail=(
-            "Sentinel-5P non ancora attivo su questo server "
-            "(mancano le credenziali Copernicus Data Space)."))
+    """
+    Media del periodo su 300 × 300 km, adesso e negli stessi giorni dell'anno
+    precedente: numeri, lettura e indirizzi delle due immagini.
+    """
+    s5p_require_credentials()
     values, bbox, start, end = s5p_values(gas, lat, lon, days)
     info = sentinel5p.summary(gas, values)
+    previous = None
+    try:
+        prev_values, _b, prev_start, prev_end = s5p_values(gas, lat, lon, days, years_back=1)
+        prev_info = sentinel5p.summary(gas, prev_values)
+        change = None
+        if info["place"] is not None and prev_info["place"]:
+            change = round(100.0 * (info["place"] - prev_info["place"]) / abs(prev_info["place"]), 1)
+        previous = {"period": {"start": prev_start.isoformat(), "end": prev_end.isoformat()},
+                    **prev_info, "change_percent": change}
+    except HTTPException:
+        previous = None      # il confronto è un di più: senza, la sezione funziona
     spec = sentinel5p.GASES[gas]
-    query = urlencode({"gas": gas, "lat": round(lat, 4), "lon": round(lon, 4), "days": days})
+    base = {"gas": gas, "lat": round(lat, 4), "lon": round(lon, 4), "days": days}
     return {
         "gas": gas,
         "label": spec["label"],
@@ -1812,8 +1835,11 @@ def get_s5p(
         "side_km": 2 * sentinel5p.HALF_SIDE_KM,
         "place_radius_km": sentinel5p.PLACE_RADIUS_KM,
         **info,
+        "level": sentinel5p.level(gas, info["place"]),
         "message": sentinel5p.describe(gas, info),
-        "image": f"/api/v1/s5p/image?{query}",
+        "previous": previous,
+        "image": f"/api/v1/s5p/image?{urlencode(base)}",
+        "image_previous": f"/api/v1/s5p/image?{urlencode({**base, 'years_back': 1})}" if previous else None,
         "legend": sentinel5p.legend(gas),
         "caption": spec["caption"],
         "attribution": sentinel5p.ATTRIBUTION,
@@ -1826,12 +1852,64 @@ def get_s5p_image(
     lat: float = Query(..., ge=-85, le=85),
     lon: float = Query(..., ge=-180, le=180),
     days: int = Query(7, ge=1, le=31),
+    years_back: int = Query(0, ge=0, le=1),
 ):
-    if not sentinel5p.has_credentials():
-        raise HTTPException(status_code=503, detail="Sentinel-5P non ancora attivo su questo server.")
-    values, _bbox, _start, _end = s5p_values(gas, lat, lon, days)
+    s5p_require_credentials()
+    values, _bbox, _start, _end = s5p_values(gas, lat, lon, days, years_back)
     return Response(content=sentinel5p.render_png(gas, values), media_type="image/png",
                     headers={"Cache-Control": "public, max-age=3600"})
+
+
+_S5P_SERIES_CACHE: dict = {}
+
+
+@app.get("/api/v1/s5p/timeseries")
+def get_s5p_timeseries(
+    gas: str = Query("no2", pattern=S5P_GAS_PATTERN),
+    lat: float = Query(..., ge=-85, le=85),
+    lon: float = Query(..., ge=-180, le=180),
+    days: int = Query(90, ge=7, le=366),
+):
+    """
+    Valore medio giornaliero entro 15 km dal punto negli ultimi `days` giorni
+    e negli stessi giorni dell'anno precedente (Statistical API).
+    """
+    s5p_require_credentials()
+    start, end = sentinel5p.period(days)
+    key = (gas, round(lat, 2), round(lon, 2), days, end.isoformat())
+    if key not in _S5P_SERIES_CACHE:
+        try:
+            series = sentinel5p.fetch_timeseries(gas, lat, lon, start, end)
+            try:
+                previous = sentinel5p.fetch_timeseries(
+                    gas, lat, lon, sentinel5p.shift_year(start), sentinel5p.shift_year(end))
+            except sentinel5p.S5PUnavailable:
+                previous = []
+        except sentinel5p.S5PUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=502,
+                                detail=f"Errore nella lettura di Sentinel-5P: {exc}") from exc
+        mean_now = sentinel5p.mean_value(series)
+        mean_prev = sentinel5p.mean_value(previous)
+        if len(_S5P_SERIES_CACHE) >= MAX_S5P_CACHE:
+            _S5P_SERIES_CACHE.clear()
+        _S5P_SERIES_CACHE[key] = {
+            "gas": gas,
+            "unit": sentinel5p.GASES[gas]["unit"],
+            "radius_km": sentinel5p.PLACE_RADIUS_KM,
+            "period": {"start": start.isoformat(), "end": end.isoformat(), "days": days},
+            "series": series,
+            "previous": previous,
+            "mean": mean_now,
+            "previous_mean": mean_prev,
+            "change_percent": (round(100.0 * (mean_now - mean_prev) / abs(mean_prev), 1)
+                               if mean_now is not None and mean_prev else None),
+            "valid_days": len(series),
+            "level": sentinel5p.level(gas, mean_now),
+            "attribution": sentinel5p.ATTRIBUTION,
+        }
+    return _S5P_SERIES_CACHE[key]
 
 
 # ============================================================

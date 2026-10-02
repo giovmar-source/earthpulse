@@ -19,6 +19,30 @@ function localizeLabels(map) {
   }
 }
 
+// Vista d'insieme realistica: NASA Blue Marble (GIBS, pubblico dominio, uso
+// commerciale consentito). Copre il globo fino allo zoom 8; avvicinandosi
+// sfuma nella mappa vettoriale, che resta più dettagliata.
+const BLUE_MARBLE_TILES =
+  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg'
+
+function addBlueMarble(map) {
+  if (map.getSource('blue-marble')) return
+  map.addSource('blue-marble', {
+    type: 'raster', tiles: [BLUE_MARBLE_TILES], tileSize: 256, maxzoom: 8,
+    attribution: 'Blue Marble: NASA Earth Observatory / NASA EOSDIS GIBS',
+  })
+  // Sopra i riempimenti della mappa, sotto confini ed etichette
+  const layers = map.getStyle().layers
+  const before = layers.find((l) => l.type === 'symbol' || /boundary|admin/.test(l.id))
+  map.addLayer({
+    id: 'blue-marble', type: 'raster', source: 'blue-marble',
+    paint: {
+      'raster-opacity': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7.5, 0],
+      'raster-fade-duration': 200,
+    },
+  }, before?.id)
+}
+
 function emptyCollection() {
   return { type: 'FeatureCollection', features: [] }
 }
@@ -101,10 +125,12 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
       style: MAP_STYLE,
       center: [12.5, 30],
       zoom: window.innerWidth <= 700 ? 0.7 : 1.4,
-      attributionControl: { compact: true },
+      attributionControl: false,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-left')
+    // Crediti a sinistra: a destra c'è il pannello
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
 
     // Il globo va centrato nello spazio libero: a sinistra del pannello sul PC,
     // sopra il pannello sul telefono.
@@ -126,6 +152,7 @@ export default function Globe({ satellites, selectedNorad, onSelectSatellite, on
         'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0],
       })
       localizeLabels(map)
+      addBlueMarble(map)
 
       map.addSource('area', { type: 'geojson', data: emptyCollection() })
       map.addLayer({

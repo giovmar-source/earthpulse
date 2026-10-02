@@ -246,6 +246,83 @@ def stretch_rgb(rgb: np.ndarray, high: float = RGB_HIGH) -> np.ndarray:
     return np.transpose(stretched, (1, 2, 0)).astype(np.uint8)
 
 
+# ------------------------------------------------------------------
+# Colori reali dalla riflettanza (B04, B03, B02) con curva tonale morbida
+# ------------------------------------------------------------------
+#
+# La TCI di Sentinel-2 ("visual", 8 bit) satura già a riflettanza ~0,31:
+# nei deserti rosso e verde valgono 255 e l'immagine diventa un quadrato
+# giallo chiaro, senza dettagli da recuperare. Per questo i colori reali
+# si calcolano dalle bande a 16 bit, con una curva che comprime le alte
+# luci invece di tagliarle, applicata alla luminosità (il canale più
+# chiaro) per non sbiadire i colori.
+
+TONE_SOFTNESS = 0.06       # sotto questo valore la curva è quasi lineare
+TONE_MIN_WHITE = 0.30      # riflettanza minima del "bianco" (scene verdi)
+TONE_MAX_WHITE = 0.90      # massima (neve, saline)
+
+
+def scene_white(reflectance: np.ndarray) -> float:
+    """Riflettanza che diventa bianco: 99,5° percentile del canale più chiaro."""
+    brightest = np.nanmax(reflectance, axis=0)
+    brightest = brightest[np.isfinite(brightest) & (brightest > 0)]
+    if brightest.size < 100:
+        return TONE_MIN_WHITE
+    return float(np.clip(np.percentile(brightest, 99.5), TONE_MIN_WHITE, TONE_MAX_WHITE))
+
+
+def tone_map_rgb(reflectance: np.ndarray, white: float) -> np.ndarray:
+    """
+    Riflettanza (3, righe, colonne) -> immagine (righe, colonne, 3) uint8.
+
+    Curva arcoseno iperbolico sulla luminosità: le zone scure (vegetazione,
+    acqua) vengono schiarite, quelle chiare (sabbia, roccia, cemento)
+    compresse gradualmente fino a "white". I rapporti tra i canali restano
+    invariati, quindi la sabbia resta color sabbia e non vira al bianco.
+    """
+    data = np.nan_to_num(reflectance.astype(np.float32), nan=0.0)
+    data = np.clip(data, 0, None)
+    luminance = data.max(axis=0)
+    scale_top = np.arcsinh(white / TONE_SOFTNESS)
+    mapped = np.arcsinh(luminance / TONE_SOFTNESS) / scale_top
+    gain = np.divide(mapped, luminance, out=np.zeros_like(luminance), where=luminance > 1e-6)
+    image = np.clip(data * gain, 0, 1) * 255
+    image[:, ~np.isfinite(reflectance).all(axis=0) | (luminance <= 0)] = 0
+    return np.transpose(image, (1, 2, 0)).astype(np.uint8)
+
+
+def harmonize_reflectance(source: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """Come harmonize_rgb, ma su riflettanze in virgola mobile (NaN = nessun dato)."""
+    both = np.isfinite(source).all(axis=0) & np.isfinite(reference).all(axis=0)
+    if both.sum() < 100:
+        return source
+    result = source.astype(np.float32).copy()
+    for band in range(3):
+        s_low, s_high = np.percentile(source[band][both], [2, 98])
+        r_low, r_high = np.percentile(reference[band][both], [2, 98])
+        if s_high - s_low < 1e-4:
+            continue
+        result[band] = (result[band] - s_low) * (r_high - r_low) / (s_high - s_low) + r_low
+    return np.clip(result, 0, None)
+
+
+def read_reflectance_rgb(item, grid: Grid) -> np.ndarray:
+    """Bande B04, B03, B02 come riflettanza (0-1), NaN dove non ci sono dati."""
+    from src.ndvi import effective_offset
+    bands = [read_on_grid(item.assets[key].href, grid).astype(np.float32)
+             for key in ("red", "green", "blue")]
+    raw = np.stack(bands)
+    has_data = (raw > 0).all(axis=0)
+    offset = effective_offset(item, *bands)
+    reflectance = (raw - offset) / 10000.0
+    reflectance[:, ~has_data] = np.nan
+    return reflectance
+
+
+def has_reflectance_bands(item) -> bool:
+    return all(key in getattr(item, "assets", {}) for key in ("red", "green", "blue"))
+
+
 def colorize(values_grid: np.ndarray, valid: np.ndarray, stops) -> np.ndarray:
     """Valori (righe, colonne) -> RGB uint8 interpolando la scala data."""
     values = np.array([v for v, _ in stops], dtype=np.float32)
@@ -372,7 +449,18 @@ def harmonize_rgb(source: np.ndarray, reference: np.ndarray) -> np.ndarray:
 
 
 def render_rgb_png(item, grid: Grid, reference_item=None) -> bytes:
-    """Colori reali; con reference_item i colori vengono armonizzati a quella data."""
+    """
+    Colori reali; con reference_item i colori vengono armonizzati a quella
+    data e usano lo stesso bianco, così le due immagini restano confrontabili.
+    """
+    if has_reflectance_bands(item) and (reference_item is None or has_reflectance_bands(reference_item)):
+        refl = read_reflectance_rgb(item, grid)
+        if reference_item is not None:
+            reference = read_reflectance_rgb(reference_item, grid)
+            refl = harmonize_reflectance(refl, reference)
+            return to_png(tone_map_rgb(refl, scene_white(reference)))
+        return to_png(tone_map_rgb(refl, scene_white(refl)))
+    # Riserva: immagine TCI a 8 bit (scene senza bande separate)
     rgb = read_on_grid(item.assets["visual"].href, grid, indexes=[1, 2, 3])
     if reference_item is not None:
         reference = read_on_grid(

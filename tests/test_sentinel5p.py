@@ -90,4 +90,39 @@ def test_endpoint_returns_numbers_and_image(monkeypatch):
         image = client.get(data["image"])
     assert data["unit"] == "µmol/m²" and data["place"] == 40.0 and data["region"] == 40.0
     assert image.status_code == 200 and image.headers["content-type"] == "image/png"
-    assert fetch.call_count == 1          # l'immagine usa i valori già in memoria
+    assert fetch.call_count == 2          # periodo attuale + stesso periodo dell'anno prima
+    assert data["previous"]["change_percent"] == 0.0 and data["image_previous"]
+    assert data["level"] == "medio"       # 40 µmol/m²
+
+
+STATS_RESPONSE = {"data": [
+    {"interval": {"from": "2026-09-28T00:00:00Z", "to": "2026-09-29T00:00:00Z"},
+     "outputs": {"default": {"bands": {"B0": {"stats": {"mean": 5e-5, "sampleCount": 144, "noDataCount": 20}}}}}},
+    {"interval": {"from": "2026-09-29T00:00:00Z", "to": "2026-09-30T00:00:00Z"},
+     "outputs": {"default": {"bands": {"B0": {"stats": {"mean": "NaN", "sampleCount": 144, "noDataCount": 144}}}}}},
+    {"interval": {"from": "2026-09-27T00:00:00Z", "to": "2026-09-28T00:00:00Z"}, "error": {"type": "EXECUTION_ERROR"}},
+]}
+
+
+def test_parse_statistics_skips_empty_days():
+    series = sentinel5p.parse_statistics("no2", STATS_RESPONSE)
+    assert series == [{"date": "2026-09-28", "value": 50.0}]
+
+
+def test_statistics_body_daily_on_place():
+    body = sentinel5p.statistics_body("ch4", [1, 2, 3, 4], date(2026, 7, 1), date(2026, 9, 30))
+    assert body["aggregation"]["aggregationInterval"] == {"of": "P1D"}
+    assert "dataMask" in body["aggregation"]["evalscript"] and "s.CH4" in body["aggregation"]["evalscript"]
+
+
+def test_timeseries_endpoint_compares_with_last_year(monkeypatch):
+    monkeypatch.setenv("CDSE_CLIENT_ID", "id")
+    monkeypatch.setenv("CDSE_CLIENT_SECRET", "secret")
+    main._S5P_SERIES_CACHE.clear()
+    now = [{"date": "2026-09-28", "value": 60.0}, {"date": "2026-09-29", "value": 40.0}]
+    before = [{"date": "2025-09-28", "value": 40.0}]
+    with mock.patch.object(sentinel5p, "fetch_timeseries", side_effect=[now, before]):
+        data = TestClient(main.app).get("/api/v1/s5p/timeseries",
+                                        params={"lat": 40.68, "lon": 14.77, "days": 90}).json()
+    assert data["mean"] == 50.0 and data["previous_mean"] == 40.0 and data["change_percent"] == 25.0
+    assert data["valid_days"] == 2 and data["level"] == "medio"
