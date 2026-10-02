@@ -35,7 +35,12 @@ nel sito sotto ogni evento; quelle dei dati sono nella **Metodologia** del sito
 - Mappe: [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0) · [USGS Astrogeology](https://astrogeology.usgs.gov/) (pubblico dominio)
 - Versioni ridimensionate: [amarcher/solar-system, PR #87](https://github.com/amarcher/solar-system/pull/87)
 - Calcoli: [astronomy-engine](https://github.com/cosinekitty/astronomy) (MIT)
-- Possibili sviluppi: [NASA Moon Trek](https://trek.nasa.gov/moon/index.html) · [Trek API](https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=moon)
+- Altitudine Luna: [LRO LOLA LDEM_4 (PDS)](https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/ldem_4.lbl) · pubblico dominio
+- Altitudine Marte: [MGS MOLA MEGDR 4 ppd (PDS)](https://pds-geosciences.wustl.edu/mgs/mgs-m-mola-5-megdr-l3-v1/mgsl_300x/meg004/megt90n000cb.lbl) · pubblico dominio
+- Marte di notte all'infrarosso: [THEMIS Night IR, Mars Trek](https://trek.nasa.gov/tiles/Mars/EQ/THEMIS_NightIR_ControlledMosaics_100m_v2_oct2018/1.0.0/WMTSCapabilities.xml) (NASA/JPL/ASU)
+- Catalogo e API: [NASA Moon Trek](https://trek.nasa.gov/moon/index.html) · [Trek API](https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=moon) · [ricerca prodotti Trek](https://trek.nasa.gov/moon/TrekServices/ws/index/eq/searchItems?start=0&rows=60&key=Diviner)
+- Uso dei contenuti NASA: [NASA Images and Media Usage Guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/) (citare NASA come fonte, non suggerire che NASA approvi il prodotto)
+- Scartati per ora, perché i metadati Trek non danno la scala dei colori in numeri: Diviner (temperatura), Clementine FeO (ferro), Kaguya (gravità), MOLA a colori di Trek, TES (polvere, inerzia termica)
 
 ## Big Events
 

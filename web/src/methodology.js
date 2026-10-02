@@ -501,6 +501,14 @@ export const METHODOLOGY = [
       [
         "b",
         "Il disegno delle lune di Giove mostra la loro posizione vista dalla Terra, come in un binocolo, ruotato perché la linea delle lune sia orizzontale; le distanze sono in raggi di Giove (71.492 km)."
+      ],
+      [
+        "b",
+        "Altitudine di Luna e Marte: griglie originali degli altimetri laser LOLA (Lunar Reconnaissance Orbiter, file LDEM_4) e MOLA (Mars Global Surveyor, file MEGDR MEGT90N000CB), dall'archivio PDS Geosciences Node della NASA, di pubblico dominio. Risoluzione 4 pixel per grado: circa 7,6 km per pixel all'equatore sulla Luna e 14,8 km su Marte. Le quote sono in metri rispetto al raggio medio di 1737,4 km (Luna) e all'areoide, il \"livello del mare\" di Marte. La scala dei colori va da viola (in basso) a bianco (in cima) con soglie fisse in km; l'ombreggiatura del rilievo ha luce da nord-ovest e rilievo esagerato 3 volte. Il valore di un punto toccato sul globo è quello del pixel della griglia che lo contiene."
+      ],
+      [
+        "b",
+        "Roccia o polvere (Marte): mosaico notturno della camera infrarossa THEMIS (Mars Odyssey, NASA/JPL/Arizona State University) dalle tessere di NASA Solar System Treks. Di notte le superfici che trattengono il calore (roccia, suolo compatto) restano più calde e appaiono chiare; polvere e sabbia fine si raffreddano in fretta e appaiono scure. È una lettura qualitativa dell'inerzia termica, senza valori numerici."
       ]
     ]
   },
@@ -599,7 +607,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; calcoli astronomici con astronomy-engine (MIT)."
+        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; altitudine LRO LOLA e MGS MOLA dal NASA PDS Geosciences Node (pubblico dominio); THEMIS notturno NASA/JPL/ASU tramite NASA Solar System Treks; calcoli astronomici con astronomy-engine (MIT)."
       ]
     ]
   }

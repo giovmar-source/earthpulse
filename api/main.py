@@ -26,6 +26,8 @@ from src import orbits
 from src import index_trend
 from src import sentinel5p
 from src import fci
+from src import planets
+from src.limits import heavy_task
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
     DEFAULT_LAYERS,
@@ -84,7 +86,7 @@ app = FastAPI(
         "API per esplorare la vegetazione attraverso "
         "dati satellitari Sentinel-2 e l'indice NDVI."
     ),
-    version="0.11.0",
+    version="0.12.0",
 )
 
 # Solo per sviluppo. Prima della pubblicazione, limitare
@@ -1917,6 +1919,53 @@ def get_s5p_timeseries(
         if diag_now.get("error_days"):
             print(f"[s5p] {gas} {lat:.2f},{lon:.2f}: {diag_now}", flush=True)
     return _S5P_SERIES_CACHE[key]
+
+
+# ============================================================
+# ENDPOINT: OLTRE LA TERRA (mappe tematiche di Luna e Marte)
+# ============================================================
+
+SPACE_BODY_PATTERN = "^(" + "|".join(planets.LAYERS) + ")$"
+
+
+@app.get("/api/v1/space/layers")
+def get_space_layers(body: str = Query(..., pattern=SPACE_BODY_PATTERN)):
+    """Mappe tematiche disponibili per un corpo celeste, con legenda e fonti."""
+    return {"body": body, "layers": planets.catalog(body)}
+
+
+@app.get("/api/v1/space/layer")
+def get_space_layer(
+    body: str = Query(..., pattern=SPACE_BODY_PATTERN),
+    layer: str = Query(..., pattern=r"^[a-z_]{2,20}$"),
+):
+    """Mappa globale (equirettangolare, JPEG) da avvolgere sulla sfera 3D."""
+    if layer not in planets.LAYERS[body]:
+        raise HTTPException(status_code=404, detail=f"Mappa non disponibile: {layer}")
+    try:
+        with heavy_task():
+            data = planets.layer_image(body, layer)
+    except planets.PlanetDataUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return Response(content=data, media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=604800"})
+
+
+@app.get("/api/v1/space/elevation")
+def get_space_elevation(
+    body: str = Query(..., pattern="^(moon|mars)$"),
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+):
+    """Altitudine di un punto della Luna o di Marte (griglia a 4 pixel per grado)."""
+    try:
+        value = planets.elevation_at(body, lat, lon)
+    except planets.PlanetDataUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    spec = planets.DEMS[body]
+    return {"body": body, "lat": lat, "lon": lon, "elevation_m": round(value),
+            "reference": spec["reference"], "pixel_km": round(2 * 3.14159 * spec["radius_km"] / 1440, 1),
+            "attribution": spec["attribution"]}
 
 
 # ============================================================

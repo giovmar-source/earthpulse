@@ -6,9 +6,12 @@ import * as THREE from 'three'
  * equirettangolare) che ruota lentamente. Si trascina per girarla e si usa
  * la rotella (o due dita) per avvicinarsi.
  */
-export default function Sphere3D({ texture, flattening = 0, onLoad }) {
+export default function Sphere3D({ texture, flattening = 0, onTextureState, onPick, marker }) {
   const mountRef = useRef(null)
   const state = useRef({})
+  // Callback sempre aggiornate senza ricreare la scena o ricaricare la mappa
+  const callbacks = useRef({})
+  callbacks.current = { onTextureState, onPick }
 
   // Scena, camera e animazione: una sola volta
   useEffect(() => {
@@ -30,6 +33,15 @@ export default function Sphere3D({ texture, flattening = 0, onLoad }) {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 64), material)
     mesh.rotation.x = 0.12
     scene.add(mesh)
+
+    // Segnaposto del punto scelto (figlio della sfera: gira con lei)
+    const pin = new THREE.Mesh(
+      new THREE.SphereGeometry(0.018, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xf2b33d }),
+    )
+    pin.visible = false
+    mesh.add(pin)
+    const raycaster = new THREE.Raycaster()
 
     // Stelle di sfondo
     const starGeometry = new THREE.BufferGeometry()
@@ -53,13 +65,16 @@ export default function Sphere3D({ texture, flattening = 0, onLoad }) {
 
     // Trascinamento e zoom
     let drag = null
-    let spin = 0.0015
+    let idleSpin = 0.0015            // rotazione lenta quando nessuno tocca la sfera
+    let spin = idleSpin
     const canvas = renderer.domElement
     canvas.style.touchAction = 'none'
     const pointers = new Map()
+    let pressed = null
     canvas.addEventListener('pointerdown', (e) => {
       pointers.set(e.pointerId, e)
       drag = { x: e.clientX, y: e.clientY }
+      pressed = { x: e.clientX, y: e.clientY }
       spin = 0
       canvas.setPointerCapture(e.pointerId)
     })
@@ -79,8 +94,20 @@ export default function Sphere3D({ texture, flattening = 0, onLoad }) {
       mesh.rotation.x = THREE.MathUtils.clamp(mesh.rotation.x + (e.clientY - drag.y) * 0.005, -1.2, 1.2)
       drag = { x: e.clientX, y: e.clientY }
     })
-    const release = (e) => { pointers.delete(e.pointerId); if (pointers.size === 0) { drag = null; spin = 0.0015 } }
-    canvas.addEventListener('pointerup', release)
+    const release = (e) => { pointers.delete(e.pointerId); if (pointers.size === 0) { drag = null; spin = idleSpin } }
+    // Un tocco senza trascinare: punto della superficie -> latitudine e longitudine
+    canvas.addEventListener('pointerup', (e) => {
+      const tap = pressed && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < 5
+      pressed = null
+      release(e)
+      if (!tap || !callbacks.current.onPick) return
+      const rect = canvas.getBoundingClientRect()
+      const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
+      raycaster.setFromCamera(ndc, camera)
+      const hit = raycaster.intersectObject(mesh, false)[0]
+      if (!hit?.uv) return
+      callbacks.current.onPick({ lat: hit.uv.y * 180 - 90, lon: hit.uv.x * 360 - 180 })
+    })
     canvas.addEventListener('pointercancel', release)
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault()
@@ -95,7 +122,7 @@ export default function Sphere3D({ texture, flattening = 0, onLoad }) {
     }
     animate()
 
-    state.current = { mesh, material, renderer, camera }
+    state.current = { mesh, material, renderer, camera, pin, setSpin: (v) => { idleSpin = v; spin = v } }
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
@@ -112,6 +139,7 @@ export default function Sphere3D({ texture, flattening = 0, onLoad }) {
     const { material, mesh, camera } = state.current
     if (!material) return
     let cancelled = false
+    callbacks.current.onTextureState?.('loading')
     new THREE.TextureLoader().load(texture, (map) => {
       if (cancelled) { map.dispose(); return }
       map.colorSpace = THREE.SRGBColorSpace
@@ -119,12 +147,30 @@ export default function Sphere3D({ texture, flattening = 0, onLoad }) {
       material.map?.dispose()
       material.map = map
       material.needsUpdate = true
-      onLoad?.()
+      callbacks.current.onTextureState?.('ok')
+    }, undefined, () => {
+      if (!cancelled) callbacks.current.onTextureState?.('error')
     })
     mesh.scale.set(1, 1 - flattening, 1)
-    camera.position.z = 4.2
     return () => { cancelled = true }
-  }, [texture, flattening, onLoad])
+  }, [texture, flattening])
+
+  // Cambio di corpo: inquadratura iniziale
+  useEffect(() => {
+    if (state.current.camera) state.current.camera.position.z = 4.2
+  }, [flattening])
+
+  // Segnaposto: stessa corrispondenza tra coordinate e mappa della SphereGeometry di three.js
+  useEffect(() => {
+    const { pin, setSpin } = state.current
+    if (!pin) return
+    if (!marker) { pin.visible = false; setSpin?.(0.0015); return }
+    const phi = ((marker.lon + 180) / 360) * Math.PI * 2
+    const theta = ((90 - marker.lat) / 180) * Math.PI
+    pin.position.set(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)).multiplyScalar(1.004)
+    pin.visible = true
+    setSpin?.(0)
+  }, [marker])
 
   return <div ref={mountRef} className="sphere3d" />
 }

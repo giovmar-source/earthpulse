@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { apiUrl, getJson } from '../api.js'
+import { useApi } from '../place/common.jsx'
 import Sphere3D from './Sphere3D.jsx'
 import { BODIES } from './bodies.js'
 import { jupiterMoonsNow, moonNow, planetNow } from './live.js'
@@ -112,16 +114,103 @@ function LiveBox({ body, now }) {
   )
 }
 
+// Corpi con mappe tematiche e altitudine calcolate dal server
+const MAPPED = ['moon', 'mars']
+
+function formatLat(lat) {
+  return `${Math.abs(lat).toLocaleString('it-IT', { maximumFractionDigits: 1 })}° ${lat >= 0 ? 'N' : 'S'}`
+}
+function formatLon(lon) {
+  return `${Math.abs(lon).toLocaleString('it-IT', { maximumFractionDigits: 1 })}° ${lon >= 0 ? 'E' : 'O'}`
+}
+
+/** Legenda di una mappa tematica: colori con le soglie al loro posto. */
+function SpaceLegend({ legend }) {
+  if (legend.gradient) {
+    return (
+      <div className="legend">
+        <div className="legend-bar" style={{ background: `linear-gradient(90deg, ${legend.gradient.join(', ')})` }} />
+        <div className="legend-labels">{legend.labels.map((l) => <span key={l}>{l}</span>)}</div>
+      </div>
+    )
+  }
+  const gradient = legend.color_stops.map((c, i) => `${c} ${(legend.positions[i] * 100).toFixed(1)}%`).join(', ')
+  return (
+    <div className="legend">
+      <div className="legend-bar" style={{ background: `linear-gradient(90deg, ${gradient})` }} />
+      <div className="legend-ticks">
+        {legend.labels.map((l, i) => (
+          <span key={l} style={{ left: `${legend.positions[i] * 100}%` }}>{l}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Punto toccato sul globo: coordinate e altitudine. */
+function PointBox({ body, point, onClear }) {
+  const result = useApi(
+    (signal) => getJson('/api/v1/space/elevation',
+      { body, lat: point.lat.toFixed(3), lon: point.lon.toFixed(3) }, { signal }),
+    [body, point.lat, point.lon],
+  )
+  const e = result.status === 'ok' ? result.data : null
+  return (
+    <div className="point-box">
+      <div>
+        <strong>{formatLat(point.lat)}, {formatLon(point.lon)}</strong>
+        <button className="link" onClick={onClear}>Togli il punto</button>
+      </div>
+      {result.status === 'error' && <p className="muted small">Altitudine non disponibile: {result.error}</p>}
+      {(result.status === 'loading' || result.status === 'idle') && <p className="muted small">Lettura dell'altitudine…</p>}
+      {e && (
+        <p className="small">
+          Altitudine <strong>{e.elevation_m > 0 ? '+' : ''}{e.elevation_m.toLocaleString('it-IT')} m</strong>{' '}
+          <span className="muted">rispetto al {e.reference}; media su un pixel di circa {e.pixel_km.toLocaleString('it-IT')} km.</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** "Oltre la Terra": Luna, Marte, Giove e le sue lune in 3D. */
 export default function SpaceView({ onClose }) {
   const [key, setKey] = useState('moon')
+  const [mapKey, setMapKey] = useState('photo')
+  const [point, setPoint] = useState(null)
+  const [textureState, setTextureState] = useState('ok')
   const body = BODIES.find((b) => b.key === key)
+  const mapped = MAPPED.includes(key)
   const now = useNow()
+  const layers = useApi(
+    (signal) => getJson('/api/v1/space/layers', { body: key }, { signal }),
+    [key],
+    mapped,
+  )
+  const available = mapped && layers.status === 'ok' ? layers.data.layers : []
+  const layer = available.find((l) => l.key === mapKey) || null
+  const texture = layer ? apiUrl(layer.image) : body.texture
+
+  function choose(k) {
+    setKey(k)
+    setMapKey('photo')
+    setPoint(null)
+  }
+
   return (
     <div className="space">
       <div className="space-stage">
-        <Sphere3D texture={body.texture} flattening={key === 'jupiter' ? 0.065 : 0} />
-        <p className="space-hint">Trascina per girare · rotella o due dita per avvicinarti</p>
+        <Sphere3D texture={texture} flattening={key === 'jupiter' ? 0.065 : 0}
+          onTextureState={setTextureState} onPick={mapped ? setPoint : undefined} marker={point} />
+        {textureState === 'loading' && layer && (
+          <p className="space-status"><span className="spinner" /> Preparazione della mappa… la prima volta può servire un minuto.</p>
+        )}
+        {textureState === 'error' && layer && (
+          <p className="space-status error">Mappa non disponibile in questo momento. Riprova più tardi.</p>
+        )}
+        <p className="space-hint">
+          Trascina per girare · rotella o due dita per avvicinarti{mapped && ' · tocca un punto per leggerne l\'altitudine'}
+        </p>
       </div>
       <aside className="panel wide space-panel">
         <button className="close" onClick={onClose} aria-label="Torna alla Terra">×</button>
@@ -131,7 +220,7 @@ export default function SpaceView({ onClose }) {
             <p className="group-title">{g.title}</p>
             <div className="chips">
               {g.keys.map((k) => (
-                <button key={k} className={k === key ? 'chip on' : 'chip'} onClick={() => setKey(k)}>
+                <button key={k} className={k === key ? 'chip on' : 'chip'} onClick={() => choose(k)}>
                   {BODIES.find((b) => b.key === k).name}
                 </button>
               ))}
@@ -141,6 +230,31 @@ export default function SpaceView({ onClose }) {
         <h2>{body.name}</h2>
         <p className="muted">{body.tagline}</p>
         <LiveBox body={body} now={now} />
+        {mapped && (
+          <div className="space-maps">
+            <p className="eyebrow spaced">Mappa sul globo</p>
+            <div className="chips">
+              <button className={!layer ? 'chip on' : 'chip'} onClick={() => setMapKey('photo')}>Immagine</button>
+              {available.map((l) => (
+                <button key={l.key} className={layer?.key === l.key ? 'chip on' : 'chip'} onClick={() => setMapKey(l.key)}>
+                  {l.label}
+                </button>
+              ))}
+              {layers.status === 'loading' && <span className="muted small">Carico le mappe…</span>}
+            </div>
+            {layers.status === 'error' && <p className="muted small">Mappe tematiche non disponibili: {layers.error}</p>}
+            {layer && (
+              <>
+                <SpaceLegend legend={layer.legend} />
+                <p className="small">{layer.caption}</p>
+                <p className="credit">{layer.attribution}</p>
+              </>
+            )}
+            {point
+              ? <PointBox body={key} point={point} onClear={() => setPoint(null)} />
+              : <p className="muted small">Tocca un punto del globo per leggerne coordinate e altitudine.</p>}
+          </div>
+        )}
         <p>{body.story}</p>
         <dl className="facts">
           {body.facts.map(([label, value]) => (

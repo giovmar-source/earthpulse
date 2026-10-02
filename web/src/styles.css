@@ -493,3 +493,17 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
   transform: translateX(-50%); background: #fff; border-radius: 2px; box-shadow: 0 0 2px #000;
 }
 .chart .aqi-band { opacity: 0.12; }
+
+/* Oltre la Terra: mappe tematiche e punto scelto */
+.legend-ticks { position: relative; height: 16px; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.legend-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.legend-ticks span:first-child { transform: none; }
+.legend-ticks span:last-child { transform: translateX(-100%); }
+.space-status {
+  position: absolute; left: 50%; top: 16px; transform: translateX(-50%); margin: 0;
+  background: rgba(11, 26, 46, 0.85); padding: 6px 12px; border-radius: 8px; font-size: 13px;
+}
+.space-status.error { color: #f29a4a; }
+.point-box { border: 1px solid rgba(242, 179, 61, 0.5); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
+.point-box > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.point-box p { margin: 4px 0 0; }

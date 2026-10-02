@@ -23,7 +23,9 @@ Analisi completa delle scelte: `docs/ANALISI_PROGETTO.md`. Fonti: `docs/FONTI.md
 - [x] Globo realistico all'apertura (NASA Blue Marble, fino allo zoom 7)
 
 ## Fase 2 · Oltre la Terra
-- [ ] Strati tematici NASA Trek (Luna, Marte, Mercurio…): altitudine, composizione, temperatura, ghiaccio
+- [x] Mappe tematiche: altitudine di Luna e Marte (LOLA, MOLA dal PDS, legenda in km, altitudine del punto toccato) e "Roccia o polvere" su Marte (THEMIS notturno)
+- [ ] Altre mappe con scala numerica: temperatura della Luna (Diviner), ferro (Clementine), gravità: servono i file di dati originali, non le immagini Trek a colori
+- [ ] Altitudine più dettagliata (16 pixel per grado) e nomi dei crateri e dei luoghi (IAU Gazetteer) sul punto toccato
 - [ ] Nuovi corpi con immagini reali: Mercurio, Cerere, Vesta, Fobos, lune di Saturno, Sole dal vivo (SDO); parziali Plutone, Caronte, Tritone
 - [ ] Orbite delle sonde (JPL Horizons): LRO, Danuri, MRO, Mars Express, MAVEN, TGO, Juno…
 
