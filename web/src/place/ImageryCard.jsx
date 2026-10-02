@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getScenes } from './scenesCache.js'
-import { CompareImages, ErrorBox, Legend, Loading, formatDate } from './common.jsx'
+import { CompareImages, ErrorBox, Legend, Loading, formatDate, useApi } from './common.jsx'
 import { DatePicker, StatLine, customPair } from './DatePicker.jsx'
 
 const SIDE_OPTIONS = [1, 2, 3]
