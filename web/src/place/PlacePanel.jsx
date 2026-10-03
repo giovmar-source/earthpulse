@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { downloadFile } from '../api.js'
+import { supabase } from '../account/supabase.js'
+import { ReportContext, useReportRegistry } from './report.js'
 import { Section } from './common.jsx'
 import VegetationCard from './VegetationCard.jsx'
 import ImageryCard from './ImageryCard.jsx'
@@ -7,6 +10,7 @@ import NightCard from './NightCard.jsx'
 import ArchiveCard from './ArchiveCard.jsx'
 import IndexCard, { INDEX_SECTIONS } from './IndexCard.jsx'
 import AtmosphereTab from './AtmosphereTab.jsx'
+import { FiresCard, RainCard, SealedCard, SeaCard, WaterCard } from './EarthToolsCards.jsx'
 
 function formatCoord(value, positive, negative) {
   return `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`
@@ -34,6 +38,21 @@ const SURFACE_GROUPS = [
     ],
   },
   {
+    title: 'Acqua, fuoco e suolo',
+    sections: [
+      { key: 'water', icon: '🌊', title: 'Acqua e allagamenti', subtitle: 'Radar Sentinel-1 · anche con le nuvole',
+        render: (place) => <WaterCard place={place} /> },
+      { key: 'rain', icon: '🌧️', title: 'Pioggia e umidità del suolo', subtitle: 'NASA POWER · rispetto alla norma',
+        render: (place) => <RainCard place={place} /> },
+      { key: 'fires', icon: '🔥', title: 'Incendi attivi', subtitle: 'NASA FIRMS · ultimi 5 giorni',
+        render: (place) => <FiresCard place={place} /> },
+      { key: 'sea', icon: '🐟', title: 'Mare', subtitle: 'Temperatura e clorofilla · NOAA',
+        render: (place) => <SeaCard place={place} /> },
+      { key: 'sealed', icon: '🏙️', title: 'Suolo impermeabilizzato', subtitle: 'Cemento e asfalto · Copernicus, Europa',
+        render: (place) => <SealedCard place={place} /> },
+    ],
+  },
+  {
     title: 'Altri dati',
     sections: [
       { key: 'heat', icon: '🌡️', title: 'Isole di calore', subtitle: "Temperatura delle superfici d'estate · Landsat",
@@ -46,15 +65,46 @@ const SURFACE_GROUPS = [
   },
 ]
 
+// Ordine delle sezioni nella scheda PDF
+const REPORT_ORDER = ['vegetation', ...Object.keys(INDEX_SECTIONS), 'water', 'rain', 'fires', 'sea', 'sealed', 'air', 'gas']
+
 /** Analisi del luogo scelto sul globo, divisa tra Superficie e Atmosfera. */
-export default function PlacePanel({ place, onClose, onMethodology }) {
+export default function PlacePanel({ place, onClose, onMethodology, account }) {
   const [tab, setTab] = useState('surface')
   const [atmosphereSeen, setAtmosphereSeen] = useState(false)
   useEffect(() => { if (tab === 'atmosphere') setAtmosphereSeen(true) }, [tab])
   const [open, setOpen] = useState({ imagery: true })
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
+  const report = useReportRegistry()
+  const [action, setAction] = useState(null)
+  useEffect(() => setAction(null), [place.lat, place.lon])
+  const user = account?.user
+
+  async function downloadReport() {
+    const sections = report.list(REPORT_ORDER)
+    if (!sections.length) {
+      setAction('Apri almeno una sezione con dati: la scheda contiene ciò che vedi nel pannello.')
+      return
+    }
+    setAction('Preparazione del PDF…')
+    try {
+      await downloadFile('/api/v1/export/pdf', `scheda-${(place.name || 'luogo').replace(/[^\w-]+/g, '_')}.pdf`, {
+        body: { place: { name: place.name, context: place.context, lat: place.lat, lon: place.lon }, sections },
+      })
+      setAction(`Scheda PDF scaricata (${sections.length} sezioni).`)
+    } catch (e) {
+      setAction(e.message)
+    }
+  }
+
+  async function savePlace() {
+    const name = place.name || `${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}`
+    const { error } = await supabase.from('saved_places').insert({ name, lat: place.lat, lon: place.lon })
+    setAction(error ? error.message : `"${name}" salvato nei tuoi luoghi.`)
+  }
 
   return (
+    <ReportContext.Provider value={report}>
     <aside className="panel wide">
       <button className="close" onClick={onClose} aria-label="Chiudi">×</button>
       <p className="eyebrow">Analisi del luogo</p>
@@ -65,6 +115,12 @@ export default function PlacePanel({ place, onClose, onMethodology }) {
           {formatCoord(place.lat, 'N', 'S')}, {formatCoord(place.lon, 'E', 'O')}
         </p>
       )}
+
+      <div className="place-actions">
+        <button className="chip" onClick={downloadReport}>📄 Scarica la scheda PDF</button>
+        {user && <button className="chip" onClick={savePlace}>☆ Salva luogo</button>}
+      </div>
+      {action && <p className="muted small">{action}</p>}
 
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'surface'} className={tab === 'surface' ? 'on' : ''} onClick={() => setTab('surface')}>
@@ -100,5 +156,6 @@ export default function PlacePanel({ place, onClose, onMethodology }) {
       )}
       <button className="method-link" onClick={onMethodology}>📘 Metodologia completa e limiti →</button>
     </aside>
+    </ReportContext.Provider>
   )
 }

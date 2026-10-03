@@ -10,3 +10,8 @@ numpy==2.4.6
 requests==2.34.2
 pillow==12.3.0
 h5py==3.16.0
+# Account, piani, esportazioni (Fase 3)
+pyjwt[crypto]==2.10.1
+psycopg[binary]==3.2.10
+psycopg-pool==3.2.6
+reportlab==4.4.4

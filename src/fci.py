@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import io
 from collections import OrderedDict
-from datetime import datetime
+import os
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import requests
@@ -34,6 +35,26 @@ MAX_SIZE = 640
 
 _cache: OrderedDict = OrderedDict()
 MAX_CACHE = 400
+
+
+def delay_minutes() -> int:
+    """
+    Ritardo minimo delle immagini (EUMETSAT_DELAY_MINUTES). Politica dati EUMETSAT:
+    le immagini con almeno 1 ora di ritardo sono libere anche per uso commerciale;
+    più recenti, in un prodotto a pagamento, servono licenze da 4 000–8 000 € l'anno.
+    0 = nessun vincolo (beta gratuita); in vendita: 60.
+    """
+    try:
+        return max(0, int(os.environ.get("EUMETSAT_DELAY_MINUTES", "0")))
+    except ValueError:
+        return 60
+
+
+def allowed_time(moment: datetime) -> bool:
+    latest = datetime.now(timezone.utc) - timedelta(minutes=delay_minutes())
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment <= latest
 
 
 def wms_params(layer: str, bbox: list, time: str, size: int) -> dict:

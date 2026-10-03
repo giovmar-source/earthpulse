@@ -62,3 +62,36 @@ def test_endpoint_rejects_bad_area():
     response = TestClient(main.app).get("/api/v1/fci/overlay", params={
         "product": "rain", "bbox": "10,40,5,45", "time": "2026-10-01T12:00Z"})
     assert response.status_code == 400
+
+
+def test_commercial_delay_blocks_recent_images(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from fastapi.testclient import TestClient
+    import api.main as main
+    from src import fci
+    monkeypatch.setenv("EUMETSAT_DELAY_MINUTES", "60")
+    recent = datetime.now(timezone.utc) - timedelta(minutes=30)
+    old = datetime.now(timezone.utc) - timedelta(minutes=90)
+    assert not fci.allowed_time(recent) and fci.allowed_time(old)
+    response = TestClient(main.app).get("/api/v1/fci/overlay", params={
+        "product": "fires", "bbox": "10,40,12,42", "time": recent.strftime("%Y-%m-%dT%H:%MZ")})
+    assert response.status_code == 403
+    monkeypatch.setenv("EUMETSAT_DELAY_MINUTES", "0")
+    assert fci.allowed_time(recent)
+
+
+def test_air_quality_uses_commercial_endpoint_with_key(monkeypatch):
+    from unittest import mock
+    from src import air_quality
+    air_quality._cache.clear()
+    reply = mock.Mock(status_code=200, content=b"{}")
+    reply.json.return_value = {"current": {"european_aqi": 20}}
+    http = mock.Mock(get=mock.Mock(return_value=reply))
+    monkeypatch.delenv("OPENMETEO_API_KEY", raising=False)
+    air_quality.fetch({"latitude": 41.9, "longitude": 12.5, "current": "european_aqi", "evil": "x"}, http)
+    assert http.get.call_args.args[0] == air_quality.FREE_URL and "evil" not in http.get.call_args.kwargs["params"]
+    monkeypatch.setenv("OPENMETEO_API_KEY", "secret")
+    air_quality._cache.clear()
+    air_quality.fetch({"latitude": 41.9, "longitude": 12.5, "current": "european_aqi"}, http)
+    assert http.get.call_args.args[0] == air_quality.COMMERCIAL_URL
+    assert http.get.call_args.kwargs["params"]["apikey"] == "secret"

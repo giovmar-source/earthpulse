@@ -77,10 +77,10 @@ def download(url: str, session=requests) -> bytes:
 # ------------------------------------------------------------------
 
 def to_west_left(grid: np.ndarray, lon0: float) -> np.ndarray:
-    """Griglia che parte da longitudine lon0 (0 o −180) -> griglia che parte da −180."""
-    if lon0 == 0:
-        return np.roll(grid, grid.shape[1] // 2, axis=1)
-    return grid
+    """Griglia la cui prima colonna è alla longitudine lon0 -> prima colonna a −180."""
+    cols = grid.shape[1]
+    shift = int(round(((-180.0 - lon0) % 360.0) * cols / 360.0)) % cols
+    return np.roll(grid, -shift, axis=1) if shift else grid
 
 
 def read_img(raw: bytes, src: dict) -> np.ndarray:
@@ -193,7 +193,27 @@ def shrink(grid: np.ndarray) -> np.ndarray:
         return np.nanmean(blocks, axis=(1, 3)).astype(np.float32)
 
 
-READERS = {"img": read_img, "cells": read_cells, "points": read_points}
+def read_fixed(raw: bytes, src: dict) -> np.ndarray:
+    """Testo a colonne fisse (es. Magellan F8.2, 10 valori per riga) -> griglia (righe, colonne)."""
+    width = src["width"]
+    values = []
+    for line in raw.decode("latin-1").splitlines():
+        line = line.rstrip("\r\n")
+        for i in range(0, len(line) - width + 1, width):
+            chunk = line[i:i + width].strip()
+            if chunk:
+                try:
+                    values.append(float(chunk))
+                except ValueError:
+                    pass
+    rows, cols = src["shape"]
+    if len(values) != rows * cols:
+        raise PlanetDataUnavailable(f"Griglia di testo inattesa ({len(values)} valori invece di {rows * cols})")
+    grid = np.array(values, dtype=np.float32).reshape(rows, cols) * src.get("scale", 1.0)
+    return to_west_left(grid, src.get("lon0", -180))
+
+
+READERS = {"img": read_img, "cells": read_cells, "points": read_points, "fixed": read_fixed}
 
 
 # ------------------------------------------------------------------

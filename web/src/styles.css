@@ -508,3 +508,76 @@ body { background: radial-gradient(circle at 30% 30%, #0d1b2c 0%, var(--space) 7
 .point-box > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .point-box p { margin: 4px 0 0; }
 .point-values dd .muted { display: block; font-weight: 400; }
+
+/* Mappa del Sistema solare */
+.solar-map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: radial-gradient(circle at center, #0d1a2c 0%, #050a12 70%); }
+.solar-map .orbit { fill: none; stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.solar-map .orbit.earth { stroke: rgba(79, 147, 230, 0.6); }
+.solar-map .orbit.small { stroke: rgba(200, 200, 200, 0.18); stroke-dasharray: 3 3; }
+.solar-map .belt { fill: none; stroke: rgba(200, 180, 140, 0.045); }
+.solar-map .sun { fill: #ffd34d; filter: drop-shadow(0 0 12px rgba(255, 200, 60, 0.8)); }
+.solar-map .obj { cursor: pointer; }
+.solar-map .label { fill: #dfe7ea; font-size: 15px; paint-order: stroke; stroke: #050a12; stroke-width: 3px; }
+.solar-map .obj.craft .label { fill: #7ef0c6; font-size: 13px; }
+.solar-map .ring { fill: none; stroke: #f2b33d; stroke-width: 2; }
+.solar-map .equinox line { stroke: rgba(255, 255, 255, 0.12); stroke-dasharray: 2 6; }
+.solar-map .equinox text, .solar-map .scale-note { fill: rgba(255, 255, 255, 0.45); font-size: 13px; }
+.solar-map .ruler line { stroke: #dfe7ea; stroke-width: 1.5; }
+.solar-map .ruler text { fill: #dfe7ea; font-size: 14px; }
+.time-controls { margin: 8px 0; }
+.time-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.time-row input { background: transparent; color: inherit; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; padding: 3px 6px; }
+.events-list { list-style: none; padding: 0; margin: 4px 0 8px; }
+.events-list li { padding: 5px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); font-size: 13.5px; }
+.events-list li span { display: block; }
+
+/* Il Sole */
+.sun-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+.sun-stage img { max-width: 92%; max-height: 92%; transition: opacity 0.3s; }
+.sun-stage img.dim { opacity: 0.5; }
+
+/* Nomi e siti di atterraggio */
+.place-name { margin: 6px 0 2px; }
+.sites { margin: 8px 0; }
+.sites-list { list-style: none; padding: 0; margin: 6px 0; max-height: 220px; overflow-y: auto; }
+.sites-list li { padding: 3px 0; font-size: 13px; }
+
+/* Navigazione compatta di "Oltre la Terra": titolo del gruppo a sinistra, corpi a destra */
+.space-panel .nav-row { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 6px; margin: 2px 0; }
+.space-panel .nav-row .group-title { margin: 0; font-size: 10.5px; line-height: 1.25; }
+.space-panel .nav-row .chips { margin: 2px 0; }
+.space-panel .nav-row .chip { padding: 4px 9px; font-size: 12.5px; }
+@media (max-width: 520px) { .space-panel .nav-row { grid-template-columns: 1fr; } }
+
+/* Incendi */
+.fire-rings { width: 100%; max-width: 260px; display: block; margin: 8px auto; }
+.fire-rings .ring { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-dasharray: 3 3; }
+.fire-rings .axis { fill: var(--muted); font-size: 8px; }
+.fire-rings .fire-dot { fill: #ff5a1f; stroke: #2a0d00; stroke-width: 0.8; opacity: 0.9; }
+.fire-rings .center { fill: #fff; }
+.mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0; }
+.mini-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 3px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.mini-table td { padding: 3px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+
+/* Crediti */
+.credit-item { padding: 6px 0 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.credit-item p { margin: 2px 0; }
+
+/* Azioni sul luogo, account e piani */
+.place-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 2px; }
+.signin { margin: 8px 0; }
+.signin-row { display: flex; gap: 6px; margin-top: 4px; }
+.signin-row input { flex: 1; min-width: 0; background: rgba(255, 255, 255, 0.06); color: inherit; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 6px 10px; }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 6px 0; }
+.plan { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 10px; }
+.plan.on { border-color: var(--green); }
+.plan-name { font-weight: 700; margin: 0; }
+.plan-price { color: var(--muted); font-size: 12.5px; margin: 2px 0 6px; }
+.plan ul { padding-left: 16px; margin: 0 0 8px; font-size: 12.5px; }
+.saved-list { list-style: none; padding: 0; }
+.saved-list li { padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.saved-list .danger { color: #f29a4a; margin-left: 8px; }
+.alerts-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.alerts-row .chip { font-size: 11.5px; padding: 3px 8px; }
+.csv-link { font-size: 11.5px; }
+.credit-item a, .method a { color: var(--green); }

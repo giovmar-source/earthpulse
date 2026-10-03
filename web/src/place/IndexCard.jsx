@@ -2,6 +2,7 @@ import { getJson, placeParams } from '../api.js'
 import { ErrorBox, Loading, formatDate, formatNumber, useApi } from './common.jsx'
 import IndexMap from './IndexMap.jsx'
 import SeasonChart from './SeasonChart.jsx'
+import { useReportSection } from './report.js'
 
 // Come leggere ogni indice: frasi per l'andamento e per il valore attuale
 export const INDEX_SECTIONS = {
@@ -62,6 +63,18 @@ export default function IndexCard({ place, indexKey }) {
     (signal) => getJson('/api/v1/index/analysis', { index: indexKey, ...placeParams(place, 1.0) }, { signal }),
     [place.lat, place.lon, indexKey],
   )
+  const r = result.status === 'ok' && result.data.status !== 'no_water' ? result.data : null
+  useReportSection(indexKey, r?.latest ? {
+    title: `${info.title} (${indexKey.toUpperCase()})`,
+    facts: [
+      ['Valore ora', `${formatNumber(r.latest.median)} · ${info.words(r.latest.median)}`],
+      ['Immagine del', formatDate(r.latest.date)],
+      r.baseline && ['Di solito', `${formatNumber(r.baseline.median)} (da ${formatNumber(r.baseline.min)} a ${formatNumber(r.baseline.max)})`],
+      ['Confronto', headline(info, r.comparison)[1]],
+    ].filter(Boolean),
+    notes: ['Area di 1 × 1 km intorno al punto · Sentinel-2 L2A, 10 m.'],
+    attribution: 'Contiene dati Copernicus Sentinel modificati',
+  } : null)
   if (result.status === 'error') return <ErrorBox message={result.error} onRetry={result.retry} />
   if (result.status !== 'ok') {
     return <Loading text={`Analisi: ${info.title.toLowerCase()}…`}

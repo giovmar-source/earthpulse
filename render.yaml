@@ -24,3 +24,7 @@ services:
         sync: false
       - key: CDSE_CLIENT_SECRET
         sync: false
+      # Chiave gratuita NASA FIRMS per la sezione "Incendi attivi"
+      # (https://firms.modaps.eosdis.nasa.gov/api/map_key)
+      - key: FIRMS_MAP_KEY
+        sync: false

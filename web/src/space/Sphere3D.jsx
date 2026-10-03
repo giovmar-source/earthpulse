@@ -1,12 +1,19 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
+/** Punto della superficie (lat, lon in gradi) nelle coordinate della SphereGeometry di three.js. */
+function surfacePoint(lat, lon, radius) {
+  const phi = ((lon + 180) / 360) * Math.PI * 2
+  const theta = ((90 - lat) / 180) * Math.PI
+  return new THREE.Vector3(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)).multiplyScalar(radius)
+}
+
 /**
  * Corpo celeste in 3D: una sfera con la mappa globale (proiezione
  * equirettangolare) che ruota lentamente. Si trascina per girarla e si usa
  * la rotella (o due dita) per avvicinarsi.
  */
-export default function Sphere3D({ texture, flattening = 0, onTextureState, onPick, marker }) {
+export default function Sphere3D({ texture, flattening = 0, onTextureState, onPick, marker, sites }) {
   const mountRef = useRef(null)
   const state = useRef({})
   // Callback sempre aggiornate senza ricreare la scena o ricaricare la mappa
@@ -41,6 +48,9 @@ export default function Sphere3D({ texture, flattening = 0, onTextureState, onPi
     )
     pin.visible = false
     mesh.add(pin)
+    // Siti di atterraggio: piccoli punti bianchi sulla superficie
+    const siteGroup = new THREE.Group()
+    mesh.add(siteGroup)
     const raycaster = new THREE.Raycaster()
 
     // Stelle di sfondo
@@ -122,7 +132,7 @@ export default function Sphere3D({ texture, flattening = 0, onTextureState, onPi
     }
     animate()
 
-    state.current = { mesh, material, renderer, camera, pin, setSpin: (v) => { idleSpin = v; spin = v } }
+    state.current = { mesh, material, renderer, camera, pin, siteGroup, setSpin: (v) => { idleSpin = v; spin = v } }
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
@@ -160,14 +170,25 @@ export default function Sphere3D({ texture, flattening = 0, onTextureState, onPi
     if (state.current.camera) state.current.camera.position.z = 4.2
   }, [flattening])
 
+  // Siti di atterraggio
+  useEffect(() => {
+    const { siteGroup } = state.current
+    if (!siteGroup) return
+    siteGroup.children.forEach((child) => { child.geometry.dispose(); child.material.dispose() })
+    siteGroup.clear()
+    for (const site of sites || []) {
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }))
+      dot.position.copy(surfacePoint(site.lat, site.lon, 1.003))
+      siteGroup.add(dot)
+    }
+  }, [sites])
+
   // Segnaposto: stessa corrispondenza tra coordinate e mappa della SphereGeometry di three.js
   useEffect(() => {
     const { pin, setSpin } = state.current
     if (!pin) return
     if (!marker) { pin.visible = false; setSpin?.(0.0015); return }
-    const phi = ((marker.lon + 180) / 360) * Math.PI * 2
-    const theta = ((90 - marker.lat) / 180) * Math.PI
-    pin.position.set(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)).multiplyScalar(1.004)
+    pin.position.copy(surfacePoint(marker.lat, marker.lon, 1.004))
     pin.visible = true
     setSpin?.(0)
   }, [marker])

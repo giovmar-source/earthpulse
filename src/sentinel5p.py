@@ -22,6 +22,8 @@ import time
 from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
+
+from src import usage_budget
 import requests
 
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
@@ -94,6 +96,14 @@ def has_credentials() -> bool:
 
 _token = {"value": None, "expires": 0.0}
 _token_lock = threading.Lock()
+
+
+def _spend() -> None:
+    """Una richiesta in più sulla quota mensile di Copernicus Data Space."""
+    try:
+        usage_budget.spend("cdse")
+    except usage_budget.BudgetExceeded as exc:
+        raise S5PUnavailable(str(exc)) from exc
 
 
 def get_token(session=requests) -> str:
@@ -178,6 +188,7 @@ def read_tiff(content: bytes) -> np.ndarray:
 def fetch_grid(gas: str, bbox: list, start: date, end: date, session=requests) -> np.ndarray:
     """Valori medi del periodo (unità di Sentinel Hub), NaN dove non ci sono dati."""
     token = get_token(session)
+    _spend()
     response = session.post(
         PROCESS_URL, json=request_body(gas, bbox, start, end),
         headers={"Authorization": f"Bearer {token}", "Accept": "image/tiff"}, timeout=90,
@@ -392,6 +403,7 @@ def fetch_timeseries(gas: str, lat: float, lon: float, start: date, end: date,
     series = []
     for block_start, block_end in chunks(start, end):
         token = get_token(session)
+        _spend()
         response = session.post(STATISTICS_URL, json=statistics_body(gas, bbox, block_start, block_end),
                                 headers={"Authorization": f"Bearer {token}"}, timeout=90)
         if response.status_code == 401:

@@ -2,6 +2,7 @@ import { getJson, placeParams } from '../api.js'
 import { ErrorBox, Loading, formatDate, formatNumber, useApi } from './common.jsx'
 import IndexMap from './IndexMap.jsx'
 import SeasonChart from './SeasonChart.jsx'
+import { useReportSection } from './report.js'
 
 // Colore e frase per ogni esito del confronto con gli anni precedenti
 const OUTCOMES = {
@@ -27,6 +28,18 @@ export default function VegetationCard({ place }) {
     [place.lat, place.lon],
   )
 
+  const v = result.status === 'ok' ? result.data : null
+  useReportSection('vegetation', v?.latest_observation ? {
+    title: 'Vegetazione (NDVI)',
+    facts: [
+      ['NDVI ora', `${formatNumber(v.latest_observation.ndvi_mean)} · ${ndviWords(v.latest_observation.ndvi_mean)}`],
+      ['Immagine del', formatDate(v.latest_observation.date)],
+      v.baseline?.ndvi_median != null && ['Di solito', formatNumber(v.baseline.ndvi_median)],
+      ['Confronto', (OUTCOMES[v.comparison?.classification] || [null, v.comparison?.classification || '—'])[1]],
+    ].filter(Boolean),
+    notes: ['Area di 1 × 1 km intorno al punto · Sentinel-2 L2A, 10 m.'],
+    attribution: 'Contiene dati Copernicus Sentinel modificati',
+  } : null)
   if (result.status === 'loading' || result.status === 'idle') {
     return (
       <Loading

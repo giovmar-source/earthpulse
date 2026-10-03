@@ -217,5 +217,31 @@ def test_api_catalog_image_legend_and_point(monkeypatch):
 
 def test_api_reports_unreachable_archive(monkeypatch):
     monkeypatch.setattr(planets.requests, "get", serve({}))
-    response = TestClient(main.app).get("/api/v1/space/point", params={"body": "mars", "lat": 0, "lon": 0})
+    client = TestClient(main.app)
+    response = client.get("/api/v1/space/point", params={"body": "mars", "lat": 0, "lon": 0, "layers": "elevation"})
     assert response.status_code == 503
+    # Senza mappe numeriche richieste il punto risponde comunque (nome del luogo non disponibile)
+    ok = client.get("/api/v1/space/point", params={"body": "mars", "lat": 0, "lon": 0}).json()
+    assert ok["values"] == [] and ok["place"] is None
+
+
+def test_fixed_width_grid_like_magellan_starts_at_240_east():
+    lines = []
+    for row in range(180):
+        values = []
+        for col in range(360):
+            lon = (240 + col + 0.5) % 360                   # 0-360 est
+            values.append(11.0 if row == 30 and 0 <= lon < 2 else 0.5)
+        for k in range(0, 360, 10):
+            lines.append("".join(f"{v:8.2f}" for v in values[k:k + 10]))
+    grid = planets.read_fixed("\r\n".join(lines).encode(), BODIES["venus"]["layers"]["elevation"]["source"])
+    assert grid.shape == (180, 360) and grid.max() == 11000.0
+    row, col = np.unravel_index(np.argmax(grid), grid.shape)
+    assert row == 30 and col in (180, 181)                  # longitudine 0-2° E dopo la rotazione
+
+
+def test_to_west_left_for_any_start():
+    grid = np.arange(360, dtype=np.float32)[None, :]
+    assert planets.to_west_left(grid, 0)[0, 0] == 180          # colonna di −180 = 180° E
+    assert planets.to_west_left(grid, -180)[0, 0] == 0
+    assert planets.to_west_left(grid, 240)[0, 0] == 300        # 240 + 300 = 540 = 180° = −180°

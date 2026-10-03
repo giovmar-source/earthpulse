@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "astronomy-engine": "2.1.19",
     "maplibre-gl": "5.24.0",
     "react": "19.2.0",

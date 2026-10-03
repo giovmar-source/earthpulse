@@ -4,7 +4,9 @@ import json
 import time
 from urllib.parse import urlencode
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pystac_client import Client
 
@@ -28,6 +30,14 @@ from src import sentinel5p
 from src import fci
 from src import planets
 from src import planet_layers
+from src import solar_system
+from src import nomenclature
+from src import sar_water, water_cycle, fires, sea, imperviousness
+from src import sources
+from src import air_quality
+from src import usage_budget
+from src import accounts, billing, plans
+from src import exports
 from src.limits import heavy_task
 from src.stories import MAX_STORY_SIDE_KM, load_stories, story_summary
 from src.indices import (
@@ -98,8 +108,35 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Data-Pixels"],
+    expose_headers=["X-Data-Pixels", "X-Observed"],
 )
+
+# Analisi contate per i limiti dei piani (un luogo diverso al giorno = un'analisi).
+# Le immagini che seguono un'analisi non contano. Attivo solo con PLANS_ENFORCED=true.
+METERED_PATHS = (
+    "/api/v1/ndvi/analysis", "/api/v1/index/analysis", "/api/v1/imagery/scenes", "/api/v1/heat",
+    "/api/v1/nightlights", "/api/v1/archive", "/api/v1/s5p", "/api/v1/sar/water", "/api/v1/water-cycle",
+    "/api/v1/fires", "/api/v1/sea", "/api/v1/imperviousness", "/api/v1/air-quality",
+)
+
+
+@app.middleware("http")
+async def plan_limits(request: Request, call_next):
+    path = request.url.path
+    if (accounts.enforced() and request.method == "GET" and path.startswith(METERED_PATHS)
+            and not path.endswith("/image")):
+        q = request.query_params
+        lat, lon = q.get("lat") or q.get("latitude"), q.get("lon") or q.get("longitude")
+        if lat and lon:
+            try:
+                await run_in_threadpool(accounts.meter_place, request, float(lat), float(lon))
+            except HTTPException as exc:
+                # Risposta diretta: va aggiunta a mano l'intestazione CORS
+                return JSONResponse({"detail": exc.detail}, status_code=exc.status_code,
+                                    headers={"Access-Control-Allow-Origin": "*"})
+            except ValueError:
+                pass
+    return await call_next(request)
 
 
 # ============================================================
@@ -1923,6 +1960,232 @@ def get_s5p_timeseries(
 
 
 # ============================================================
+# ENDPOINT: QUALITÀ DELL'ARIA (Open-Meteo / CAMS, passando dal server)
+# ============================================================
+
+@app.get("/api/v1/air-quality")
+def get_air_quality(
+    latitude: float = Query(..., ge=-90, le=90),
+    longitude: float = Query(..., ge=-180, le=180),
+    current: str = Query("", max_length=600),
+    hourly: str = Query("", max_length=600),
+    past_days: int = Query(1, ge=0, le=7),
+    forecast_days: int = Query(2, ge=1, le=7),
+    timezone: str = Query("auto", max_length=60),
+):
+    """Stessi parametri dell'API Air Quality di Open-Meteo; chiave commerciale se configurata."""
+    params = {"latitude": latitude, "longitude": longitude, "past_days": past_days,
+              "forecast_days": forecast_days, "timezone": timezone}
+    if current:
+        params["current"] = current
+    if hourly:
+        params["hourly"] = hourly
+    try:
+        return air_quality.fetch(params)
+    except air_quality.AirQualityUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+# ============================================================
+# ENDPOINT: CREDITI E LICENZE
+# ============================================================
+
+# ============================================================
+# ENDPOINT: ACCOUNT, PIANI E PAGAMENTI (predisposti, spenti finché non configurati)
+# ============================================================
+
+@app.get("/api/v1/me")
+def get_me(request: Request):
+    """Account, piano, limiti e uso di oggi dell'utente (o del visitatore)."""
+    return accounts.me(request)
+
+
+@app.get("/api/v1/plans")
+def get_plans():
+    """Piani in vendita, con limiti e caratteristiche (per la pagina dei piani)."""
+    return {
+        "plans": [{"key": k, **{f: v for f, v in plans.PLANS[k].items()}} for k in plans.PUBLIC_PLANS],
+        "payments_enabled": billing.enabled(),
+        "accounts_enabled": accounts.accounts_enabled(),
+        "enforced": accounts.enforced(),
+    }
+
+
+@app.post("/api/v1/billing/paddle-webhook")
+async def paddle_webhook(request: Request):
+    """Notifiche di Paddle sugli abbonamenti (firma verificata)."""
+    raw = await request.body()
+    try:
+        return await run_in_threadpool(billing.handle, raw, request.headers.get("paddle-signature", ""))
+    except billing.BillingDisabled as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except billing.InvalidSignature as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+# ============================================================
+# ENDPOINT: ESPORTAZIONI (GeoTIFF degli indici, PDF della scheda del luogo)
+# ============================================================
+
+@app.get("/api/v1/export/geotiff")
+def export_geotiff(
+    request: Request,
+    item_id: str = Query(..., min_length=5, max_length=100, pattern=r"^[A-Za-z0-9_\-]+$"),
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    side_km: float = Query(3.0, gt=0, le=10),
+    index: str = Query(..., pattern=r"^(ndvi|ndwi|ndmi|ndbi|ndre|ndsi|ndci|ndti)$"),
+):
+    """Valori dell'indice (float32) sulla griglia UTM a 10 m, da aprire in un GIS."""
+    accounts.check(request, "export", f"tif:{item_id}:{index}:{lat:.4f}:{lon:.4f}:{side_km}")
+    item = get_item_by_id(item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Scena non trovata: {item_id}")
+    grid = Grid(lat, lon, side_km)
+    try:
+        with heavy_task():
+            values, valid = index_on_grid(item, grid, index)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Calcolo dell'indice non riuscito: {exc}") from exc
+    data = exports.index_geotiff(values, valid, grid, {
+        "index": index.upper(), "scene": item_id,
+        "date": item.datetime.date().isoformat() if item.datetime else "",
+        "source": "Copernicus Sentinel-2 L2A (Earth Search)",
+        "attribution": f"Contiene dati Copernicus Sentinel modificati [{item.datetime.year if item.datetime else ''}]",
+        "nodata": "NaN = nuvole, ombre, acqua o fuori scena", "producer": exports.PRODUCT_NAME,
+    })
+    name = f"{index}_{item_id}_{lat:.4f}_{lon:.4f}.tif"
+    return Response(content=data, media_type="image/tiff",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.post("/api/v1/export/pdf")
+async def export_pdf(request: Request):
+    """Scheda PDF del luogo con le sezioni inviate dal sito (titolo, dati, note, fonte)."""
+    payload = await request.json()
+    if not isinstance(payload, dict) or len(json.dumps(payload)) > 200_000:
+        raise HTTPException(status_code=400, detail="Contenuto non valido.")
+    place = payload.get("place") or {}
+    accounts.check(request, "export", f"pdf:{place.get('lat')}:{place.get('lon')}:{len(payload.get('sections') or [])}")
+    data = await run_in_threadpool(exports.place_report, payload)
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="scheda-luogo.pdf"'})
+
+
+@app.get("/api/v1/status/usage")
+def get_usage_status():
+    """Richieste del mese ai servizi con quota (per il controllo dei costi)."""
+    return usage_budget.report()
+
+
+@app.get("/api/v1/credits")
+def get_credits():
+    """Tutte le fonti di dati e servizi, con licenza e testo di attribuzione."""
+    return {"sources": sources.public()}
+
+
+# ============================================================
+# ENDPOINT: ACQUA, PIOGGIA, INCENDI, MARE, SUOLO (strumenti per professionisti)
+# ============================================================
+
+def _sar_result(lat: float, lon: float, reference: str) -> dict:
+    try:
+        with heavy_task():
+            return sar_water.analyse(lat, lon, reference)
+    except sar_water.SarUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/sar/water")
+def get_sar_water(
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    reference: str = Query("year", pattern="^(year|month)$"),
+):
+    """Acqua adesso e nel periodo di riferimento dal radar Sentinel-1 (6 × 6 km)."""
+    result = _sar_result(lat, lon, reference)
+    data = {k: v for k, v in result.items() if k != "png"}
+    if result.get("png"):
+        data["image"] = "/api/v1/sar/water/image?" + urlencode({"lat": lat, "lon": lon, "reference": reference})
+    data.update({"side_km": sar_water.SIDE_KM, "threshold_db": sar_water.WATER_DB,
+                 "attribution": sar_water.ATTRIBUTION})
+    return data
+
+
+@app.get("/api/v1/sar/water/image")
+def get_sar_water_image(
+    lat: float = Query(..., ge=-80, le=80),
+    lon: float = Query(..., ge=-180, le=180),
+    reference: str = Query("year", pattern="^(year|month)$"),
+):
+    result = _sar_result(lat, lon, reference)
+    if not result.get("png"):
+        raise HTTPException(status_code=404, detail="Immagine non disponibile")
+    return Response(content=result["png"], media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/api/v1/water-cycle")
+def get_water_cycle(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    days: int = Query(90, ge=14, le=366),
+):
+    """Pioggia giornaliera e umidità del suolo (NASA POWER), con il confronto con la norma."""
+    try:
+        return water_cycle.analyse(lat, lon, days)
+    except water_cycle.WaterCycleUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/fires")
+def get_fires(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    radius: int = Query(50, ge=5, le=150),
+    days: int = Query(5, ge=1, le=5),
+):
+    """Punti di calore VIIRS (NASA FIRMS) entro il raggio, negli ultimi giorni."""
+    try:
+        return fires.detections(lat, lon, radius, days)
+    except fires.FiresUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/sea")
+def get_sea(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)):
+    """Temperatura del mare e clorofilla negli ultimi 60 giorni (NOAA CoastWatch ERDDAP)."""
+    try:
+        return sea.analyse(lat, lon)
+    except sea.SeaUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _impervious(lat: float, lon: float) -> dict:
+    try:
+        return imperviousness.analyse(lat, lon)
+    except imperviousness.ImperviousnessUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/imperviousness")
+def get_imperviousness(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)):
+    """Suolo impermeabilizzato in 2 × 2 km (Copernicus HRL 2018)."""
+    result = _impervious(lat, lon)
+    data = {k: v for k, v in result.items() if k != "png"}
+    if result.get("png"):
+        data["image"] = "/api/v1/imperviousness/image?" + urlencode({"lat": lat, "lon": lon})
+    return data
+
+
+@app.get("/api/v1/imperviousness/image")
+def get_imperviousness_image(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)):
+    result = _impervious(lat, lon)
+    if not result.get("png"):
+        raise HTTPException(status_code=404, detail="Immagine non disponibile")
+    return Response(content=result["png"], media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
+# ============================================================
 # ENDPOINT: OLTRE LA TERRA (mappe tematiche di Luna e Marte)
 # ============================================================
 
@@ -1979,7 +2242,7 @@ def get_space_point(
     body: str = Query(..., pattern=SPACE_BODY_PATTERN),
     lat: float = Query(..., ge=-90, le=90),
     lon: float = Query(..., ge=-180, le=180),
-    layers: str = Query("elevation", pattern=r"^[a-z_,]{2,120}$"),
+    layers: str = Query("", pattern=r"^[a-z_,]{0,120}$"),
 ):
     """Valori delle mappe numeriche richieste nel punto toccato sul globo."""
     wanted = [k for k in layers.split(",") if k]
@@ -1988,7 +2251,53 @@ def get_space_point(
             values = planets.point(body, lat, lon, wanted)
     except planets.PlanetDataUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"body": body, "lat": lat, "lon": lon, "values": values}
+    # Nome IAU del luogo e sito di atterraggio vicino: utili ma non indispensabili
+    try:
+        place = nomenclature.place_at(body, lat, lon)
+    except planets.PlanetDataUnavailable:
+        place = None
+    landing = nomenclature.nearest_landing(body, lat, lon, max_km=50)
+    return {"body": body, "lat": lat, "lon": lon, "values": values, "place": place,
+            "landing": landing, "names_attribution": nomenclature.ATTRIBUTION if place else None}
+
+
+@app.get("/api/v1/space/sites")
+def get_space_sites(body: str = Query(..., pattern=SPACE_BODY_PATTERN)):
+    """Siti di atterraggio con data, agenzia, fonte e precisione delle coordinate."""
+    return {"body": body, "sites": nomenclature.landing_sites(body),
+            "markers": body in nomenclature.NAMED_BODIES}
+
+
+@app.get("/api/v1/space/small-bodies")
+def get_small_bodies():
+    """Elementi orbitali di Cerere e Vesta (JPL Small-Body Database, aggiornati ogni giorno)."""
+    return {"bodies": solar_system.small_bodies(), "attribution": solar_system.JPL_ATTRIBUTION}
+
+
+@app.get("/api/v1/space/spacecraft")
+def get_spacecraft():
+    """Traiettorie eliocentriche delle sonde (JPL Horizons), da un anno prima a un anno dopo oggi."""
+    return {"spacecraft": solar_system.spacecraft(), "step_days": 5,
+            "attribution": solar_system.JPL_ATTRIBUTION}
+
+
+@app.get("/api/v1/space/sun/products")
+def get_sun_products():
+    return {"products": [{"key": k, **v} for k, v in solar_system.SDO_PRODUCTS.items()],
+            "attribution": solar_system.SDO_ATTRIBUTION}
+
+
+@app.get("/api/v1/space/sun")
+def get_sun_image(product: str = Query("0193", pattern="^(" + "|".join(solar_system.SDO_PRODUCTS) + ")$")):
+    """Ultima immagine del Sole del Solar Dynamics Observatory (cache di 10 minuti)."""
+    try:
+        data, observed = solar_system.sun_image(product)
+    except solar_system.SolarDataUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    headers = {"Cache-Control": "public, max-age=600"}
+    if observed:
+        headers["X-Observed"] = observed
+    return Response(content=data, media_type="image/jpeg", headers=headers)
 
 
 # ============================================================
@@ -2007,6 +2316,10 @@ def get_fci_overlay(
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90) or east - west > 60:
         raise HTTPException(status_code=400, detail="Area non valida.")
     moment = datetime.fromisoformat(time.replace("Z", "+00:00"))
+    if not fci.allowed_time(moment):
+        raise HTTPException(status_code=403, detail=(
+            f"Per la licenza in uso le immagini Meteosat devono avere almeno "
+            f"{fci.delay_minutes()} minuti di ritardo."))
     try:
         png, pixels = fci.overlay(product, [west, south, east, north], moment, size)
     except Exception as exc:

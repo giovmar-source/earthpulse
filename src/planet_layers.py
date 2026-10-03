@@ -190,6 +190,30 @@ BODIES = {
                 "trek_body": "Venus", "trek_id": "Venus_Magellan_C3-MDIR_Global_Mosaic_2025m", "ext": "png",
                 "attribution": "Radar: NASA/JPL (Magellan), tramite NASA Solar System Treks",
             },
+            "elevation": {
+                "kind": "grid", "label": "Altitudine", "unit": "m", "digits": 0, "legend_unit": "km",
+                # 180 righe (da 89,5° N) × 360 valori; ogni riga parte da 240° E (etichetta PDS)
+                "source": {"format": "fixed", "url": f"{PDS}/mgn/mgn-v-rss-5-gravity-l2-v1/mg_5201/topo/topogrd.dat",
+                           "width": 8, "shape": (180, 360), "scale": 1000.0, "lon0": 240},
+                "colors": TOPO, "stops": [-3000, -2000, -1000, 0, 1000, 2000, 5000, 10000],
+                "label_scale": 0.001, "hillshade": True,
+                "reference": "rispetto a una sfera di 6051,848 km",
+                "caption": ("Altitudine dall'altimetro radar di Magellan, su celle di 1° (circa 105 km). "
+                            "In bianco i Maxwell Montes, la catena più alta di Venere (circa 11 km); la "
+                            "maggior parte della superficie è una pianura vulcanica vicina al livello medio."),
+                "attribution": f"Altitudine: Magellan (Ford & Pettengill 1992), {NASA_PDS}",
+            },
+            "gravity": {
+                "kind": "grid", "label": "Gravità", "unit": "mGal", "digits": 0,
+                "source": {"format": "fixed", "url": f"{PDS}/mgn/mgn-v-rss-5-gravity-l2-v1/mg_5201/gravity/fairgrd.dat",
+                           "width": 8, "shape": (180, 360), "scale": 1.0, "lon0": 240},
+                "colors": DIVERGING, "stops": "auto_diverging",
+                "caption": ("Anomalia di gravità in aria libera dal tracciamento radio di Magellan e "
+                            "Pioneer Venus (modello SHG120). Su Venere segue da vicino il rilievo: i "
+                            "grandi rigonfiamenti vulcanici come Beta e Atla Regio sono sostenuti da "
+                            "risalite di mantello caldo. Risoluzione effettiva di alcune centinaia di km."),
+                "attribution": f"Gravità: Magellan e Pioneer Venus, modello SHG120 (Konopliv et al.), {NASA_PDS}",
+            },
         },
     },
     # ------------------------------------------------------------------ Cerere

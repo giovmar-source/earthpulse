@@ -1,7 +1,7 @@
 import { METHODOLOGY } from './methodology.js'
 
 /** Come funziona EarthPulse: dati, indici, controlli di qualità e limiti. */
-export default function MethodologyPanel({ onClose }) {
+export default function MethodologyPanel({ onClose, onCredits }) {
   return (
     <aside className="panel wide method">
       <button className="close" onClick={onClose} aria-label="Chiudi">×</button>
@@ -11,6 +11,7 @@ export default function MethodologyPanel({ onClose }) {
         Il satellite è l'ingrediente, non il prodotto: ecco come trasformiamo le immagini in
         un'informazione leggibile.
       </p>
+      {onCredits && <button className="method-link" onClick={onCredits}>📜 Crediti e licenze di tutte le fonti →</button>}
       <nav className="method-index" aria-label="Indice">
         {METHODOLOGY.map((s, i) => (
           <a key={s.title} href={`#metodo-${i}`}>{s.title}</a>

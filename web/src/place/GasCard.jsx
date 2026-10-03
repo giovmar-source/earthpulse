@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { getJson, placeParams } from '../api.js'
+import { downloadCsv, getJson, placeParams } from '../api.js'
 import { CompareImages, ErrorBox, Legend, Loading, formatDate, formatNumber, useApi } from './common.jsx'
+import { useReportSection } from './report.js'
 
 const GAS_OPTIONS = [
   { key: 'no2', label: 'NO₂ · biossido di azoto', mapDays: 7, digits: 0 },
@@ -117,6 +118,9 @@ function TrendChart({ data, digits }) {
             {sparse && hoverPrev && <> · anno prima {formatNumber(hoverPrev.value, digits)}</>}
           </>
         ) : <span className="muted">Passa sul grafico per leggere i singoli giorni.</span>}
+        {' '}<button className="link csv-link" onClick={() => downloadCsv(
+          [...data.series.map((p) => ({ ...p, period: 'attuale' })), ...data.previous.map((p) => ({ ...p, period: 'anno precedente' }))],
+          [['date', 'Data'], ['value', `Valore (${data.unit})`], ['period', 'Periodo']], `${data.gas}_giornaliero.csv`)}>⬇ CSV</button>
       </p>
     </div>
   )
@@ -141,6 +145,14 @@ export default function GasCard({ place }) {
   )
   const s = series.status === 'ok' ? series.data : null
   const m = map.status === 'ok' ? map.data : null
+  useReportSection('gas', s ? {
+    title: `Gas dal satellite · ${gas.label} (ultimi ${range} giorni, entro 15 km)`,
+    facts: [['Media del periodo', `${formatNumber(s.mean, gas.digits)} ${s.unit}${s.level ? ` · ${s.level}` : ''}`],
+      ['Rispetto all\'anno precedente', signedPercent(s.change_percent)],
+      ['Giorni con dati validi', `${s.valid_days} su ${s.period.days}`]],
+    notes: ['Quantità nella colonna d\'aria misurata da Sentinel-5P, non concentrazione al suolo.'],
+    attribution: s.attribution,
+  } : null)
 
   return (
     <div>

@@ -522,6 +522,88 @@ export const METHODOLOGY = [
         "b",
         "Mercurio: rapporto magnesio/silicio dallo spettrometro a raggi X di MESSENGER (celle di 0,25°, copertura parziale; Nittler et al. 2020). Cerere: idrogeno come percentuale di acqua equivalente dallo spettrometro GRaND di Dawn (risoluzione di circa 600 km; Prettyman et al.)."
       ]
+      [
+        "b",
+        "Venere: altitudine (km rispetto a una sfera di 6051,848 km) e anomalia di gravità in aria libera (mGal, modello SHG120) dalle griglie Magellan a 1° del PDS. Ogni riga del file parte da 240° E: il server la ruota per partire da 180° O; l'incertezza sulla posizione delle celle è di mezzo grado."
+      ],
+      [
+        "b",
+        "Nomi dei luoghi: Gazetteer of Planetary Nomenclature (IAU, USGS Astrogeology), file aggiornati ogni notte, nomi esclusi se ritirati. Al tocco si mostra il luogo con nome che contiene il punto (il più piccolo, se più d'uno: un cratere dentro un mare) o, se nessuno lo contiene, il più vicino con la distanza dal suo centro. I nomi sono attivi solo dove la mappa del sito ha longitudini verificate (Luna, Marte, Mercurio, Venere, Cerere, Vesta, Fobos, Encelado)."
+      ],
+      [
+        "b",
+        "Siti di atterraggio: 47 siti con data, agenzia, fonte e precisione di ogni coordinata (NASA NSSDCA e immagini LROC per la Luna, circa 30 m; NASA Mars24 per Marte, circa 0,01°; per Venere coordinate approssimate di decine o centinaia di km; Huygens su Titano incerto di alcuni gradi). Il punto bianco sul globo indica il sito; per i rover è il punto di atterraggio, non la posizione attuale."
+      ],
+      [
+        "b",
+        "Mappa del Sistema solare: vista dal polo nord dell'eclittica J2000. Pianeti e Plutone da astronomy-engine (VSOP87, circa un minuto d'arco); Cerere e Vesta da orbita kepleriana con gli elementi osculanti del JPL Small-Body Database, aggiornati ogni giorno (se il servizio non risponde: elementi salvati con epoca 24 febbraio 2023, dichiarata). Distanze in scala in ciascuno zoom, dimensioni dei corpi ingrandite. Eventi: opposizioni e massime elongazioni calcolate con astronomy-engine. Date consentite dal 1800 al 2200."
+      ],
+      [
+        "b",
+        "Sonde: traiettorie eliocentriche dal servizio JPL Horizons (vettori sull'eclittica J2000, un punto ogni 5 giorni, da un anno prima a un anno dopo la data odierna), interpolate linearmente. Fuori da questo intervallo la sonda non è disegnata. Le sonde oltre il bordo della vista sono segnate sul bordo, nella loro direzione, con la distanza vera."
+      ],
+      [
+        "b",
+        "Sole dal vivo: ultime immagini pubblicate dal Solar Dynamics Observatory (NASA): ultravioletto estremo a 171, 193 e 304 Å (falsi colori), luce visibile e magnetogramma (HMI). Il server le aggiorna al massimo ogni 10 minuti; l'orario mostrato è quello di pubblicazione del file."
+      ]
+    ]
+  },
+  {
+    "title": "Acqua, fuoco e suolo",
+    "items": [
+      [
+        "p",
+        "Strumenti per chi lavora sul territorio: acqua e allagamenti dal radar, pioggia e umidità del suolo, incendi attivi, mare e suolo impermeabilizzato. Ogni sezione dice la risoluzione, il ritardo dei dati e i limiti."
+      ],
+      [
+        "b",
+        "Acqua e allagamenti: Sentinel-1 GRD (modo IW, polarizzazione VV, retrodiffusione sigma0 sull'ellissoide, ortorettificata con il DEM Copernicus) tramite Copernicus Data Space. Due periodi di 12 giorni, l'immagine più recente di ciascuno: gli ultimi 12 giorni e gli stessi giorni un anno prima (o un mese prima). Acqua = segnale VV sotto −18 dB, con un filtro di maggioranza 3 × 3 contro il rumore del radar. Area di 6 × 6 km, pixel di 20 m. Limiti: superfici lisce (asfalto, sabbia asciutta, neve bagnata) possono sembrare acqua, i rilievi creano ombre radar, il vento increspa l'acqua."
+      ],
+      [
+        "b",
+        "Pioggia e umidità del suolo: NASA POWER, parametri PRECTOTCORR (precipitazione corretta, mm al giorno), GWETTOP (umidità dei primi 5 cm) e GWETROOT (zona delle radici), da rianalisi MERRA-2/GEOS su celle di circa 0,5° × 0,625°. La norma è la climatologia POWER 2001–2020 dello stesso luogo: per la pioggia, la somma delle medie mensili sugli stessi giorni con dati. Sono stime di modello alimentate da osservazioni, non misure sul campo; ritardo di 2–7 giorni."
+      ],
+      [
+        "b",
+        "Incendi attivi: NASA FIRMS, sensori VIIRS su Suomi NPP, NOAA-20 e NOAA-21 (pixel di 375 m), dati NRT degli ultimi 5 giorni entro il raggio scelto. Per ogni punto: data e ora UTC, distanza, potenza irradiata (FRP, MW) e affidabilità (bassa, nominale, alta). Un punto di calore può essere anche un impianto industriale, un vulcano o un rogo agricolo."
+      ],
+      [
+        "b",
+        "Mare: temperatura superficiale NOAA OISST v2.1 preliminare (0,25°, giornaliera, ritardo di circa un giorno) con l'anomalia rispetto alla climatologia del prodotto; clorofilla-a NOAA da VIIRS e Sentinel-3 OLCI con riempimento dei buchi DINEOF (circa 9 km, ritardo di circa 10 giorni, licenza CC0). Gli ultimi 60 giorni disponibili nella cella più vicina; sulla terraferma i valori mancano."
+      ],
+      [
+        "b",
+        "Suolo impermeabilizzato: Copernicus HRL Imperviousness Density 2018 (pixel di 10 m, percentuale impermeabile per pixel) dal servizio pubblico dell'Agenzia europea dell'ambiente, in un'area di 2 × 2 km. È l'ultima edizione consultabile online; le successive (2021) sono solo da scaricare. Solo paesi europei."
+      ],
+      [
+        "b",
+        "Non ancora disponibili, con il motivo: movimenti del terreno EGMS (nessun servizio pubblico di consultazione: servono un account EU Login e un archivio dei dati sul nostro server); pericolo di incendio EFFIS (nome del livello e formato delle risposte da verificare); consumo di suolo ISPRA (nessun servizio WMS ufficiale trovato)."
+      ]
+    ]
+  },
+  {
+    "title": "Account, piani ed esportazioni",
+    "items": [
+      [
+        "p",
+        "Durante la beta tutte le funzioni sono libere e senza registrazione. Al lancio, gli account useranno Supabase (server nell'Unione europea): accesso con un link via email, senza password."
+      ],
+      [
+        "b",
+        "Piani: Gratis, Pro e Istituzionale. Cambiano solo le quantità (luoghi analizzati al giorno, esportazioni, luoghi salvati, avvisi automatici), mai i dati o le analisi disponibili. Un luogo aperto più volte nello stesso giorno conta una volta sola."
+      ],
+      [
+        "b",
+        "Scheda PDF: raccoglie i numeri delle sezioni aperte nel pannello del luogo, con la fonte di ognuna e l'avviso sui limiti dei dati. Non contiene nuove elaborazioni."
+      ],
+      [
+        "b",
+        "GeoTIFF: valori dell'indice della data più recente (numeri decimali, nessun dato = NaN) sulla griglia UTM a 10 m di Sentinel-2, con fonte e data nei metadati, da aprire in QGIS o ArcGIS. CSV: le serie giornaliere dei grafici, con separatore punto e virgola."
+      ],
+      [
+        "b",
+        "Avvisi automatici (piani Pro e Istituzionale): una volta al giorno il server controlla i luoghi salvati (punti di calore nelle ultime 24 ore entro il raggio scelto; acqua nuova dal radar rispetto a un mese prima, oltre 5 ettari) e invia un'email, una sola volta per ogni evento."
+      ]
     ]
   },
   {
@@ -619,7 +701,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; dati LRO LOLA, Lunar Prospector, GRAIL, MGS MOLA/TES/MAG, Mars Odyssey GRS, MESSENGER XRS e Dawn GRaND dal NASA Planetary Data System (pubblico dominio); mosaici MESSENGER, Magellan, Dawn, Viking, Cassini e THEMIS tramite NASA Solar System Treks; calcoli astronomici con astronomy-engine (MIT)."
+        "Oltre la Terra: Solar System Scope (CC BY 4.0), NASA/JPL/USGS Astrogeology (pubblico dominio), elaborazioni del progetto amarcher/solar-system; dati LRO LOLA, Lunar Prospector, GRAIL, MGS MOLA/TES/MAG, Mars Odyssey GRS, MESSENGER XRS e Dawn GRaND dal NASA Planetary Data System (pubblico dominio); mosaici MESSENGER, Magellan, Dawn, Viking, Cassini e THEMIS tramite NASA Solar System Treks; griglie Magellan dal PDS; nomi IAU (USGS Astrogeology, pubblico dominio); orbite JPL Small-Body Database e Horizons; immagini del Sole NASA/SDO (AIA, HMI). Acqua, fuoco e suolo: Copernicus Sentinel-1 (CDSE), NASA POWER, NASA FIRMS, NOAA OISST e CoastWatch, Copernicus Land Monitoring Service (HRL Imperviousness 2018); calcoli astronomici con astronomy-engine (MIT)."
       ]
     ]
   }

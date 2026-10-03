@@ -36,6 +36,8 @@ NOMINATIM_URL = f"{NOMINATIM_BASE}/search"
 NOMINATIM_REVERSE_URL = f"{NOMINATIM_BASE}/reverse"
 PHOTON_URL = f"{PHOTON_BASE}/api/"
 PHOTON_REVERSE_URL = f"{PHOTON_BASE}/reverse"
+GEOAPIFY_SEARCH_URL = "https://api.geoapify.com/v1/geocode/search"
+GEOAPIFY_REVERSE_URL = "https://api.geoapify.com/v1/geocode/reverse"
 USER_AGENT = "EarthPulse/0.5 (+https://github.com/giovmar-source/earthpulse)"
 
 MIN_INTERVAL_SECONDS = 1.0
@@ -153,6 +155,48 @@ def _search_photon(http, text, limit, language) -> list:
     return results
 
 
+# ------------------------------------------------------------------
+# Geoapify: servizio commerciale (server in UE) per la versione in vendita.
+# Si attiva con GEOCODER=geoapify e GEOAPIFY_KEY; altrimenti Nominatim/Photon.
+# ------------------------------------------------------------------
+
+def use_geoapify() -> bool:
+    return os.environ.get("GEOCODER", "").lower() == "geoapify" and bool(os.environ.get("GEOAPIFY_KEY"))
+
+
+def _geoapify(http, url, params, language) -> list:
+    response = http.get(url, params={**params, "lang": language, "format": "json",
+                                     "apiKey": os.environ["GEOAPIFY_KEY"]},
+                        headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    return response.json().get("results") or []
+
+
+def _search_geoapify(http, text, limit, language) -> list:
+    results = []
+    for r in _geoapify(http, GEOAPIFY_SEARCH_URL, {"text": text, "limit": limit}, language):
+        name = r.get("name") or r.get("city") or r.get("formatted", "").split(",")[0]
+        results.append({
+            "name": name, "display_name": r.get("formatted") or name,
+            "latitude": float(r["lat"]), "longitude": float(r["lon"]),
+            "type": r.get("result_type"), "category": r.get("category"),
+        })
+    return results
+
+
+def _reverse_geoapify(http, lat, lon, language) -> dict | None:
+    results = _geoapify(http, GEOAPIFY_REVERSE_URL, {"lat": f"{lat:.5f}", "lon": f"{lon:.5f}"}, language)
+    if not results:
+        return None
+    r = results[0]
+    name = next((r[k] for k in ("city", "town", "village", "municipality", "suburb", "county", "state", "name")
+                 if r.get(k)), None)
+    if not name:
+        return None
+    context = [r.get(k) for k in ("state", "country") if r.get(k) and r.get(k) != name]
+    return {"name": name, "context": ", ".join(context), "display_name": r.get("formatted") or name}
+
+
 def search_places(query: str, limit: int = 5, language: str = "it",
                   session=None) -> list:
     """
@@ -172,6 +216,14 @@ def search_places(query: str, limit: int = 5, language: str = "it",
 
     http = session or requests
     results = None
+
+    if use_geoapify():
+        try:
+            results = _search_geoapify(http, text, limit, language)
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            raise GeocodingUnavailable("Ricerca dei luoghi temporaneamente non disponibile.") from exc
+        _cache[key] = results
+        return results
 
     if time.monotonic() >= _nominatim_blocked_until[0]:
         try:
@@ -262,7 +314,13 @@ def reverse_place(lat: float, lon: float, language: str = "it", session=None) ->
     http = session or requests
     result = None
     answered = False
-    if time.monotonic() >= _nominatim_blocked_until[0]:
+    if use_geoapify():
+        try:
+            result = _reverse_geoapify(http, lat, lon, language)
+            answered = True
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            raise GeocodingUnavailable("Nome del luogo non disponibile in questo momento.") from exc
+    if not answered and time.monotonic() >= _nominatim_blocked_until[0]:
         try:
             result = _reverse_nominatim(http, lat, lon, language)
             answered = True

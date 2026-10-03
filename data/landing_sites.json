@@ -1,0 +1,487 @@
+{
+ "_note": "Coordinate planetocentriche, longitudine est da -180 a 180. Fonte e precisione per ogni sito.",
+ "sites": [
+  {
+   "body": "moon",
+   "name": "Luna 9",
+   "agency": "URSS",
+   "date": "1966-02-03",
+   "lat": 7.13,
+   "lon": -64.37,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "incerta, probabilmente oltre 10 km",
+   "note": "Primo atterraggio morbido su un altro corpo celeste"
+  },
+  {
+   "body": "moon",
+   "name": "Surveyor 1",
+   "agency": "NASA",
+   "date": "1966-06-02",
+   "lat": -2.4745,
+   "lon": -43.3398,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Surveyor 3",
+   "agency": "NASA",
+   "date": "1967-04-20",
+   "lat": -3.0162,
+   "lon": -23.418,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Surveyor 5",
+   "agency": "NASA",
+   "date": "1967-09-11",
+   "lat": 1.4551,
+   "lon": 23.1943,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Surveyor 6",
+   "agency": "NASA",
+   "date": "1967-11-10",
+   "lat": 0.4742,
+   "lon": -1.4275,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Surveyor 7",
+   "agency": "NASA",
+   "date": "1968-01-10",
+   "lat": -40.9812,
+   "lon": -11.5127,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Apollo 11",
+   "agency": "NASA",
+   "date": "1969-07-20",
+   "lat": 0.67416,
+   "lon": 23.47314,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Primi esseri umani sulla Luna"
+  },
+  {
+   "body": "moon",
+   "name": "Apollo 12",
+   "agency": "NASA",
+   "date": "1969-11-19",
+   "lat": -3.0128,
+   "lon": -23.4219,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Apollo 14",
+   "agency": "NASA",
+   "date": "1971-02-05",
+   "lat": -3.64589,
+   "lon": -17.47194,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Apollo 15",
+   "agency": "NASA",
+   "date": "1971-07-30",
+   "lat": 26.13239,
+   "lon": 3.6333,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Apollo 16",
+   "agency": "NASA",
+   "date": "1972-04-21",
+   "lat": -8.9734,
+   "lon": 15.5011,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Apollo 17",
+   "agency": "NASA",
+   "date": "1972-12-11",
+   "lat": 20.1911,
+   "lon": 30.7723,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Luna 16",
+   "agency": "URSS",
+   "date": "1970-09-20",
+   "lat": -0.5137,
+   "lon": 56.3638,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Primo campione riportato da una sonda automatica"
+  },
+  {
+   "body": "moon",
+   "name": "Luna 17 e Lunokhod 1",
+   "agency": "URSS",
+   "date": "1970-11-17",
+   "lat": 38.23764,
+   "lon": -35.00163,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Primo rover su un altro corpo celeste"
+  },
+  {
+   "body": "moon",
+   "name": "Luna 20",
+   "agency": "URSS",
+   "date": "1972-02-21",
+   "lat": 3.7863,
+   "lon": 56.6242,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Luna 21 e Lunokhod 2",
+   "agency": "URSS",
+   "date": "1973-01-15",
+   "lat": 25.9994,
+   "lon": 30.4076,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Luna 24",
+   "agency": "URSS",
+   "date": "1976-08-18",
+   "lat": 12.7142,
+   "lon": 62.2129,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Chang'e 3 e Yutu",
+   "agency": "CNSA",
+   "date": "2013-12-14",
+   "lat": 44.1214,
+   "lon": -19.5117,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Chang'e 4 e Yutu-2",
+   "agency": "CNSA",
+   "date": "2019-01-03",
+   "lat": -45.4561,
+   "lon": 177.5885,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Primo atterraggio sulla faccia nascosta"
+  },
+  {
+   "body": "moon",
+   "name": "Chang'e 5",
+   "agency": "CNSA",
+   "date": "2020-12-01",
+   "lat": 43.0576,
+   "lon": -51.9161,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "Chandrayaan-3 (Vikram)",
+   "agency": "ISRO",
+   "date": "2023-08-23",
+   "lat": -69.3741,
+   "lon": 32.32,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "SLIM",
+   "agency": "JAXA",
+   "date": "2024-01-19",
+   "lat": -13.316,
+   "lon": 25.251,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "IM-1 Odysseus",
+   "agency": "Intuitive Machines/NASA",
+   "date": "2024-02-22",
+   "lat": -80.13,
+   "lon": 1.44,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Atterrato inclinato su un fianco"
+  },
+  {
+   "body": "moon",
+   "name": "Chang'e 6",
+   "agency": "CNSA",
+   "date": "2024-06-01",
+   "lat": -41.6385,
+   "lon": -153.9852,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Primo campione dalla faccia nascosta"
+  },
+  {
+   "body": "moon",
+   "name": "Blue Ghost 1",
+   "agency": "Firefly/NASA",
+   "date": "2025-03-02",
+   "lat": 18.562,
+   "lon": 61.81,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)"
+  },
+  {
+   "body": "moon",
+   "name": "IM-2 Athena",
+   "agency": "Intuitive Machines/NASA",
+   "date": "2025-03-06",
+   "lat": -84.7906,
+   "lon": 29.1957,
+   "source": "https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html",
+   "precision": "LROC (circa 30 m)",
+   "note": "Atterrato su un fianco, missione conclusa in anticipo"
+  },
+  {
+   "body": "mars",
+   "name": "Viking 1",
+   "agency": "NASA",
+   "date": "1976-07-20",
+   "lat": 22.27,
+   "lon": -47.95,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Viking 2",
+   "agency": "NASA",
+   "date": "1976-09-03",
+   "lat": 48.27,
+   "lon": 134.28,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Mars Pathfinder e Sojourner",
+   "agency": "NASA",
+   "date": "1997-07-04",
+   "lat": 19.47,
+   "lon": -33.25,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Spirit",
+   "agency": "NASA",
+   "date": "2004-01-04",
+   "lat": -14.57,
+   "lon": 175.48,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Opportunity",
+   "agency": "NASA",
+   "date": "2004-01-25",
+   "lat": -1.95,
+   "lon": -5.53,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Phoenix",
+   "agency": "NASA",
+   "date": "2008-05-25",
+   "lat": 68.22,
+   "lon": -125.75,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Curiosity",
+   "agency": "NASA",
+   "date": "2012-08-06",
+   "lat": -4.59,
+   "lon": 137.44,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°",
+   "note": "Punto di atterraggio; il rover si è poi spostato"
+  },
+  {
+   "body": "mars",
+   "name": "InSight",
+   "agency": "NASA",
+   "date": "2018-11-26",
+   "lat": 4.5,
+   "lon": 135.62,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "mars",
+   "name": "Perseverance e Ingenuity",
+   "agency": "NASA",
+   "date": "2021-02-18",
+   "lat": 18.44,
+   "lon": 77.45,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°",
+   "note": "Punto di atterraggio; il rover si è poi spostato"
+  },
+  {
+   "body": "mars",
+   "name": "Zhurong",
+   "agency": "CNSA",
+   "date": "2021-05-14",
+   "lat": 25.07,
+   "lon": 109.93,
+   "source": "https://www.giss.nasa.gov/tools/mars24/help/landers.html",
+   "precision": "circa 0,01°"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 7",
+   "agency": "URSS",
+   "date": "1970-12-15",
+   "lat": -5.0,
+   "lon": -9.0,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 8",
+   "agency": "URSS",
+   "date": "1972-07-22",
+   "lat": -10.7,
+   "lon": -24.75,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "circa 150 km"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 9",
+   "agency": "URSS",
+   "date": "1975-10-22",
+   "lat": 31.02,
+   "lon": -68.37,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "circa 150 km",
+   "note": "Prime immagini dalla superficie di Venere"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 10",
+   "agency": "URSS",
+   "date": "1975-10-25",
+   "lat": 15.42,
+   "lon": -68.48,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "circa 150 km"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 11",
+   "agency": "URSS",
+   "date": "1978-12-25",
+   "lat": -14.0,
+   "lon": -61.0,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 12",
+   "agency": "URSS",
+   "date": "1978-12-21",
+   "lat": -7.0,
+   "lon": -66.0,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 13",
+   "agency": "URSS",
+   "date": "1982-03-01",
+   "lat": -7.5,
+   "lon": -57.0,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata",
+   "note": "Prime immagini a colori dalla superficie"
+  },
+  {
+   "body": "venus",
+   "name": "Venera 14",
+   "agency": "URSS",
+   "date": "1982-03-05",
+   "lat": -13.25,
+   "lon": -50.0,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata"
+  },
+  {
+   "body": "venus",
+   "name": "Vega 1",
+   "agency": "URSS",
+   "date": "1985-06-11",
+   "lat": 7.2,
+   "lon": 177.8,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata"
+  },
+  {
+   "body": "venus",
+   "name": "Vega 2",
+   "agency": "URSS",
+   "date": "1985-06-15",
+   "lat": -7.13,
+   "lon": 177.67,
+   "source": "https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies",
+   "precision": "approssimata"
+  },
+  {
+   "body": "titan",
+   "name": "Huygens",
+   "agency": "ESA/NASA",
+   "date": "2005-01-14",
+   "lat": -10.3,
+   "lon": 167.7,
+   "source": "https://www.esa.int/ESA_Multimedia/Images/2005/11/Location_of_landing_site",
+   "precision": "alcuni gradi (le fonti differiscono)"
+  }
+ ]
+}

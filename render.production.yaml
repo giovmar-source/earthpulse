@@ -1,0 +1,85 @@
+# Configurazione di PRODUZIONE (non attiva). Render usa render.yaml; questo file
+# descrive come sarà il backend al lancio a pagamento. Per attivarlo: rinominarlo
+# in render.yaml (o copiare le parti che servono) e seguire docs/DEPLOY.md.
+services:
+  - type: web
+    name: earthpulse-api
+    runtime: python
+    # Piano a pagamento: sempre acceso (niente attese di "risveglio") e più memoria.
+    # Standard = 1 CPU, 2 GB (consigliato con rasterio); Starter = 0,5 CPU, 512 MB.
+    plan: standard
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 2
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PRODUCT_NAME            # nome definitivo del prodotto
+        value: EarthPulse
+      # --- dati (valori solo nel pannello di Render, mai nel repository)
+      - key: EARTHDATA_TOKEN
+        sync: false
+      - key: CDSE_CLIENT_ID
+        sync: false
+      - key: CDSE_CLIENT_SECRET
+        sync: false
+      - key: CDSE_MONTHLY_BUDGET     # richieste al mese a Copernicus Data Space
+        value: "9000"
+      - key: FIRMS_MAP_KEY
+        sync: false
+      # --- fonti in versione commerciale (vedi docs/LICENZE.md)
+      - key: OPENMETEO_API_KEY       # piano commerciale Open-Meteo (qualità dell'aria)
+        sync: false
+      - key: GEOCODER
+        value: geoapify
+      - key: GEOAPIFY_KEY
+        sync: false
+      - key: EUMETSAT_DELAY_MINUTES  # immagini Meteosat con almeno 1 ora di ritardo
+        value: "60"
+      # --- account e piani (Supabase, regione UE)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_DB_URL         # pooler "session", porta 5432
+        sync: false
+      - key: PLANS_ENFORCED
+        value: "true"
+      # --- pagamenti (Paddle Billing)
+      - key: PADDLE_WEBHOOK_SECRET
+        sync: false
+      - key: PADDLE_PRICE_PRO
+        sync: false
+      - key: PADDLE_PRICE_INSTITUTIONAL
+        sync: false
+
+  # Avvisi automatici via email, una volta al giorno alle 6:00 UTC
+  - type: cron
+    name: earthpulse-alerts
+    runtime: python
+    plan: starter
+    region: frankfurt
+    schedule: "0 6 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/run_alerts.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: FIRMS_MAP_KEY
+        sync: false
+      - key: CDSE_CLIENT_ID
+        sync: false
+      - key: CDSE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST                # provider email (es. Brevo, Postmark, Amazon SES)
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: ALERT_FROM               # es. avvisi@dominio.it
+        sync: false

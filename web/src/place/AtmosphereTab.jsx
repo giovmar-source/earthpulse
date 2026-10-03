@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CompareImages, ErrorBox, Legend, Loading, Section, formatDate, formatNumber, useApi } from './common.jsx'
-import { apiUrl, getJson, placeParams } from '../api.js'
+import { apiUrl, authHeaders, getJson, placeParams } from '../api.js'
 import GasCard from './GasCard.jsx'
+import { useReportSection } from './report.js'
+import { IMAGERY_DELAY_MIN } from '../config.js'
 
 // ------------------------------------------------------------------
-// QUALITÀ DELL'ARIA: Copernicus CAMS tramite Open-Meteo (gratuito, senza chiave)
+// QUALITÀ DELL'ARIA: Copernicus CAMS tramite Open-Meteo, passando dal nostro server
 // ------------------------------------------------------------------
 
-const AIR_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality'
 
 // Classi dell'indice europeo della qualità dell'aria (EEA)
 const AQI_CLASSES = [
@@ -63,13 +64,14 @@ async function loadAir(place, signal) {
   })
   let response
   try {
-    response = await fetch(`${AIR_URL}?${params}`, { signal })
+    // Passa dal nostro server: lì si sceglie l'API gratuita o quella commerciale di Open-Meteo
+    response = await fetch(apiUrl(`/api/v1/air-quality?${params}`), { signal, headers: await authHeaders() })
   } catch (e) {
     if (e.name === 'AbortError') throw e
     throw new Error('Servizio della qualità dell\'aria non raggiungibile. Riprova tra poco.')
   }
   const data = await response.json()
-  if (!response.ok || data.error) throw new Error(data.reason || `Errore ${response.status}`)
+  if (!response.ok || data.error) throw new Error(data.detail || data.reason || `Errore ${response.status}`)
   return data
 }
 
@@ -168,6 +170,14 @@ function AqiScale({ value }) {
 function AirCard({ place }) {
   const result = useApi((signal) => loadAir(place, signal), [place.lat, place.lon])
   const [series, setSeries] = useState('european_aqi')
+  const cur = result.status === 'ok' ? result.data.current : null
+  useReportSection('air', cur ? {
+    title: 'Qualità dell\'aria (adesso)',
+    facts: [['Indice europeo', `${Math.round(cur.european_aqi)} · ${aqiClass(cur.european_aqi)?.[1] || ''}`],
+      ...POLLUTANTS.filter((p) => cur[p.key] != null).map((p) => [`${p.label} · ${p.name}`, `${formatNumber(cur[p.key], 0)} µg/m³`])],
+    notes: ['Stime CAMS (modelli, stazioni e satelliti): circa 11 km in Europa, 45 km altrove.'],
+    attribution: 'Copernicus Atmosphere Monitoring Service (CAMS) · Open-Meteo.com',
+  } : null)
 
   if (result.status === 'error') return <ErrorBox message={result.error} onRetry={result.retry} />
   if (result.status !== 'ok') return <Loading text="Lettura dei dati sull'aria…" />
@@ -340,7 +350,7 @@ const DURATIONS = [
   { hours: 12, stepMin: 30, label: '12 ore' },
   { hours: 24, stepMin: 30, label: '24 ore' },
 ]
-const DELAY_MIN = 20        // le immagini arrivano sul servizio con circa 15-20 minuti di ritardo
+const DELAY_MIN = IMAGERY_DELAY_MIN   // almeno 20 minuti (ritardo del servizio); 60 nella versione in vendita
 
 function frameTimes({ hours, stepMin }, now = new Date()) {
   const count = (hours * 60) / stepMin + 1

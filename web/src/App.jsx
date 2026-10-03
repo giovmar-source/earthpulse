@@ -3,6 +3,9 @@ import Globe from './Globe.jsx'
 import PlacePanel from './place/PlacePanel.jsx'
 import SearchBox from './SearchBox.jsx'
 import MethodologyPanel from './MethodologyPanel.jsx'
+import CreditsPanel from './CreditsPanel.jsx'
+import AccountPanel from './account/AccountPanel.jsx'
+import { useAccount } from './account/useAccount.js'
 import { APP_NAME, TAGLINE } from './brand.js'
 import BigEvents from './events/BigEvents.jsx'
 import { getJson } from './api.js'
@@ -101,6 +104,9 @@ export default function App() {
   const [place, setPlace] = useState(null)
   const [flyTarget, setFlyTarget] = useState(null)
   const [showMethod, setShowMethod] = useState(false)
+  const [showCredits, setShowCredits] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
+  const account = useAccount()
   const [showSpace, setShowSpace] = useState(false)
   // Big Events: pannello, evento scelto e punti sul globo
   const [showEvents, setShowEvents] = useState(false)
@@ -192,20 +198,30 @@ export default function App() {
         <button className="topbar-btn" onClick={openEvents} title="Big Events">⚡<span> Big Events</span></button>
         <button className="topbar-btn" onClick={() => setShowSpace(true)} title="Oltre la Terra">🪐<span> Oltre la Terra</span></button>
         <button className="topbar-btn" onClick={() => setShowMethod(true)} title="Metodologia">ⓘ<span> Metodologia</span></button>
+        <button className="topbar-btn" onClick={() => setShowAccount(true)} title="Account e piani">
+          👤<span> {account.user ? 'Il mio account' : 'Account'}</span>
+        </button>
       </header>
       {showSpace && (
         <Suspense fallback={<div className="space"><p className="space-hint">Caricamento…</p></div>}>
           <SpaceView onClose={() => setShowSpace(false)} />
         </Suspense>
       )}
-      {showEvents && !showMethod && (
+      {showEvents && !showMethod && !showCredits && !showAccount && (
         <BigEvents onClose={closeEvents} selectedId={eventId} onSelect={(id) => (id ? selectEvent(id) : setEventId(null))} />
       )}
-      {showMethod && <MethodologyPanel onClose={() => setShowMethod(false)} />}
+      {showMethod && !showCredits && (
+        <MethodologyPanel onClose={() => setShowMethod(false)} onCredits={() => setShowCredits(true)} />
+      )}
+      {showCredits && <CreditsPanel onClose={() => setShowCredits(false)} />}
+      {showAccount && !showMethod && !showCredits && (
+        <AccountPanel account={account} onClose={() => setShowAccount(false)}
+          onOpenPlace={(p) => { setShowAccount(false); selectPlace({ lat: p.lat, lon: p.lon, name: p.name }) }} />
+      )}
       {/* Con la metodologia aperta gli altri pannelli restano caricati ma nascosti */}
-      <div hidden={showMethod || showEvents}>
+      <div hidden={showMethod || showEvents || showCredits || showAccount}>
       {selected && <SatellitePanel sat={selected} onClose={() => setSelectedNorad(null)} />}
-      {!selected && place && <PlacePanel place={place} onClose={closePlace} onMethodology={() => setShowMethod(true)} />}
+      {!selected && place && <PlacePanel place={place} onClose={closePlace} onMethodology={() => setShowMethod(true)} account={account} />}
       {!selected && !place && (
         <WelcomePanel satellites={satellites} error={error} onSelect={selectSatellite} />
       )}

@@ -47,6 +47,11 @@ nel sito sotto ogni evento; quelle dei dati sono nella **Metodologia** del sito
 - Marte, campo magnetico crostale (MGS MAG/ER): [Connerney et al. 2001, dati](https://mgs-mager.gsfc.nasa.gov/publications/grl_28_connerney/data/grl_28_connerney_data.html)
 - Mercurio, Mg/Si (MESSENGER XRS): [mappe XRS, PDS](https://pds.nasa.gov/ds-view/pds/viewProfile.jsp?dsid=MESS-H-XRS-3-RDR-MAPS-V1.0)
 - Cerere, idrogeno (Dawn GRaND): [mappe GRaND, PDS Small Bodies Node](https://sbn.psi.edu/pds/resource/dawn/dwncgrdmaps.html)
+- Venere, altitudine e gravità (Magellan, 1°): [topogrd.lbl](https://pds-geosciences.wustl.edu/mgn/mgn-v-rss-5-gravity-l2-v1/mg_5201/topo/topogrd.lbl) · [fairgrd.lbl](https://pds-geosciences.wustl.edu/mgn/mgn-v-rss-5-gravity-l2-v1/mg_5201/gravity/fairgrd.lbl)
+- Nomi IAU: [Gazetteer of Planetary Nomenclature, GIS Downloads](https://planetarynames.wr.usgs.gov/GIS_Downloads) · [convenzioni delle coordinate](https://planetarynames.wr.usgs.gov/TargetCoordinates) · [USGS, copyright e crediti](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)
+- Siti di atterraggio: [NSSDCA, siti lunari](https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_artifact_impacts.html) · [NSSDCA, Apollo](https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html) · [NASA Mars24, lander](https://www.giss.nasa.gov/tools/mars24/help/landers.html) · [Venera e Vega (elenco pubblico)](https://en.wikipedia.org/wiki/List_of_landings_on_extraterrestrial_bodies) · [Huygens, ESA](https://www.esa.int/ESA_Multimedia/Images/2005/11/Location_of_landing_site)
+- Orbite: [JPL SBDB API](https://ssd-api.jpl.nasa.gov/doc/sbdb.html) · [JPL Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.html) · [JPL SSD, uso dei dati](https://ssd.jpl.nasa.gov/faq.html)
+- Sole: [SDO, dati e immagini](https://sdo.gsfc.nasa.gov/data/) · [SDO, regole d'uso](https://sdo.gsfc.nasa.gov/data/rules.php)
 - Mosaici Trek: Mercurio MESSENGER MDIS (MD3Color, EnhancedColor), Venere Magellan C3-MDIR, Cerere Dawn FC (DLR), Vesta Dawn HAMO TrueClr (DLR), Fobos Viking (DLR), Encelado (P. Schenk, LPI), Titano Cassini ISS 938 nm (E. Karkoschka): [portale Trek](https://trek.nasa.gov/)
 - Non usati, perché i metadati Trek non danno la scala dei colori in numeri: Diviner (temperatura), Clementine FeO, Kaguya (gravità), rilievi a colori di Trek. Non trovati su Trek: lune minori di Saturno, Plutone, Caronte, Tritone, Callisto
 
@@ -65,3 +70,12 @@ Le fonti di ogni evento sono in `data/stories.json` (campo `sources`). Fonti con
 ## Analisi del progetto (ottobre 2026)
 
 Licenze, pubblicazione, fisco e dati planetari: vedi `docs/ANALISI_PROGETTO.md`, sezione "Fonti principali".
+
+## Acqua, fuoco e suolo
+
+- Radar Sentinel-1 su Copernicus Data Space: [dati S1 GRD su Sentinel Hub](https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S1GRD.html) · [script di riferimento per gli allagamenti](https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-1/flood_mapping/) · [quote CDSE](https://documentation.dataspace.copernicus.eu/Quotas.html) · [termini CDSE](https://dataspace.copernicus.eu/terms-and-conditions)
+- NASA POWER: [API](https://power.larc.nasa.gov/docs/tutorials/service-data-request/api/) · [fonti dei dati](https://power.larc.nasa.gov/docs/methodology/data/sources/) · [come citarlo](https://power.larc.nasa.gov/docs/referencing/)
+- NASA FIRMS: [API area](https://firms.modaps.eosdis.nasa.gov/api/area/) · [chiave gratuita](https://firms.modaps.eosdis.nasa.gov/api/map_key) · [attributi VIIRS/MODIS](https://earthdata.nasa.gov/data/tools/firms/active-fire-data-attributes-modis-viirs) · [uso dei dati NASA](https://www.earthdata.nasa.gov/learn/articles/nasa-earth-science-data-yours-use-fully-and-without-restrictions)
+- Mare: [NOAA OISST su ERDDAP](https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAgg.html) · [clorofilla DINEOF](https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisNPPN20S3ASCIDINEOFDaily.html)
+- Suolo impermeabilizzato: [HRL Imperviousness Density 2018 (EEA)](https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic/HRL_ImperviousnessDensity_2018/ImageServer) · [politica dei dati CLMS](https://land.copernicus.eu/en/data-policy)
+- Da fare: [EGMS](https://egms.land.copernicus.eu/) (API di download con token CLMS: [esempio](https://github.com/copernicus-land/egms-api)) · [EFFIS WMS](https://maps.effis.emergency.copernicus.eu/effis?service=WMS&version=1.3.0&request=GetCapabilities) (CC BY 4.0) · [GFM, allagamenti globali](https://extwiki.eodc.eu/gfm_assets/gfm4.0_pum_2025.pdf) (licenza da confermare)

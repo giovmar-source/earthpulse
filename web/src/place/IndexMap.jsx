@@ -1,10 +1,33 @@
 import { useState } from 'react'
 import { CompareImages, ErrorBox, Legend, formatDate, useApi } from './common.jsx'
 import { getScenes } from './scenesCache.js'
+import { downloadFile } from '../api.js'
 import { DatePicker, StatLine, customPair } from './DatePicker.jsx'
 
 const MAP_SIDE_KM = 3
 const ANALYSIS_SIDE_KM = 1
+
+/** Valori dell'indice della data "Dopo" come GeoTIFF (float32, UTM 10 m) per QGIS o ArcGIS. */
+function GeoTiffButton({ place, scene, indexKey }) {
+  const [state, setState] = useState(null)
+  async function download() {
+    setState('Preparazione del GeoTIFF…')
+    const params = new URLSearchParams({ item_id: scene.item_id, lat: place.lat.toFixed(6), lon: place.lon.toFixed(6),
+      side_km: String(MAP_SIDE_KM), index: indexKey })
+    try {
+      await downloadFile(`/api/v1/export/geotiff?${params}`, `${indexKey}_${scene.date}.tif`)
+      setState(null)
+    } catch (e) {
+      setState(e.message)
+    }
+  }
+  return (
+    <p className="small">
+      <button className="link csv-link" onClick={download}>⬇ GeoTIFF dei valori ({formatDate(scene.date)})</button>
+      {state && <span className="muted"> · {state}</span>}
+    </p>
+  )
+}
 
 /**
  * Mappa di un indice sull'area di 3 km: oggi e un anno fa con il cursore.
@@ -55,6 +78,7 @@ export default function IndexMap({ place, layerKey, withChange = false }) {
         <span className="analysis-box" style={{ width: `${(100 * ANALYSIS_SIDE_KM) / MAP_SIDE_KM}%` }} />
       </div>
       <Legend stops={layer.color_stops} labels={layer.legend_labels} />
+      {!showChange && <GeoTiffButton place={place} scene={after} indexKey={layerKey} />}
       {chosen && !showChange && (
         <>
           <StatLine key={`stat-${layer.key}-${before.item_id}-${after.item_id}`} layer={layer} after={after} before={before} />

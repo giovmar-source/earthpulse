@@ -204,3 +204,23 @@ def test_reverse_place_falls_back_to_photon():
     with _mock.patch.object(_geo, "MIN_INTERVAL_SECONDS", 0):
         place = _geo.reverse_place(40.68, 14.77, session=session)
     assert place["name"] == "Salerno"
+
+
+def test_geoapify_used_when_configured(monkeypatch):
+    from unittest import mock
+    from src import geocoding
+    monkeypatch.setenv("GEOCODER", "geoapify")
+    monkeypatch.setenv("GEOAPIFY_KEY", "k")
+    geocoding._cache.clear()
+    geocoding._reverse_cache.clear()
+    reply = mock.Mock(status_code=200)
+    reply.json.return_value = {"results": [{"name": "Roma", "formatted": "Roma, Lazio, Italia", "lat": 41.9,
+                                            "lon": 12.5, "result_type": "city", "city": "Roma",
+                                            "state": "Lazio", "country": "Italia"}]}
+    http = mock.Mock(get=mock.Mock(return_value=reply))
+    found = geocoding.search_places("Roma", session=http)
+    assert found[0]["name"] == "Roma" and found[0]["latitude"] == 41.9
+    assert http.get.call_args.kwargs["params"]["apiKey"] == "k"
+    place = geocoding.reverse_place(41.9, 12.5, session=http)
+    assert place == {"name": "Roma", "context": "Lazio, Italia", "display_name": "Roma, Lazio, Italia"}
+    assert all("geoapify" in c.args[0] for c in http.get.call_args_list)
