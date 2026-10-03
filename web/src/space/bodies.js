@@ -7,6 +7,24 @@
 
 const SSS = 'Mappa: Solar System Scope (CC BY 4.0), da dati NASA'
 const USGS = 'Mappa: NASA/JPL/USGS Astrogeology (Voyager, Galileo), pubblico dominio'
+const NH = 'Mappa: NASA/Johns Hopkins APL/Southwest Research Institute (New Horizons, PIA11707), pubblico dominio; in grigio le zone mai fotografate'
+
+// Anelli di Saturno: raggi dal centro in raggi equatoriali di Saturno (60 268 km).
+// Anello C 74 658–92 000 km, B 92 000–117 580 km, divisione di Cassini fino a 122 170 km,
+// anello A fino a 136 775 km con la lacuna di Encke a 133 589 km. Opacità indicativa.
+const R_SAT = 60268
+const SATURN_RINGS = {
+  inner: 74658 / R_SAT,
+  outer: 136775 / R_SAT,
+  bands: [
+    [74658 / R_SAT, 92000 / R_SAT, '#8f8371', 0.35],
+    [92000 / R_SAT, 117580 / R_SAT, '#dccdab', 0.85],
+    [117580 / R_SAT, 122170 / R_SAT, '#6b6253', 0.08],
+    [122170 / R_SAT, 133400 / R_SAT, '#cbbb99', 0.6],
+    [133400 / R_SAT, 133780 / R_SAT, '#6b6253', 0.06],
+    [133780 / R_SAT, 136775 / R_SAT, '#cbbb99', 0.55],
+  ],
+}
 
 export const BODIES = [
   {
@@ -204,5 +222,74 @@ export const BODIES = [
       'Huygens è atterrata sulla sua superficie.',
     missions: ['Cassini-Huygens (NASA, ESA, ASI): 2004-2017, con l\'atterraggio di Huygens nel 2005',
       'Dragonfly (NASA): un drone che volerà su Titano, arrivo previsto nel 2034'],
+  },
+  // ---- Giganti esterni e Plutone (mappe nel sito)
+  {
+    key: 'saturn', name: 'Saturno', group: 'Saturno', texture: 'textures/space/saturn.jpg', credit: SSS,
+    flattening: 0.098, rings: SATURN_RINGS, distance: 8, live: { type: 'planet', target: 'Saturn', label: 'Saturno' },
+    tagline: 'Il pianeta degli anelli: così leggero che, in media, è meno denso dell\'acqua.',
+    facts: [
+      ['Diametro', '120 536 km all\'equatore (9,4 volte la Terra)'],
+      ['Distanza dal Sole', 'circa 1,43 miliardi di km'],
+      ['Un giorno', 'circa 10 ore e 33 minuti'],
+      ['Un anno', '29,4 anni terrestri'],
+      ['Lune conosciute', 'oltre 270'],
+    ],
+    story: 'Gli anelli sono fatti di miliardi di frammenti di ghiaccio, da granelli a blocchi grandi come case: ' +
+      'gli anelli principali hanno un diametro di circa 270 000 km ma sono spessi in genere da pochi metri a ' +
+      'qualche decina. Sul globo sono disegnati alle distanze reali dal centro del pianeta; ' +
+      'la loro trasparenza è indicativa.',
+    missions: ['Pioneer 11 (1979), Voyager 1 e 2 (1980-1981): i primi sorvoli',
+      'Cassini-Huygens (NASA, ESA, ASI): in orbita dal 2004 al 2017'],
+  },
+  {
+    key: 'uranus', name: 'Urano', group: 'Esterni', texture: 'textures/space/uranus.jpg', credit: SSS,
+    flattening: 0.023, live: { type: 'planet', target: 'Uranus', label: 'Urano' },
+    tagline: 'Il gigante di ghiaccio che ruota "coricato" su un fianco.',
+    facts: [
+      ['Diametro', '51 118 km (4 volte la Terra)'],
+      ['Distanza dal Sole', 'circa 2,9 miliardi di km'],
+      ['Un giorno', 'circa 17 ore e 14 minuti'],
+      ['Un anno', '84 anni terrestri'],
+      ['Inclinazione dell\'asse', 'circa 98°: ogni polo resta al sole per 42 anni'],
+    ],
+    story: 'Il colore azzurro viene dal metano dell\'atmosfera, che assorbe la luce rossa. Sotto le nubi ' +
+      'c\'è un mantello di acqua, ammoniaca e metano ad alta pressione. La mappa mostra le sue tenui bande ' +
+      'di nubi: dal 1986 nessuna sonda è più tornata.',
+    missions: ['Voyager 2 (NASA): l\'unico sorvolo, nel 1986',
+      'Osservato oggi dal telescopio spaziale James Webb e da Hubble'],
+  },
+  {
+    key: 'neptune', name: 'Nettuno', group: 'Esterni', texture: 'textures/space/neptune.jpg', credit: SSS,
+    flattening: 0.017, live: { type: 'planet', target: 'Neptune', label: 'Nettuno' },
+    tagline: 'Il pianeta più lontano, con i venti più veloci del Sistema solare.',
+    facts: [
+      ['Diametro', '49 528 km (quasi 4 volte la Terra)'],
+      ['Distanza dal Sole', 'circa 4,5 miliardi di km'],
+      ['Un giorno', 'circa 16 ore'],
+      ['Un anno', '165 anni terrestri'],
+      ['Venti', 'fino a circa 2000 km/h'],
+    ],
+    story: 'È stato scoperto nel 1846 con il calcolo, prima ancora che al telescopio: le irregolarità ' +
+      'dell\'orbita di Urano indicavano un pianeta sconosciuto. Tritone, la sua luna più grande, gira al ' +
+      'contrario ed è probabilmente un oggetto catturato dalla fascia di Kuiper.',
+    missions: ['Voyager 2 (NASA): l\'unico sorvolo, nel 1989',
+      'Osservato oggi dal telescopio spaziale James Webb e da Hubble'],
+  },
+  {
+    key: 'pluto', name: 'Plutone', group: 'Esterni', texture: 'textures/space/pluto.jpg', credit: NH,
+    live: { type: 'planet', target: 'Pluto', label: 'Plutone' },
+    tagline: 'Il pianeta nano con un "cuore" di ghiaccio di azoto.',
+    facts: [
+      ['Diametro', '2377 km (più piccolo della nostra Luna)'],
+      ['Distanza dal Sole', 'in media 5,9 miliardi di km (39,5 UA)'],
+      ['Un giorno', '6,4 giorni terrestri'],
+      ['Un anno', '248 anni terrestri'],
+      ['Lune', '5; Caronte è grande la metà di Plutone'],
+    ],
+    story: 'La grande regione chiara a forma di cuore è Tombaugh Regio; la sua metà occidentale, Sputnik ' +
+      'Planitia, è una pianura di ghiaccio di azoto che si rinnova lentamente. È classificato come pianeta ' +
+      'nano dal 2006. New Horizons lo ha fotografato bene solo da un lato: il resto della mappa è grigio.',
+    missions: ['New Horizons (NASA): sorvolo del 14 luglio 2015'],
   },
 ]

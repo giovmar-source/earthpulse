@@ -10,7 +10,7 @@ const ZOOMS = {
 }
 const VIEW = 500                     // viewBox da −500 a 500
 const SCREEN = 470                   // raggio utile in unità SVG
-const OPENABLE = { mercury: 'mercury', venus: 'venus', mars: 'mars', jupiter: 'jupiter', ceres: 'ceres', vesta: 'vesta' }
+const OPENABLE = { mercury: 'mercury', venus: 'venus', mars: 'mars', jupiter: 'jupiter', saturn: 'saturn', uranus: 'uranus', neptune: 'neptune', pluto: 'pluto', ceres: 'ceres', vesta: 'vesta' }
 const MIN_YEAR = 1800
 const MAX_YEAR = 2200
 

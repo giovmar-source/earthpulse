@@ -24,7 +24,8 @@ Prima del lancio a pagamento tutte le righe 🔴 vanno risolte e le 🟡 verific
 | Orbite dei satelliti (TLE) | Satelliti in tempo reale | [Dati pubblici (US Space Force via CelesTrak)](https://celestrak.org) | 🟡 con condizioni | Verificare i termini di Space-Track per l'uso commerciale. |
 | NASA Planetary Data System | Altitudine, gravità, chimica e magnetismo di Luna, Marte, Mercurio, Venere, Cerere | [Pubblico dominio (NASA)](https://pds.nasa.gov/) | ✅ sì | — |
 | NASA Solar System Treks | Mosaici di Mercurio, Venere, Cerere, Vesta, Fobos, Encelado, Titano; Marte notturno | [Contenuti NASA, uso libero con citazione](https://www.nasa.gov/nasa-brand-center/images-and-media/) | ✅ sì | Non usare il logo NASA e non suggerire approvazione della NASA. |
-| Solar System Scope | Mappe di Luna, Marte e Giove | [CC BY 4.0](https://www.solarsystemscope.com/textures/) | ✅ sì | — |
+| Solar System Scope | Mappe di Luna, Marte, Giove, Saturno, Urano e Nettuno | [CC BY 4.0](https://www.solarsystemscope.com/textures/) | ✅ sì | — |
+| Mappa di Plutone (New Horizons) | Plutone | [Pubblico dominio](https://photojournal.jpl.nasa.gov/catalog/PIA11707) | ✅ sì | — |
 | Mosaici delle lune di Giove | Io, Europa, Ganimede, Callisto | [Pubblico dominio](https://astrogeology.usgs.gov/) | ✅ sì | — |
 | Gazetteer of Planetary Nomenclature | Nomi dei luoghi su altri corpi | [Pubblico dominio (USGS)](https://planetarynames.wr.usgs.gov/) | ✅ sì | — |
 | JPL Small-Body Database e Horizons | Orbite di Cerere e Vesta, posizioni delle sonde | [Dati NASA/JPL, riuso consentito](https://ssd.jpl.nasa.gov/faq.html) | ✅ sì | Servizio senza garanzia: dati in cache. |

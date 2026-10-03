@@ -492,7 +492,7 @@ export const METHODOLOGY = [
       ],
       [
         "b",
-        "Mappe: Luna, Marte e Giove da Solar System Scope (CC BY 4.0, da dati NASA); Io, Europa, Ganimede e Callisto dai mosaici globali USGS Astrogeology delle sonde Voyager e Galileo (pubblico dominio). Europa e Callisto hanno mosaici in bianco e nero con una leggera tinta; le zone mai fotografate sono in grigio."
+        "Mappe: Luna, Marte, Giove, Saturno, Urano e Nettuno da Solar System Scope (CC BY 4.0, da dati NASA); Plutone dalla mappa a colori di New Horizons (NASA/JHUAPL/SwRI, pubblico dominio), con in grigio le zone mai fotografate; gli anelli di Saturno sono disegnati con i raggi reali degli anelli C, B e A, della divisione di Cassini e della lacuna di Encke, con colori e trasparenza indicativi; Io, Europa, Ganimede e Callisto dai mosaici globali USGS Astrogeology delle sonde Voyager e Galileo (pubblico dominio). Europa e Callisto hanno mosaici in bianco e nero con una leggera tinta; le zone mai fotografate sono in grigio."
       ],
       [
         "b",

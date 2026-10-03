@@ -35,7 +35,8 @@ const GROUPS = [
   { title: 'Pianeti interni', keys: ['mercury', 'venus'] },
   { title: 'Fascia degli asteroidi', keys: ['ceres', 'vesta'] },
   { title: 'Giove e le sue lune', keys: ['jupiter', 'io', 'europa', 'ganymede', 'callisto'] },
-  { title: 'Saturno', keys: ['enceladus', 'titan'] },
+  { title: 'Saturno e le sue lune', keys: ['saturn', 'enceladus', 'titan'] },
+  { title: 'Oltre Saturno', keys: ['uranus', 'neptune', 'pluto'] },
 ]
 const GALILEAN = ['io', 'europa', 'ganymede', 'callisto']
 const MOON_LABEL = { io: 'Io', europa: 'Europa', ganymede: 'Ganimede', callisto: 'Callisto' }
@@ -333,8 +334,10 @@ export default function SpaceView({ onClose }) {
         {key === 'system' && <SolarSystemStage state={system} />}
         {key === 'sun' && <SunStage sun={sun} />}
         {!special && texture && (
-          <Sphere3D texture={texture} flattening={key === 'jupiter' ? 0.065 : 0}
-            onTextureState={setTextureState} onPick={pickable ? setPoint : undefined} marker={point}
+          <Sphere3D texture={texture} flattening={body.flattening ?? (key === 'jupiter' ? 0.065 : 0)}
+            rings={body.rings || null} distance={body.distance || 4.2}
+            onTextureState={setTextureState} onPick={pickable ? setPoint : undefined}
+            onPickSite={pickable ? (site) => setPoint({ lat: site.lat, lon: site.lon }) : undefined} marker={point}
             sites={siteData?.markers ? siteData.sites : null} />
         )}
         {!special && (textureState === 'loading' || !texture) && fromServer && catalog.status !== 'error' && (
